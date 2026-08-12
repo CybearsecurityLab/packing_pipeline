@@ -43,5 +43,3 @@ conditions:
   label_status: null
   confidence: 0.0
   paper_evidence_level: null
-  pipeline_verdict: no_unpacking_observed
-  needs_pipeline: true
