@@ -1,14 +1,45 @@
 schema_version: 1
 taxonomy: Ugarte et al. Type I-VI
+warning: Only empirical_exact_trace_consensus is an exact paper-faithful measurement;
+  conditions without it remain explicitly unresolved.
+minimum_repetitions_per_sample: 3
+minimum_distinct_samples: 2
 condition_count: 1
+label_status_distribution:
+  null: 1
+label_distribution:
+  null: 1
+nas_status_distribution:
+  planned: 1
+dynamic_gate_complete_conditions: 0
+retry_run_count: 0
+in_place_validation_run_count: 0
+alternate_payload_run_count: 0
 conditions:
 - packer_family: themida
   packer_version: 3.2.4.34
+  configuration_id: gui-0eafd032f331
   test_case_id: .
-  configuration_id: themida_v3.2.4.34_3.2.4.34-auto
+  condition_source: yaml_test_case
+  nas_status: planned
+  available_nas_samples: 2
+  minimum_repetitions_per_sample: 3
+  minimum_distinct_samples: 2
+  minimum_total_validated_runs: 6
+  completed_runs: 6
+  validated_runs: 0
+  retry_runs: 0
+  in_place_validation_runs: 0
+  alternate_payload_runs: 0
+  validated_distinct_samples: 0
+  qualifying_distinct_samples: 0
+  validated_target_events: 0
+  target_event_totals: {}
+  original_mapped_distinct_samples: 0
+  exact_trace_resolved_runs: 0
+  exact_trace_distribution: {}
+  dynamic_failure_reasons: {}
   label: null
   label_status: null
   confidence: 0.0
-  note: continuous-writer VM protector; W->X oracle cannot type; VMHunt target (virtualized)
-  pipeline_verdict: no_runs
-  needs_pipeline: true
+  paper_evidence_level: null
