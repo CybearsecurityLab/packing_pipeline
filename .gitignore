@@ -15,7 +15,10 @@ venv/
 /manifest/~$packer_catalog.xlsx
 packed_sources/
 benign_sources
-empirical_results/
+empirical_results/*
+!empirical_results/qemu_runtime/
+empirical_results/qemu_runtime/*
+!empirical_results/qemu_runtime/worklist.json
 ops/qemu/*.so
 ops/qemu/build/
 ops/panda/build/
