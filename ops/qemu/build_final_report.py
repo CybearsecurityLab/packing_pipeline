@@ -8,23 +8,39 @@ silently missing, and it states, for each unresolved condition, whether the caus
 a corpus/sample defect, a limitation of the write->execute methodology, or a
 retryable infrastructure failure.
 
-Inputs (all produced by the sweep):
-  empirical_results/full_matrix/*.done                 per-condition verdicts
+Inputs:
+  manifest/empirical_types_*.yaml                      the FINAL labels
   empirical_results/full_matrix/unresolved_rootcause.json  (investigate_unresolved.py)
-  empirical_results/qemu_runtime/worklist.json         family/version/testcase
+  empirical_results/qemu_runtime/worklist.json         corpus membership + tags
 Output:
   docs/EMPIRICAL_TYPE_RESULTS.md
+
+The manifests are the authority, not the sweep's *.done files.  A condition can be
+labelled after its sweep (a re-run under different settings) or by a rule that never
+runs a sweep at all (family/version inference from an already-labelled sibling), and
+neither writes a .done -- so reading .done reported 15 conditions as unresolved that
+the manifests had already typed.
 """
 from __future__ import annotations
 
+import glob
 import json
 from collections import Counter
 from pathlib import Path
+
+import yaml
 
 REPO = Path(__file__).resolve().parents[2]
 DONE = REPO / "empirical_results/full_matrix"
 RT = REPO / "empirical_results/qemu_runtime"
 OUT = REPO / "docs/EMPIRICAL_TYPE_RESULTS.md"
+
+RULE_BY_STATUS = {
+    "empirical_exact_trace_consensus": "exact",
+    "empirical_max_observed_complexity": "max-observed",
+    "empirical_family_version_inference": "family-inference",
+    "empirical_mutator_no_unpacking": "mutator",
+}
 
 ROOTCAUSE_BLURB = {
     "SAMPLE_NOT_PACKED": "corpus defect — payload is not actually packed",
@@ -45,23 +61,40 @@ def _load(p: Path, default=None):
 def main() -> int:
     work = {w["nas_dir"]: w for w in _load(RT / "worklist.json", [])}
     causes = {r["tag"]: r for r in _load(DONE / "unresolved_rootcause.json", [])}
+    corpus = {(str(w.get("family")).lower(), str(w.get("version"))): tag
+              for tag, w in work.items()}
 
-    rows = []
-    for f in sorted(DONE.glob("*.done")):
-        tag = f.stem
-        d = _load(f)
-        label = d.get("label", "?")
-        w = work.get(tag, {})
-        rows.append({
-            "tag": tag,
-            "family": w.get("family") or tag,
-            "version": w.get("version") or "?",
-            "testcase": w.get("testcase") or ".",
-            "label": label,
-            "runs": len(d.get("runs") or {}),
-            "cause": (causes.get(tag) or {}).get("verdict"),
-            "why": (causes.get(tag) or {}).get("why"),
-        })
+    best: dict[tuple[str, str], dict] = {}
+    for path in sorted(glob.glob(str(REPO / "manifest" / "empirical_types_*.yaml"))):
+        data = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
+        for cond in data.get("conditions", []):
+            status = cond.get("label_status")
+            if status in {"provisional_stack_cross_check", "pending_dynamic_evidence"}:
+                continue
+            key = (str(cond.get("packer_family")).lower(),
+                   str(cond.get("packer_version")))
+            if key not in corpus:
+                continue
+            tag = corpus[key]
+            row = {
+                "tag": tag,
+                "family": cond.get("packer_family"),
+                "version": cond.get("packer_version"),
+                "testcase": cond.get("test_case_id") or ".",
+                "label": cond.get("label") or "UNRESOLVED",
+                "status": status,
+                "runs": cond.get("completed_runs") or 0,
+                "cause": (causes.get(tag) or {}).get("verdict"),
+                "why": cond.get("pipeline_evidence")
+                or (causes.get(tag) or {}).get("why"),
+            }
+            previous = best.get(key)
+            if previous is None or (
+                str(row["label"]).startswith("TYPE_")
+                and not str(previous["label"]).startswith("TYPE_")
+            ):
+                best[key] = row
+    rows = list(best.values())
 
     labeled = [r for r in rows if str(r["label"]).startswith("TYPE_")]
     unres = [r for r in rows if not str(r["label"]).startswith("TYPE_")]
@@ -73,9 +106,11 @@ def main() -> int:
     L.append("# Empirical Packer-Type Results — Complete Corpus\n")
     L.append("Every packer family+version in the NAS corpus, accounted for. Types are "
              "Ugarte et al. I–VI assigned **empirically** from real dynamic traces "
-             "(see [AUTOMATIC_LABELING.md](AUTOMATIC_LABELING.md)); a Type is emitted "
-             "only on **exact consensus** — the same Type across ≥2 distinct packed "
-             "payloads × 3 repetitions each, under a certified backend.\n")
+             "(see [AUTOMATIC_LABELING.md](AUTOMATIC_LABELING.md)). Generated from "
+             "`manifest/empirical_types_*.yaml` — the final labels — so this document "
+             "always matches the manifests rather than any one sweep. The `Rule` column "
+             "records which labelling rule produced each Type, so the strongest evidence "
+             "class stays distinguishable from the weaker ones.\n")
     L.append("Unlike [EMPIRICAL_TYPE_LABELS.md](EMPIRICAL_TYPE_LABELS.md), which lists "
              "only successful labels, this document also states **why** each unresolved "
              "condition is unresolved, so no condition is silently missing.\n")
@@ -104,11 +139,12 @@ def main() -> int:
                  "of the runtime write→execute model.\n")
 
     L.append("## Empirically typed conditions\n")
-    L.append("| Packer family | Version | Test case | Empirical Type | Runs |")
-    L.append("|---|---|---|---|---|")
-    for r in sorted(labeled, key=lambda r: (r["family"], r["version"])):
+    L.append("| Packer family | Version | Test case | Empirical Type | Runs | Rule |")
+    L.append("|---|---|---|---|---|---|")
+    for r in sorted(labeled, key=lambda r: (str(r["family"]), str(r["version"]))):
         L.append(f"| {r['family']} | {r['version']} | {r['testcase']} | "
-                 f"**{r['label']}** | {r['runs']} |")
+                 f"**{r['label']}** | {r['runs']} | "
+                 f"{RULE_BY_STATUS.get(r['status'], r['status'] or '—')} |")
     L.append("")
 
     if unres:

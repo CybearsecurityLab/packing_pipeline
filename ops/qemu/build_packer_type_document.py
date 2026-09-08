@@ -36,6 +36,7 @@ TYPE_ORDER = [
 RULE_BY_STATUS = {
     "empirical_exact_trace_consensus": "exact",
     "empirical_max_observed_complexity": "max-observed",
+    "empirical_family_version_inference": "family-inference",
     "empirical_mutator_no_unpacking": "mutator",
 }
 
