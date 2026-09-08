@@ -108,6 +108,107 @@ static uint64_t read_idle_milliseconds(void) {
     return idle;
 }
 
+
+/* Snapshot-resume support.
+ *
+ * A savevm snapshot captures a RUNNING guest, so its NTFS volume is dirty and the
+ * host cannot mount it read-write to drop in a sample (ntfs-3g refuses; forcing it
+ * risks corrupting both the filesystem and the captured VM state). The sample is
+ * therefore delivered on a SECOND DISK attached at resume time, and the launcher
+ * waits for it here instead of running whatever was staged before the snapshot.
+ *
+ * Enabled only when argv[1] names a path that does not yet exist, so cold-boot runs
+ * -- where the sample is already staged -- are completely unaffected.
+ *
+ * "Non-empty and stable" is required, not merely "exists": a file that is still
+ * being written would otherwise be executed half-delivered.
+ */
+/* The sample is delivered on the guest's CD-ROM drive, as \SAMPLE.EXE on an ISO.
+ *
+ * It must be REMOVABLE media, not a second hard disk. A resumed guest only has the
+ * devices that existed when its RAM state was captured, so a fixed IDE disk attached
+ * at resume time is invisible to Windows -- measured: that device showed Read = 0
+ * ops after a full resume while the boot disk showed 7416. A media CHANGE on an
+ * already-enumerated CD drive IS honoured across resume (measured: 23 read ops).
+ *
+ * The drive letter is not fixed, so probe the plausible ones. Copying to the
+ * expected path keeps everything downstream (job object, marker scoping, status
+ * file) identical to a cold-boot run. The caller re-probes every second, so media
+ * arriving after resume is picked up. */
+static int fetch_from_delivery_disk(const char *dest) {
+    static const char *const letters = "DEFGHIJK";
+    char source[64];
+    size_t i;
+
+    /* Probing a drive letter blindly is a trap: GetFileAttributesA on a letter with
+     * no device, or a removable drive with no medium, BLOCKS while the device times
+     * out -- and Windows may pop a "no disk" dialog that never gets dismissed on a
+     * headless guest. Eight blind probes per second then wedges the poll loop
+     * entirely (observed: status.txt froze at the first 30 s tick, detail=30, in a
+     * run that lasted 500 s). SetErrorMode suppresses the dialogs, and GetDriveTypeA
+     * is a cheap non-blocking check that skips everything that is not a CD. */
+    SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOOPENFILEERRORBOX);
+
+    for (i = 0; i < strlen(letters); i++) {
+        char root[4];
+        _snprintf(root, sizeof(root), "%c:\\", letters[i]);
+        root[sizeof(root) - 1] = '\0';
+        if (GetDriveTypeA(root) != DRIVE_CDROM) {
+            continue;
+        }
+        _snprintf(source, sizeof(source), "%c:\\SAMPLE.EXE", letters[i]);
+        source[sizeof(source) - 1] = '\0';
+        if (GetFileAttributesA(source) == INVALID_FILE_ATTRIBUTES) {
+            continue;
+        }
+        if (CopyFileA(source, dest, FALSE)) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static int wait_for_sample(const char *path, DWORD timeout_seconds,
+                           const char *status_path) {
+    DWORD waited = 0;
+    LARGE_INTEGER last_size;
+    LARGE_INTEGER size;
+    int stable = 0;
+
+    last_size.QuadPart = -1;
+    while (waited < timeout_seconds) {
+        HANDLE probe;
+
+        /* Pull it across from the delivery volume as soon as that volume appears. */
+        if (GetFileAttributesA(path) == INVALID_FILE_ATTRIBUTES) {
+            fetch_from_delivery_disk(path);
+        }
+
+        probe = CreateFileA(path, GENERIC_READ, FILE_SHARE_READ, NULL,
+                                   OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+        if (probe != INVALID_HANDLE_VALUE) {
+            if (GetFileSizeEx(probe, &size) && size.QuadPart > 0) {
+                if (size.QuadPart == last_size.QuadPart) {
+                    if (++stable >= 2) {
+                        CloseHandle(probe);
+                        return 1;
+                    }
+                } else {
+                    stable = 0;
+                    last_size = size;
+                }
+            }
+            CloseHandle(probe);
+        }
+        Sleep(1000);
+        waited++;
+        if (waited % 30 == 0) {
+            write_status(status_path, "awaiting_sample", waited, 0);
+        }
+    }
+    return 0;
+}
+
 static int run_sample(int argc, char **argv) {
     STARTUPINFOA startup;
     PROCESS_INFORMATION process;
@@ -138,6 +239,17 @@ static int run_sample(int argc, char **argv) {
         return 2;
     }
     idle_milliseconds = read_idle_milliseconds();
+
+    /* Snapshot-resume: if the sample is not present yet it is arriving on the
+     * secondary disk, so wait for it. Absent in cold-boot runs (file already
+     * staged), which therefore behave exactly as before. */
+    if (GetFileAttributesA(argv[1]) == INVALID_FILE_ATTRIBUTES) {
+        if (!wait_for_sample(argv[1], timeout_seconds, argv[4])) {
+            write_status(argv[4], "sample_never_arrived", timeout_seconds, 0);
+            return 2;
+        }
+    }
+
     write_status(argv[4], "starting", timeout_seconds, 0);
 
     ZeroMemory(&startup, sizeof(startup));

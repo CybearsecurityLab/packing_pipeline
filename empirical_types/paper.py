@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import json
 from collections import Counter, defaultdict
 from dataclasses import dataclass
@@ -205,8 +206,23 @@ def analyze_paper_jsonl(path: Path, sample_id: str) -> Evidence:
             physical_writers.pop(physical_key, None)
             physical_locations.pop(physical_key, None)
 
-    with path.open(encoding="utf-8", errors="strict") as trace:
-        events = enumerate(trace, 1)
+    # A run killed at the host timeout is killed MID-WRITE, so the final line is a
+    # partial JSON object. That is an artifact of terminating QEMU, not corruption,
+    # and it must not discard an otherwise good multi-GB trace -- at a 600 s budget
+    # essentially every malware sample ends this way, so an unguarded json.loads here
+    # fails 100% of the campaign. A partial line ANYWHERE ELSE is real corruption and
+    # still raises.
+    raw_lines = path.read_text(encoding="utf-8", errors="strict").splitlines()
+    truncated_tail = False
+    if raw_lines:
+        try:
+            json.loads(raw_lines[-1])
+        except json.JSONDecodeError:
+            raw_lines.pop()
+            truncated_tail = True
+
+    with contextlib.nullcontext():
+        events = enumerate(raw_lines, 1)
         for line_no, line in events:
             if not line.strip():
                 continue

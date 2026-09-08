@@ -41,9 +41,15 @@ conditions:
   dynamic_failure_reasons:
     missing_metadata: 6
   taxonomy_hypothesis: null
-  label: null
-  label_status: null
+  label: TYPE_IV
+  label_status: empirical_family_version_inference
   confidence: 0.0
   paper_evidence_level: null
   pipeline_verdict: trace_loss
   needs_pipeline: true
+  label_rule: Type inherited from the same packer family's measured versions; ties
+    broken by Ugarte SoK Sec V-C (highest complexity observed across packer versions).
+    Inference, not a measurement.
+  family_inference_evidence:
+    '1.0': TYPE_I
+    '1.02': TYPE_IV

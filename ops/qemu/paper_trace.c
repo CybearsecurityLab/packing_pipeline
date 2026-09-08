@@ -283,12 +283,29 @@ static uint64_t descendant_enrolled;
 static uint64_t unmonitored_block_rejects;
 /* F5 diagnostic-only (no behavior effect): count user-mode #PF (14) and #NM (7)
  * discontinuities that occur while a monitored thread is current, and how many
- * are repeat faults at the same from_pc with no intervening progress -- the
- * signature of a fault-on-entry loop at a just-written (OEP) page, which is
- * otherwise invisible because those vectors are excluded from exception tracing. */
+ * are repeat faults at the same from_pc with no intervening progress.
+ *
+ * This was originally described as "the signature of a fault-on-entry loop at a
+ * just-written (OEP) page".  MEASURED FALSE (2026-08-12): with pf_loop=on emitting
+ * the addresses, yoda_protector 1.03.3 produced 15 loop sites over 26 repeats and
+ * NONE of them coincided with a written byte or even a written page.  The repeats
+ * are ordinary demand paging.  Do not re-chase this as an explanation for the
+ * no-W->X residue -- see .superpowers/WX_VISIBILITY_FINDINGS.md sections 9-10. */
 static uint64_t monitored_user_pagefaults;
 static uint64_t monitored_user_pagefault_repeats;
 static uint64_t monitored_user_pagefault_last_pc_by_vcpu[64];
+/* Opt-in (`pf_loop=on`).  The counters above prove a fault-on-entry loop HAPPENED
+ * but not WHERE, which is the one thing needed to correlate it with the earlier
+ * writes: a byte written and then faulted-on at the same address is a W->X whose
+ * execute half never lands.  Emitting every #PF would flood the trace with routine
+ * demand paging (why the switch below drops vector 14/7), so emit only the REPEAT
+ * case -- a second fault at the same from_pc with no intervening progress, which
+ * demand paging does not produce -- and only ONCE per (pid, pc), which bounds the
+ * volume to the number of distinct looping sites.  Diagnostic only: emits an event,
+ * never changes exec/write accounting or the layer computation. */
+static bool pagefault_loop_events;
+static GHashTable *pagefault_loop_reported;
+static uint64_t pagefault_loop_sites;
 
 static bool process_monitored(uint64_t pid, uint64_t eprocess);
 static bool user_address(uint64_t address);
@@ -2200,6 +2217,28 @@ static void vcpu_discontinuity(unsigned int vcpu_index,
         if (vcpu_index < G_N_ELEMENTS(monitored_user_pagefault_last_pc_by_vcpu)) {
             if (monitored_user_pagefault_last_pc_by_vcpu[vcpu_index] == from_pc) {
                 monitored_user_pagefault_repeats++;
+                if (pagefault_loop_events) {
+                    ThreadContext loop_context =
+                        block_context_by_vcpu[vcpu_index];
+                    g_mutex_lock(&trace_lock);
+                    /* One record per distinct looping site, so a tight loop
+                     * cannot swamp the trace. */
+                    gpointer key = (gpointer)(uintptr_t)
+                        (from_pc ^ (loop_context.source_pid * UINT64_C(0x9e3779b9)));
+                    if (!g_hash_table_contains(pagefault_loop_reported, key)) {
+                        g_hash_table_add(pagefault_loop_reported, key);
+                        pagefault_loop_sites++;
+                        fprintf(trace_file,
+                                "{\"event\":\"pagefault_loop\",\"seq\":%" PRIu64
+                                ",\"vcpu\":%u,\"pid\":%" PRIu64
+                                ",\"tid\":%" PRIu64 ",\"address\":%" PRIu64
+                                ",\"vector\":%d}\n",
+                                ++sequence_number, vcpu_index,
+                                loop_context.source_pid, loop_context.tid,
+                                from_pc, exception_index);
+                    }
+                    g_mutex_unlock(&trace_lock);
+                }
             }
             monitored_user_pagefault_last_pc_by_vcpu[vcpu_index] = from_pc;
         }
@@ -2932,6 +2971,7 @@ static void plugin_exit(void *userdata)
                 ",\"context_immutable_reuse\":%" PRIu64
                 ",\"monitored_user_pagefaults\":%" PRIu64
                 ",\"monitored_user_pagefault_repeats\":%" PRIu64
+                ",\"pagefault_loop_sites\":%" PRIu64
                 ",\"eager_kernel_discovery_attempts\":%" PRIu64
                 ",\"kernel_base\":%" PRIu64
                 ",\"discover_calls\":%" PRIu64
@@ -2974,7 +3014,7 @@ static void plugin_exit(void *userdata)
                 unmonitored_block_rejects,
                 context_immutable_reuse,
                 monitored_user_pagefaults,
-                monitored_user_pagefault_repeats,
+                monitored_user_pagefault_repeats, pagefault_loop_sites,
                 eager_kernel_discovery_attempts,
                 kernel_base,
                 discover_calls,
@@ -2992,6 +3032,7 @@ static void plugin_exit(void *userdata)
     g_hash_table_destroy(mapped_page_cache);
     g_hash_table_destroy(pending_exceptions);
     g_hash_table_destroy(thread_identities);
+    g_hash_table_destroy(pagefault_loop_reported);
     qemu_plugin_scoreboard_free(memory_trace_scoreboard);
     qemu_plugin_mem_buffer_free(memory_event_buffer);
 }
@@ -3009,6 +3050,8 @@ QEMU_PLUGIN_EXPORT int qemu_plugin_install(qemu_plugin_id_t id,
     for (int index = 0; index < argc; index++) {
         if (g_str_has_prefix(argv[index], "out=")) {
             output = argv[index] + strlen("out=");
+        } else if (g_strcmp0(argv[index], "pf_loop=on") == 0) {
+            pagefault_loop_events = true;
         } else {
             fprintf(stderr, "paper_trace: unknown option %s\n", argv[index]);
             return -1;
@@ -3033,6 +3076,7 @@ QEMU_PLUGIN_EXPORT int qemu_plugin_install(qemu_plugin_id_t id,
         g_direct_hash, g_direct_equal, NULL, g_free);
     thread_identities = g_hash_table_new_full(
         g_direct_hash, g_direct_equal, NULL, g_free);
+    pagefault_loop_reported = g_hash_table_new(g_direct_hash, g_direct_equal);
     g_mutex_init(&trace_lock);
     memory_trace_scoreboard = qemu_plugin_scoreboard_new(sizeof(uint64_t));
     memory_trace_enabled =

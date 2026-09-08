@@ -22,6 +22,12 @@ class Evidence:
     taxonomy_basis: str = "original_binary_match"
     termination: str = "completed"
     trace_complete: bool = True
+    # Opt-in: the trace was cut by the host timeout while the sample was STILL
+    # RUNNING, rather than reaching a completion boundary. The observation is
+    # bounded, not absent -- truncation can only ever REDUCE the number of
+    # write->execute layers seen, so any Type derived from it is a LOWER BOUND.
+    # Default False keeps the strict gate that the certified packer labels rely on.
+    bounded_observation: bool = False
     original_match_available: bool = True
     layers: int = 0
     processes: int = 0

@@ -73,9 +73,48 @@ def _activity_and_started(trace: Path, offset: int) -> tuple[int, int, int, bool
     return activity, writes, new_offset, started
 
 
+def _graceful_quit(monitor: Path | None, runas: str | None) -> bool:
+    """Ask QEMU to exit via its monitor so the plugin FLUSHES ITS SUMMARY.
+
+    process.terminate() signals the OUTERMOST process, which under --runas is `sudo`
+    (and then bwrap). The signal does not reliably reach QEMU through that chain, so
+    the plugin never writes its summary block: meta.summary comes back all-None and
+    the run is scored UNRESOLVED_TRACE_LOSS even though the sample ran to a clean
+    idle boundary. The packer corpus never hit this because it ran without --runas,
+    where terminate() reached QEMU directly (565/609 of those runs were eligible).
+
+    An HMP `quit` shuts QEMU down through its normal exit path, which runs the
+    plugin's atexit flush. Falls back to signals if the monitor is unreachable.
+    """
+    if monitor is None or not monitor.exists():
+        return False
+    script = (
+        "import socket, sys, time\n"
+        "s = socket.socket(socket.AF_UNIX)\n"
+        "s.settimeout(5)\n"
+        "s.connect(sys.argv[1])\n"
+        "time.sleep(0.5)\n"
+        "try:\n"
+        "    s.recv(65536)\n"
+        "except Exception:\n"
+        "    pass\n"
+        "s.sendall(b'quit\\n')\n"
+        "time.sleep(1)\n"
+    )
+    argv = ["python3", "-c", script, str(monitor.resolve())]
+    if runas:
+        argv = ["sudo", "-n", "-u", runas] + argv
+    try:
+        return subprocess.run(argv, stdout=subprocess.DEVNULL,
+                              stderr=subprocess.DEVNULL, timeout=30).returncode == 0
+    except Exception:
+        return False
+
+
 def wait_or_host_idle(
     process, trace: Path, host_timeout: int, host_idle_seconds: int = HOST_IDLE_SECONDS,
     no_start_seconds: int = NO_START_SECONDS, write_settled_seconds: int = 0,
+    monitor_path: Path | None = None, runas_user: str | None = None,
 ) -> tuple[int | None, bool, bool, bool, bool]:
     """Wait for qemu, terminating early on the host-observed idle boundary.
 
@@ -116,6 +155,7 @@ def wait_or_host_idle(
         if writes > 0:
             last_write_at = now
         if now - started_at >= host_timeout:
+            _graceful_quit(monitor_path, runas_user)
             process.terminate()
             try:
                 return process.wait(timeout=60), True, False, False, False
@@ -128,6 +168,7 @@ def wait_or_host_idle(
             and no_start_seconds > 0
             and now - started_at >= no_start_seconds
         ):
+            _graceful_quit(monitor_path, runas_user)
             process.terminate()
             try:
                 return process.wait(timeout=60), False, False, True, False
@@ -139,6 +180,7 @@ def wait_or_host_idle(
             and sample_started
             and now - last_activity_at >= host_idle_seconds
         ):
+            _graceful_quit(monitor_path, runas_user)
             process.terminate()
             try:
                 return process.wait(timeout=60), False, True, False, False
@@ -151,12 +193,56 @@ def wait_or_host_idle(
             and sample_started
             and now - last_write_at >= write_settled_seconds
         ):
+            _graceful_quit(monitor_path, runas_user)
             process.terminate()
             try:
                 return process.wait(timeout=60), False, False, False, True
             except subprocess.TimeoutExpired:
                 process.kill()
                 return process.wait(), False, False, False, True
+
+
+
+def _monitor_command(monitor: Path, commands: list[str], runas: str | None,
+                     connect_timeout: float = 60.0) -> bool:
+    """Send HMP commands to a running QEMU, as the account that owns the socket.
+
+    Needed for the resume path. `-incoming` restores the guest but leaves it PAUSED,
+    and the delivery medium must be swapped in AFTER resume: a `-drive ...media=cdrom`
+    given at startup is overridden when migration restores the drive's saved state,
+    which still references whatever medium was present at capture time (measured:
+    ide1-cd0 with zero read operations). Changing the medium via the monitor after
+    resume IS honoured, so the order is: wait for socket -> change -> cont.
+    """
+    script = (
+        "import socket, sys, time\n"
+        "s = socket.socket(socket.AF_UNIX)\n"
+        "s.connect(sys.argv[1])\n"
+        "s.settimeout(5)\n"
+        "time.sleep(1)\n"
+        "try:\n"
+        "    s.recv(65536)\n"
+        "except Exception:\n"
+        "    pass\n"
+        "for cmd in sys.argv[2:]:\n"
+        "    s.sendall((cmd + '\\n').encode())\n"
+        "    time.sleep(2)\n"
+        "    try:\n"
+        "        s.recv(65536)\n"
+        "    except Exception:\n"
+        "        pass\n"
+    )
+    deadline = time.monotonic() + connect_timeout
+    while not monitor.exists():
+        if time.monotonic() > deadline:
+            return False
+        time.sleep(1)
+    time.sleep(2)          # let QEMU finish binding before connecting
+    argv = ["python3", "-c", script, str(monitor.resolve()), *commands]
+    if runas:
+        argv = ["sudo", "-n", "-u", runas] + argv
+    return subprocess.run(argv, stdout=subprocess.DEVNULL,
+                          stderr=subprocess.DEVNULL).returncode == 0
 
 
 def _backing_chain(base: Path) -> list[Path]:
@@ -190,6 +276,9 @@ def _bwrap_prefix(qemu: Path, plugin: Path, base: Path, rw_dirs) -> list[str]:
         "--proc", "/proc",
         "--dev", "/dev",
         "--tmpfs", "/tmp",
+        # QEMU's snapshot=on writes its throwaway overlay under /var/tmp; without
+        # this the sandbox has no such directory and the drive fails to open.
+        "--tmpfs", "/var/tmp",
         "--ro-bind", "/usr", "/usr",
         "--ro-bind-try", "/lib", "/lib",
         "--ro-bind-try", "/lib64", "/lib64",
@@ -200,6 +289,24 @@ def _bwrap_prefix(qemu: Path, plugin: Path, base: Path, rw_dirs) -> list[str]:
         "--ro-bind", str(qemu.resolve().parent), str(qemu.resolve().parent),
         "--ro-bind", str(plugin.resolve()), str(plugin.resolve()),
     ]
+    # QEMU's firmware (bios-256k.bin, vgabios, ...) lives in the build tree under
+    # qemu-bundle/usr/local/share/qemu, but those entries are SYMLINKS into
+    # qemu-src/pc-bios. Binding only the build dir therefore exposes dangling links
+    # and QEMU dies with "could not load PC BIOS 'bios-256k.bin'". Bind the resolved
+    # targets too. (This is why --confine had never actually worked: it was wired to
+    # nothing, so the breakage was never exercised.)
+    firmware = qemu.resolve().parent / "qemu-bundle/usr/local/share/qemu"
+    bound_targets: set[str] = set()
+    if firmware.is_dir():
+        prefix += ["--ro-bind", str(firmware), str(firmware)]
+        for entry in firmware.iterdir():
+            try:
+                target_dir = str(entry.resolve().parent)
+            except OSError:
+                continue
+            if target_dir not in bound_targets:
+                bound_targets.add(target_dir)
+                prefix += ["--ro-bind-try", target_dir, target_dir]
     for f in _backing_chain(base):
         prefix += ["--ro-bind", str(f), str(f)]
     seen = set()
@@ -281,6 +388,38 @@ def main() -> int:
     )
     parser.add_argument("--qemu", type=Path)
     parser.add_argument("--plugin", type=Path)
+    parser.add_argument(
+        "--delivery-disk", type=Path, default=None,
+        help="attach this raw image as a second drive. Used with --loadvm: a savevm "
+        "snapshot has a DIRTY NTFS volume that the host cannot mount read-write, so "
+        "the sample cannot be written into the snapshot. A separate clean FAT16 disk "
+        "sidesteps that -- nothing in the snapshot is modified.",
+    )
+    parser.add_argument(
+        "--incoming", type=Path, default=None, metavar="MIGSTATE",
+        help="resume RAM state from this external QEMU migration file. Preferred "
+        "over --loadvm: it works with the per-run overlay the harness relies on for "
+        "isolation, whereas a qcow2 internal snapshot is only visible in the file "
+        "that physically holds it. Must be resumed at the SAME -m size it was "
+        "captured with.",
+    )
+    parser.add_argument(
+        "--loadvm", default=None, metavar="NAME",
+        help="resume from a named qcow2 VM snapshot instead of cold-booting. Windows "
+        "boot is ~300 s solo and 400-900+ s under contention, and it is paid on EVERY "
+        "trace -- it dominates a large campaign and starves itself at high "
+        "concurrency. Resuming a pre-booted guest removes that cost entirely. The "
+        "launcher reads a FIXED path (C:\\Panda\\sample.exe), so one snapshot "
+        "serves every sample: swap the file, not the path. No guest_launcher rebuild, "
+        "so the certified launcher_sha256 is unaffected.",
+    )
+    parser.add_argument(
+        "--plugin-arg", dest="plugin_args", action="append", default=[],
+        metavar="KEY=VALUE",
+        help="extra option appended to the -plugin argument (repeatable), e.g. "
+        "--plugin-arg pf_loop=on for paper_trace_pf.so's page-fault-loop events. "
+        "The plugin rejects unknown options, so a typo fails loudly.",
+    )
     parser.add_argument("--validation-stamp", type=Path)
     parser.add_argument(
         "--sandbox",
@@ -348,6 +487,24 @@ def main() -> int:
         check=True,
         stdout=subprocess.DEVNULL,
     )
+    if args.runas:
+        # The overlay, trace and log are created HERE (as the caller) but written by
+        # QEMU running as args.runas. Without this the guest dies instantly with
+        # "Could not open ...work.qcow2: Permission denied". Widen only these
+        # per-run artifacts, never the base image, which stays read-only.
+        try:
+            args.work.chmod(0o666)
+            # Only the files QEMU itself writes need pre-creating. meta.json is
+            # written by THIS process at the end, so touching it here leaves a
+            # zero-byte file for the whole run that readers mistake for "finished"
+            # (it silently broke a completion poller). Leave it alone.
+            for extra in (args.trace, args.log):
+                if extra is not None:
+                    extra.parent.mkdir(parents=True, exist_ok=True)
+                    extra.touch(exist_ok=True)
+                    extra.chmod(0o666)
+        except OSError as exc:
+            parser.error(f"--runas set but cannot make run artifacts writable: {exc}")
 
     hardening: list[str] = []
     if args.sandbox:
@@ -355,8 +512,12 @@ def main() -> int:
             "-sandbox",
             "on,obsolete=deny,elevateprivileges=deny,spawn=deny,resourcecontrol=deny",
         ]
-    if args.runas:
-        hardening += ["-runas", args.runas]
+    # NOTE: QEMU's own -runas is NOT used. This build rejects it outright
+    # ("-runas: invalid option"), and -sandbox is likewise not compiled in. The drop
+    # is therefore done on the HOST side by prefixing `sudo -n -u <user>` below, so
+    # an exploited QEMU lands as an unprivileged service account instead of as the
+    # operator. Rebuilding QEMU to regain -runas/-sandbox would change the pinned
+    # backend identity and invalidate the existing labels.
 
     command = [
         str(qemu),
@@ -403,19 +564,69 @@ def main() -> int:
         "-drive",
         f"file={args.work},format=qcow2,if=ide,cache=writeback",
         "-plugin",
-        f"{plugin.resolve()},out={args.trace.resolve()}",
+        ",".join([f"{plugin.resolve()},out={args.trace.resolve()}",
+                  *args.plugin_args]),
     ]
+    if args.delivery_disk:
+        # Second IDE drive; the guest picks it up as the next available volume.
+        # snapshot=on sends this device's writes to a throwaway temp overlay, so it
+        # is writable from QEMU's point of view (loadvm needs that -- a plain
+        # readonly=on drive fails with "Block node is read-only") while never
+        # participating in the saved VM state and never modifying the host file.
+        # Without it: "Device 'ide0-hd1' is writable but does not support snapshots".
+        # index=2 puts this at ide1-cd0 -- master on the SECONDARY IDE channel, the
+        # conventional CD position this Windows image enumerated at install time and
+        # holds a drive letter for. Without it QEMU picks the next free slot on the
+        # PRIMARY channel (measured: ide0-cd1), which Windows does not surface as a
+        # lettered drive, while QEMU's own default EMPTY ide1-cd0 stays inserted --
+        # so a monitor `change ide1-cd0` targets the empty default, not this ISO.
+        # CD-ROM, not a hard disk. A guest resumed from saved RAM only has the
+        # devices present at capture time, so a fixed IDE disk attached at resume is
+        # invisible to Windows (measured: 0 read ops vs 7416 on the boot disk). A
+        # media change on the already-enumerated CD drive IS honoured across resume
+        # (measured: 23 read ops). readonly is implied by media=cdrom.
+        command += ["-drive",
+                    f"file={args.delivery_disk.resolve()},format=raw,if=ide,"
+                    "index=2,media=cdrom"]
+    if args.incoming:
+        # RAM state comes from an EXTERNAL migration file, not a qcow2 internal
+        # snapshot. Internal snapshots live only in the file that holds them and are
+        # invisible through a backing chain, so `-loadvm` could never find one from
+        # the fresh per-run overlay the harness boots ("Snapshot 'booted' does not
+        # exist in one or more devices"). Splitting RAM state (shared, read-only
+        # file) from disk state (cheap per-run overlay) satisfies both requirements:
+        # every run resumes the same booted guest, and no run can touch the base.
+        # The state was captured at -m 4G; resuming at any other size fails.
+        command += ["-incoming", f"exec:cat {Path(args.incoming).resolve()}"]
+    elif args.loadvm:
+        command += ["-loadvm", args.loadvm]
     if args.confine:
         rw_dirs = [p.parent for p in (args.work, args.trace, args.meta, args.log,
-                                      args.monitor) if p is not None]
+                                      args.monitor, args.delivery_disk)
+                   if p is not None]
         command = _bwrap_prefix(qemu, plugin, args.base, rw_dirs) + command
+    if args.runas:
+        # Outermost wrapper: drop to the service account BEFORE bwrap, so the whole
+        # confined subtree (bwrap included) runs unprivileged. Requires a sudoers
+        # rule permitting this without a password; -n makes a missing rule fail
+        # loudly rather than hang on a prompt.
+        command = ["sudo", "-n", "-u", args.runas] + command
     started = time.monotonic()
     with log.open("wb") as log_handle:
         process = subprocess.Popen(command, stdout=log_handle, stderr=log_handle)
+        if args.incoming:
+            # Order matters: insert the medium BEFORE releasing the vCPUs, so the
+            # launcher's very first poll after resume already sees the sample.
+            post: list[str] = []
+            if args.delivery_disk:
+                post.append(f"change ide1-cd0 {args.delivery_disk.resolve()}")
+            post.append("cont")
+            _monitor_command(monitor, post, args.runas)
         return_code, host_timed_out, host_observed_idle, never_started, write_settled = (
             wait_or_host_idle(
                 process, args.trace, args.host_timeout, args.host_idle_seconds,
                 args.no_start_seconds, args.write_settled_seconds,
+                monitor_path=monitor, runas_user=args.runas,
             )
         )
     elapsed = time.monotonic() - started

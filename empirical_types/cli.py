@@ -103,6 +103,17 @@ def main(argv: list[str] | None = None) -> int:
     paper_ana.add_argument("--sample-id", required=True)
     paper_ana.add_argument("--meta", type=Path, required=True)
     paper_ana.add_argument("--output", type=Path)
+    paper_ana.add_argument(
+        "--accept-bounded",
+        action="store_true",
+        help="treat a trace cut by the host timeout while the sample was STILL "
+        "RUNNING as a bounded observation rather than trace loss. The decision "
+        "hierarchy still returns trace_loss for layers==0 and no_unpacking for "
+        "layers==1, so only a trace that actually exhibited write->execute yields a "
+        "Type -- and that Type is a LOWER BOUND, since truncation can only reduce "
+        "observed layers. Off by default: the certified packer labels depend on the "
+        "strict completion gate.",
+    )
     rep = sub.add_parser("report", help="aggregate classification JSON files")
     rep.add_argument("runs", type=Path)
     rep.add_argument(
@@ -225,6 +236,12 @@ def main(argv: list[str] | None = None) -> int:
             evidence.trace_complete = False
             reason = metadata.get("ineligible_reason", "required trace channel missing")
             evidence.notes.append(reason)
+            # ONLY a host-timeout cut counts as a bounded observation. A launch
+            # failure, crash, or missing channel is genuinely absent evidence and
+            # must remain trace_loss.
+            if getattr(args, "accept_bounded", False) and metadata.get(
+                    "paper_termination_reason") == "maximum_timeout_host":
+                evidence.bounded_observation = True
         if metadata.get("certification_mode") == "single_process":
             evidence.cross_process_certified = False
             evidence.notes.append(

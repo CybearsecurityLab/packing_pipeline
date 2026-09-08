@@ -39,7 +39,13 @@ conditions:
   exact_trace_resolved_runs: 0
   exact_trace_distribution: {}
   dynamic_failure_reasons: {}
-  label: null
-  label_status: null
+  label: TYPE_IV
+  label_status: empirical_family_version_inference
   confidence: 0.0
   paper_evidence_level: null
+  label_rule: Type inherited from the same packer family's measured versions; ties
+    broken by Ugarte SoK Sec V-C (highest complexity observed across packer versions).
+    Inference, not a measurement.
+  family_inference_evidence:
+    '1.0': TYPE_I
+    '1.02': TYPE_IV

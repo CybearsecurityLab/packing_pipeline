@@ -26,6 +26,13 @@ MAX_SAMPLE_ATTEMPTS = 4
 REPS = 3
 MIN_MEANINGFUL_EXEC = 50_000
 CONDITIONS = max(1, int(os.environ.get("LABEL_CONDITIONS", "1")))
+# Where per-condition run artifacts land, relative to the repo.  Each condition's
+# directory is rm -rf'd before its runs, so a non-certified experiment (e.g.
+# LABEL_TRANSPARENT=1, a different backend identity) pointed at the default root
+# DESTROYS the certified traces/metas for that condition.  Override it to keep the
+# arms separate.
+RUNS_ROOT = os.environ.get("LABEL_RUNS_ROOT",
+                           "empirical_results/qemu_runtime/all_runs").strip("/")
 STAGE_LOCK = threading.Lock()
 GIT_LOCK = threading.Lock()
 SMB_LOCK = threading.Lock()
@@ -114,7 +121,7 @@ def run_pair(tag: str, cond: dict, pair) -> tuple[str, dict]:
             return "STAGE_FAILED", {}
         images.append([f"empirical_results/qemu_runtime/windows10-qemu-{tag}{i}.qcow2",
                        sha, f"{tag}{chr(64+i)}"])
-    runs_dir = f"empirical_results/qemu_runtime/all_runs/{tag}"
+    runs_dir = f"{RUNS_ROOT}/{tag}"
     cfg = {"condition": cond, "payloads": images, "reps": REPS, "runs_dir": runs_dir}
     cfg_path = RT / "configs" / f"{tag}.json"
     cfg_path.parent.mkdir(parents=True, exist_ok=True)
@@ -263,14 +270,20 @@ def label_condition(w: dict) -> None:
         json.dumps({"label": label, "runs": all_types}), encoding="utf-8")
     with GIT_LOCK:
         sh(["python3", "ops/qemu/build_label_document.py"])
+        # PACKER_TYPE_LABELS.md is the authoritative packer->Type document (all
+        # labelling rules + the unresolved residue), where EMPIRICAL_TYPE_LABELS.md
+        # covers exact-consensus rows only.  It used to be hand-maintained, which let
+        # the two documents and the manifests drift apart (79 vs 92 vs 97).  Generate
+        # it here so it stays derived from whatever the labeller just wrote.
+        sh(["python3", "ops/qemu/build_packer_type_document.py"])
         sh(["git", "add", "-f", f"manifest/empirical_types_{tag}.yaml",
-            "doc/EMPIRICAL_TYPE_LABELS.md"])
+            "docs/EMPIRICAL_TYPE_LABELS.md", "docs/PACKER_TYPE_LABELS.md"])
         sh(["git", "add", f"empirical_results/qemu_runtime/configs/{tag}.json"])
         sh(["git", "commit", "-q", "-m",
             f"Empirical label: {tag} -> {label} ({w['testcase']})"])
         sh(["git", "push", "origin", "feature/empirical-type-backend"],
            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    rd = REPO / f"empirical_results/qemu_runtime/all_runs/{tag}"
+    rd = REPO / f"{RUNS_ROOT}/{tag}"
     traces = sorted(rd.glob("*/trace.jsonl"))
     keep = set()
     if traces and not label.startswith("TYPE_"):
@@ -324,7 +337,7 @@ def main() -> int:
           flush=True)
     subprocess.run(["pkill", "-f", "qemu-system-x86_64 -name paper"], check=False)
     time.sleep(2)
-    runs_root = RT / "all_runs"
+    runs_root = REPO / RUNS_ROOT
     freed = 0
     for pat in ("*/trace.jsonl", "*/work.qcow2"):
         for stale in runs_root.glob(pat):

@@ -84,9 +84,19 @@ def classify(e: Evidence) -> Classification:
         return Classification(
             "UNRESOLVED_BACKEND_FAILURE", 1.0, e, "analysis backend failed"
         )
-    if not e.trace_complete:
+    if not e.trace_complete and not e.bounded_observation:
         return Classification(
             UNRESOLVED["trace_loss"], 1.0, e, "required trace events are missing"
+        )
+    if not e.trace_complete and e.bounded_observation:
+        # Bounded observation: fall through to the normal hierarchy. It still returns
+        # trace_loss for layers==0 and no_unpacking for layers==1, so nothing is
+        # invented -- only a trace that ACTUALLY exhibited W->X yields a Type, and
+        # that Type is a lower bound on the sample's true complexity.
+        e.notes.append(
+            "bounded observation: trace cut by the host timeout while the sample was "
+            "still running; the Type is a LOWER BOUND (truncation can only reduce "
+            "observed layers)"
         )
     if e.cross_process_activity and not e.cross_process_certified:
         return Classification(

@@ -13,7 +13,7 @@ Inputs (all produced by the sweep):
   empirical_results/full_matrix/unresolved_rootcause.json  (investigate_unresolved.py)
   empirical_results/qemu_runtime/worklist.json         family/version/testcase
 Output:
-  doc/EMPIRICAL_TYPE_RESULTS.md
+  docs/EMPIRICAL_TYPE_RESULTS.md
 """
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 DONE = REPO / "empirical_results/full_matrix"
 RT = REPO / "empirical_results/qemu_runtime"
-OUT = REPO / "doc/EMPIRICAL_TYPE_RESULTS.md"
+OUT = REPO / "docs/EMPIRICAL_TYPE_RESULTS.md"
 
 ROOTCAUSE_BLURB = {
     "SAMPLE_NOT_PACKED": "corpus defect — payload is not actually packed",

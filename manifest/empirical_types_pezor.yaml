@@ -1,14 +1,14 @@
 schema_version: 1
 taxonomy: Ugarte et al. Type I-VI
 warning: Only empirical_exact_trace_consensus is an exact paper-faithful measurement;
-  provisional and hypothesis-only labels retain their provenance.
+  conditions without it remain explicitly unresolved.
 minimum_repetitions_per_sample: 3
 minimum_distinct_samples: 2
 condition_count: 1
 label_status_distribution:
-  null: 1
+  empirical_exact_trace_consensus: 1
 label_distribution:
-  null: 1
+  TYPE_I: 1
 nas_status_distribution:
   planned: 1
 dynamic_gate_complete_conditions: 0
@@ -36,13 +36,11 @@ conditions:
   validated_target_events: 0
   target_event_totals: {}
   original_mapped_distinct_samples: 0
-  exact_trace_resolved_runs: 1
+  exact_trace_resolved_runs: 6
   exact_trace_distribution:
-    TYPE_I: 1
-  dynamic_failure_reasons:
-    missing_metadata: 6
-  taxonomy_hypothesis: null
-  label: null
-  label_status: null
-  confidence: 0.0
-  paper_evidence_level: null
+    TYPE_I: 6
+  dynamic_failure_reasons: {}
+  label: TYPE_I
+  label_status: empirical_exact_trace_consensus
+  confidence: 0.95
+  paper_evidence_level: A_exact_layer_frame_trace

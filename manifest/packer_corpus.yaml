@@ -788,26 +788,6 @@ definitions:
       - "Demo version may restrict packing of large files or add a watermark."
       - "GUI-only; cannot be scripted via CLI."
 
-  - &simpledpack_v053
-    packer_family: "simpledpack"
-    packer_name: "simpledpack_v0.5.3"
-    version: "0.5.3"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["CLI", "Compressor", "Educational"]
-    binary_path: "./packers/SimpleDpack/SimpleDpack.exe"
-    binary_sha256: "dc30566e9ea708cfbdd4b92f746853fbfd4135531857ef330c1bbd0d60dc5f9c"
-    source_url: "https://www.sac.sk/files.php?d=7&l"
-    license: "Freeware"
-    notes: "SimpleDpack v0.5.3 by devseed. A lightweight Win32 PE executable compressor designed for learning and investigating PE structure. Supports both CLI drag-and-drop and command-line execution."
-    size_kb: "28"
-    output_behavior: "explicit"
-    type: ""
-    known_issues:
-      - ""
-
   - &telock_v098
     packer_family: "telock"
     packer_name: "telock_v0.98"
@@ -3684,15 +3664,6 @@ test_cases:
     <<: *upx_v122
     command_label: "Max Compression (Level 9)"
     cli_template: "{bin} -9 {in} -o {out}"
-    validation:
-      allow_x64_switch: false
-      allow_x86_switch: false
-
-  # --- SimpleDpack Test Group ---
-  - id: "SIMPLEDPACK_V053_001_DEFAULT"
-    <<: *simpledpack_v053
-    command_label: "Default Compression"
-    cli_template: "{bin} {in} {out}"
     validation:
       allow_x64_switch: false
       allow_x86_switch: false

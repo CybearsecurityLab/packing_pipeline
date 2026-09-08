@@ -24,11 +24,37 @@ RT = REPO / "empirical_results/qemu_runtime"
 QEMU = RT / "qemu-build/qemu-system-x86_64"
 PAPER = REPO / "ops/qemu/paper_trace.so"
 VMHUNT = REPO / "ops/qemu/vmhunt_trace.so"
-VMEXTRACT = Path("/tmp/claude-1000/-home-resbears-projects-corpus/"
-                 "a1c0d35d-dead-4224-bbd5-f2de5454f550/scratchpad/VMHunt/vmextract")
+def _vmextract_path() -> Path:
+    """s3team/VMHunt `vmextract`.
+
+    Was previously pinned to a session scratchpad under /tmp, which is deleted
+    between sessions -- the extraction half of the pipeline had been silently dead.
+    Resolve from $VMEXTRACT first, then a repo-local checkout.
+
+    Build with:  git clone --depth 1 https://github.com/s3team/VMHunt.git \\
+                     .superpowers/src/VMHunt && make -C .superpowers/src/VMHunt vmextract
+    """
+    override = os.environ.get("VMEXTRACT")
+    if override:
+        return Path(override)
+    for candidate in (
+        REPO / ".superpowers/src/VMHunt/vmextract",
+        REPO / "empirical_results/qemu_runtime/VMHunt/vmextract",
+    ):
+        if candidate.exists():
+            return candidate
+    return REPO / ".superpowers/src/VMHunt/vmextract"
+
+
+VMEXTRACT = _vmextract_path()
 SUDO_PW = "resbears"
-CAP_BYTES = 2 * 1024 ** 3           # per-vcpu file cap
-VM_TIMEOUT = 360                    # wall-clock cap on the vmhunt pass
+# Per-vcpu file cap and wall-clock cap on the vmhunt pass.  The defaults (2 GiB /
+# 360 s) are far too small for a protector that runs for the whole trace window:
+# themida executes 50-65M blocks over 1800 s under paper_trace, so a 6-minute
+# window captures startup only and any interpreter that engages later is missed.
+# Raise both for such samples.
+CAP_BYTES = int(os.environ.get("VMHUNT_CAP_GB", "2")) * 1024 ** 3
+VM_TIMEOUT = int(os.environ.get("VMHUNT_TIMEOUT", "360"))
 PAPER_TIMEOUT = 600                 # cap on the CR3-discovery pass
 
 
@@ -43,11 +69,23 @@ def stage(sample: Path, image: Path) -> bool:
     return p.returncode == 0
 
 
+# Anti-VM transparency, same knob as run_trace.py --transparent.  The protectors
+# VMHunt is aimed at (themida especially) read QEMU's CPUID hypervisor bit,
+# 0x40000000 vendor leaf and "QEMU Virtual CPU" brand string and bail before the
+# marker scope opens -- which is why the existing themida/molebox vmhunt runs
+# captured insns=0 and their "no_vm_detected" verdict is vacuous.  Off by default
+# so the certified backend identity is unchanged.
+TRANSPARENT = os.environ.get("VMHUNT_TRANSPARENT", "").lower() in {"1", "true", "yes"}
+CPU_MODEL = os.environ.get("VMHUNT_CPU_MODEL", "") or ("Nehalem" if TRANSPARENT
+                                                       else "qemu64")
+
+
 def qemu_command(work: Path, plugin_arg: str, monitor: Path) -> list[str]:
     return [
         str(QEMU), "-name", "vmhunt",
         "-machine", "pc-i440fx-5.2", "-accel", "tcg,thread=single",
-        "-cpu", "qemu64", "-m", "4G", "-smp", "2",
+        "-cpu", (CPU_MODEL + ",-hypervisor") if TRANSPARENT else CPU_MODEL,
+        "-m", "4G", "-smp", "2",
         "-icount", "shift=2,sleep=on", "-rtc", "base=localtime,clock=vm",
         "-display", "none", "-monitor", f"unix:{monitor.resolve()},server=on,wait=off",
         "-serial", "none", "-parallel", "none", "-net", "none", "-no-reboot",

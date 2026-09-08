@@ -48,6 +48,23 @@ HOST_TIMEOUT = str(int(_cfg.get("host_timeout") or
                        os.environ.get("LABEL_HOST_TIMEOUT", "1200")))
 WRITE_SETTLED = str(int(_cfg.get("write_settled_seconds") or
                         os.environ.get("LABEL_WRITE_SETTLED", "0")))
+# Anti-VM transparency (run_trace.py --transparent): a realistic CPU model with
+# -hypervisor, which clears QEMU's CPUID hypervisor-present bit, 0x40000000 vendor
+# leaf and "QEMU Virtual CPU" brand string.  Anti-VM protectors (telock, yoda,
+# armadillo, themida) read those and bail to an evasion path, which is why they
+# trace but never unpack.  OFF by default so the certified qemu64 results stand;
+# a transparent run is a DIFFERENT backend identity and must not be mixed with them.
+TRANSPARENT = bool(_cfg.get("transparent") or
+                   os.environ.get("LABEL_TRANSPARENT", "").lower()
+                   in {"1", "true", "yes"})
+CPU_MODEL = str(_cfg.get("cpu_model") or
+                os.environ.get("LABEL_CPU_MODEL", "") or "").strip()
+ACCEPT_BOUNDED = bool(_cfg.get("accept_bounded") or
+                      os.environ.get("LABEL_ACCEPT_BOUNDED", "").lower()
+                      in {"1", "true", "yes"})
+DELETE_TRACE = bool(_cfg.get("delete_trace") or
+                    os.environ.get("LABEL_DELETE_TRACE", "").lower()
+                    in {"1", "true", "yes"})
 CLASSIFY_SEM = threading.Semaphore(
     max(1, int(os.environ.get("LABEL_CLASSIFY_JOBS", "4"))))
 
@@ -66,23 +83,38 @@ def run_one(image: Path, sha: str, name: str, rep: int) -> str:
     mon = Path("/tmp/qm") / (hashlib.md5(f"{sample_id}".encode()).hexdigest()[:12] + ".sock")
     mon.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run(["rm", "-f", str(mon)], check=False)
+    command = [
+        "uv", "run", "python", str(REPO / "ops/qemu/run_trace.py"),
+        str(image), str(d / "work.qcow2"), str(d / "trace.jsonl"),
+        "--meta", str(d / "meta.json"), "--log", str(d / "qemu.log"),
+        "--monitor", str(mon), "--host-timeout", HOST_TIMEOUT,
+        "--write-settled-seconds", WRITE_SETTLED,
+        "--guest-memory", "4G", "--qemu", str(QEMU), "--plugin", str(PLUGIN),
+    ]
+    if TRANSPARENT:
+        command.append("--transparent")
+    if CPU_MODEL:
+        command += ["--cpu-model", CPU_MODEL]
     proc = subprocess.Popen(
-        ["uv", "run", "python", str(REPO / "ops/qemu/run_trace.py"),
-         str(image), str(d / "work.qcow2"), str(d / "trace.jsonl"),
-         "--meta", str(d / "meta.json"), "--log", str(d / "qemu.log"),
-         "--monitor", str(mon), "--host-timeout", HOST_TIMEOUT,
-         "--write-settled-seconds", WRITE_SETTLED,
-         "--guest-memory", "4G", "--qemu", str(QEMU), "--plugin", str(PLUGIN)],
+        command,
         stdout=(d / "runner.out").open("w"), stderr=subprocess.STDOUT, cwd=str(REPO),
     )
     proc.wait()
     with CLASSIFY_SEM:
-        subprocess.run(
-            ["uv", "run", "packer-types", "classify-paper-trace", str(d / "trace.jsonl"),
-             "--sample-id", sample_id, "--meta", str(d / "meta.json"),
-             "--output", str(d / "classification.json")],
-            cwd=str(REPO), check=False,
-        )
+        classify_command = [
+            "uv", "run", "packer-types", "classify-paper-trace", str(d / "trace.jsonl"),
+            "--sample-id", sample_id, "--meta", str(d / "meta.json"),
+            "--output", str(d / "classification.json"),
+        ]
+        if ACCEPT_BOUNDED:
+            classify_command.append("--accept-bounded")
+        subprocess.run(classify_command, cwd=str(REPO), check=False)
+    if DELETE_TRACE:
+        for artifact in (d / "trace.jsonl", d / "work.qcow2"):
+            try:
+                artifact.unlink()
+            except OSError:
+                pass
     (d / "sample.json").write_text(json.dumps({
         "sample_id": sample_id,
         "packed_sha256": sha,

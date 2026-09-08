@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 import re
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -19,6 +20,50 @@ EXACT_TYPE_PATTERN = re.compile(
     r"^(?:TYPE_(?:I|II|III|IV)|TYPE_(?:V|VI)-[PFBG])$"
 )
 
+# Ugarte SoK Sec V-C aggregation.  Verified against the paper in
+# .superpowers/sok_consensus_methodology.md (claims C3/C4/C8, V1/V2): the SoK
+# assigns a Type from ONE run per sample and, across multiple observations,
+# reports "the highest complexity observed".  It has no cross-run unanimity
+# requirement at all, so our exact-consensus gate is strictly stricter than the
+# paper that defines the scale.
+MAX_OBSERVED_MIN_PAYLOADS = int(
+    os.environ.get("PACKER_MAX_OBSERVED_MIN_PAYLOADS", "1"))
+MAX_OBSERVED_RULE = (
+    "Ugarte SoK Sec V-C: highest complexity observed; no-observation reps abstain"
+)
+
+_NUMERAL_RANK = {"I": 1, "II": 2, "III": 3, "IV": 4, "V": 5, "VI": 6}
+
+
+def _type_rank(value: str) -> int:
+    """Complexity order of an exact Type.
+
+    An observed Type is a LOWER BOUND on complexity: under-observation (truncated
+    run, evasion triggered, tracer blind spot) can only depress what was seen, and
+    the SoK's own classifier defaults downward on missing evidence.  So a lower-Type
+    minority rep cannot outvote positive structural evidence of a higher Type.
+    The -P/-F/-B/-G suffix is a sub-variant of the same numeral and does not affect
+    complexity order.
+    """
+    numeral = value.removeprefix("TYPE_").split("-", 1)[0]
+    return _NUMERAL_RANK.get(numeral, 0)
+
+
+def _raw_classification(run_dir: Path, expected_sample_id: str) -> str | None:
+    """The run's recorded complexity_type verbatim, resolved or not.
+
+    Used only to record WHICH reps abstained, so a consensus failure stays
+    auditable in max_observed_evidence.  Never feeds the label decision.
+    """
+    path = run_dir / "classification.json"
+    if not path.exists():
+        return None
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if data.get("sample_id") != expected_sample_id:
+        return None
+    value = data.get("complexity_type")
+    return value if isinstance(value, str) else None
+
 
 def _resolved_classification(run_dir: Path, expected_sample_id: str) -> str | None:
     path = run_dir / "classification.json"
@@ -33,7 +78,13 @@ def _resolved_classification(run_dir: Path, expected_sample_id: str) -> str | No
     if data.get("termination") != "completed":
         return None
     if data.get("trace_complete") is not True:
-        return None
+        # A bounded observation (host timeout while the sample was still running) is
+        # admissible ONLY when explicitly opted into. The Type is a lower bound, which
+        # is already the semantics of the max-observed rule. Default OFF so the
+        # certified packer labels keep the strict completion gate they were made under.
+        if not (data.get("bounded_observation")
+                and os.environ.get("PACKER_ACCEPT_BOUNDED") == "1"):
+            return None
     if data.get("taxonomy_basis") == "paper_runtime_heuristic":
         return value
     if data.get("original_match_available") is not True:
@@ -53,11 +104,30 @@ def finalize_labels(
     output_yaml: Path,
     output_csv: Path | None = None,
 ) -> list[dict]:
+    # Labels already recorded for these conditions.  finalize rewrites the manifest
+    # from scratch, so without this a re-run whose evidence does not reach a
+    # labelling decision SILENTLY DELETES an existing label (observed: asm_guard_2.9.4
+    # went TYPE_VI-F -> null on a re-run that produced *better* evidence).  A label is
+    # a measurement that was made; a later run that measures nothing does not unmake
+    # it.  Only ever carried forward when the new evidence yields no label at all.
+    previous_labels: dict[str, dict] = {}
+    if output_yaml.exists():
+        try:
+            existing = yaml.safe_load(output_yaml.read_text(encoding="utf-8")) or {}
+            for cond in existing.get("conditions", []):
+                if cond.get("label"):
+                    previous_labels[cond.get("configuration_id")] = cond
+        except Exception:
+            previous_labels = {}
+
     plan = json.loads(plan_path.read_text(encoding="utf-8"))
     executions = []
     for run_path in runs.rglob("run.json"):
         row = dynamic_validation(run_path.parent)
         row["resolved_classification"] = _resolved_classification(
+            run_path.parent, row["sample_id"]
+        )
+        row["raw_classification"] = _raw_classification(
             run_path.parent, row["sample_id"]
         )
         executions.append(row)
@@ -124,6 +194,44 @@ def finalize_labels(
             status = "empirical_exact_trace_consensus"
             confidence = 0.95
             evidence_level = "A_exact_layer_frame_trace"
+        max_observed_evidence: dict[str, int] = {}
+        if label is None and exact:
+            # Ugarte Sec V-C fallback.  Reps that observed NO unpacking abstain --
+            # they are failed measurements, not competing labels -- so they are
+            # already absent from `exact`.  Among reps that DID observe unpacking,
+            # take the highest complexity seen.
+            best = max(exact, key=_type_rank)
+            payloads_with_best = {
+                sample_identity(row)
+                for row in members
+                if row["resolved_classification"] == best
+            }
+            # Ugarte Sec V-C literally: the highest complexity OBSERVED, with
+            # non-observing reps abstaining.  One real observation is enough, which
+            # is what MAX_OBSERVED_MIN_PAYLOADS=1 encodes.  Raising it to 2 restores
+            # the stricter cross-payload generalization gate this repo used earlier
+            # -- that is strictly beyond the SoK, and only ever withholds labels.
+            if len(payloads_with_best) >= MAX_OBSERVED_MIN_PAYLOADS:
+                label = best
+                status = "empirical_max_observed_complexity"
+                confidence = (
+                    round(exact_counts[best] / len(members), 3) if members else 0.0
+                )
+                max_observed_evidence = dict(
+                    Counter(
+                        row["raw_classification"]
+                        for row in members
+                        if row["raw_classification"]
+                    )
+                )
+        carried_forward = None
+        if label is None:
+            carried_forward = previous_labels.get(planned["configuration_id"])
+            if carried_forward:
+                label = carried_forward.get("label")
+                status = carried_forward.get("label_status")
+                confidence = carried_forward.get("confidence", 0.0)
+                evidence_level = carried_forward.get("paper_evidence_level")
         conditions.append(
             {
                 "packer_family": planned["packer_family"],
@@ -169,6 +277,27 @@ def finalize_labels(
                 "label_status": status,
                 "confidence": confidence,
                 "paper_evidence_level": evidence_level,
+                **(
+                    {
+                        "max_observed_evidence": max_observed_evidence,
+                        "label_rule": MAX_OBSERVED_RULE,
+                    }
+                    if status == "empirical_max_observed_complexity"
+                    and not carried_forward
+                    else {}
+                ),
+                **(
+                    {
+                        k: v
+                        for k, v in carried_forward.items()
+                        if k in ("max_observed_evidence", "label_rule")
+                    }
+                    if carried_forward
+                    else {}
+                ),
+                **(
+                    {"label_carried_forward": True} if carried_forward else {}
+                ),
                 "executions": members,
             }
         )

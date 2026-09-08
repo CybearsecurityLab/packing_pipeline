@@ -18,7 +18,7 @@ alternate_payload_run_count: 0
 conditions:
 - packer_family: pezor
   packer_version: 3.3.0
-  configuration_id: pezor_001_default_32-89d71f8eefac
+  configuration_id: pezor_002_self_inject_32-9e7aac9d0d3e
   test_case_id: PEZOR_002_SELF_INJECT_32
   condition_source: yaml_test_case
   nas_status: planned
