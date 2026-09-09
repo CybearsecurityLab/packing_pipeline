@@ -7,26 +7,24 @@ Unlike [EMPIRICAL_TYPE_LABELS.md](EMPIRICAL_TYPE_LABELS.md), which lists only su
 ## Summary
 
 - Corpus: **107** packer family+versions
-- Empirically typed: **99**
-- Unresolved: **6**
+- Empirically typed: **103**
+- Unresolved: **2**
 
 | Type | Conditions |
 |---|---|
 | **TYPE_0** | 1 |
-| **TYPE_I** | 71 |
+| **TYPE_I** | 72 |
 | **TYPE_II** | 7 |
 | **TYPE_III** | 5 |
-| **TYPE_IV** | 10 |
-| **TYPE_V-F** | 1 |
-| **TYPE_VI-F** | 4 |
+| **TYPE_IV** | 11 |
+| **TYPE_V-F** | 2 |
+| **TYPE_VI-F** | 5 |
 
 ### Why the unresolved are unresolved
 
 | Root cause | Conditions | Meaning |
 |---|---|---|
-| UNCLASSIFIED | 3 |  |
-| INFRASTRUCTURE | 2 | infrastructure — trace truncated/timed out (retryable) |
-| METHODOLOGY_LIMIT | 1 | methodology limit — unpacking invisible to write→execute |
+| UNCLASSIFIED | 2 |  |
 
 A `SAMPLE_NOT_PACKED` verdict is a **corpus** problem, not a classifier one: the payload runs as an ordinary unpacked binary, so there is no unpacking to observe. `INFRASTRUCTURE` is retryable and says nothing about the packer. Only `METHODOLOGY_LIMIT` reflects a genuine boundary of the runtime write→execute model.
 
@@ -37,8 +35,10 @@ A `SAMPLE_NOT_PACKED` verdict is a **corpus** problem, not a classifier one: the
 | UPX | 3.95 | UPX_V395_001_DEFAULT | **TYPE_I** | 6 | exact |
 | acprotect_std_Standard__installer | ? | . | **TYPE_I** | 6 | exact |
 | alienyze_protector | 1.4 | . | **TYPE_IV** | 6 | max-observed |
+| alushpacker | 1.0.0 | ALUSHPACKER_001_DEFAULT | **TYPE_I** | 6 | exact |
 | amber | 2.0 | AMBER_V2_002_REFLECTIVE | **TYPE_IV** | 6 | max-observed |
 | amber | 3.1 | AMBER_001_DEFAULT_BUILD | **TYPE_II** | 6 | exact |
+| armadillo | 252b2 | . | **TYPE_IV** | 6 | exact |
 | asm_guard | 2.9.4 | . | **TYPE_VI-F** | 6 | max-observed |
 | astral_pe | 1.6.0.0 | ASTRAL_001_DEFAULT_MUTATION | **TYPE_0** | 6 | mutator |
 | beroexepacker | 1.00.2017.01.27 | BEP_001_DEFAULT | **TYPE_I** | 6 | exact |
@@ -56,6 +56,7 @@ A `SAMPLE_NOT_PACKED` verdict is a **corpus** problem, not a classifier one: the
 | mpress | 2.19 | MPRESS_001_DEFAULT | **TYPE_II** | 6 | exact |
 | npack | 1.1.300.2006 | . | **TYPE_I** | 6 | exact |
 | nspack | 3.7 | . | **TYPE_IV** | 6 | exact |
+| obsidium | 1.5.2.11 | . | **TYPE_VI-F** | 6 | exact |
 | packman | 1.0 | . | **TYPE_I** | 6 | exact |
 | pe_diminisher | 0.1 | . | **TYPE_I** | 6 | exact |
 | pelock | 2.40 | . | **TYPE_VI-F** | 6 | exact |
@@ -66,6 +67,7 @@ A `SAMPLE_NOT_PACKED` verdict is a **corpus** problem, not a classifier one: the
 | pezor | 3.3.0 | PEZOR_001_DEFAULT_32 | **TYPE_I** | 6 | exact |
 | rlpack | 1.21_Basic | . | **TYPE_I** | 6 | exact |
 | shrinker | 3.4_Demo | . | **TYPE_III** | 6 | exact |
+| telock | 0.98 | . | **TYPE_V-F** | 6 | max-observed |
 | themida | 3.2.4.34 | . | **TYPE_I** | 6 | max-observed |
 | upack | 0.399__Brute | UPACK_001_DEFAULT | **TYPE_IV** | 6 | exact |
 | upx | 0.60 | UPX_V060_001_DEFAULT | **TYPE_I** | 6 | exact |
@@ -138,12 +140,8 @@ A `SAMPLE_NOT_PACKED` verdict is a **corpus** problem, not a classifier one: the
 
 | Packer family | Version | Root cause | Detail |
 |---|---|---|---|
-| alushpacker | 1.0.0 | UNCLASSIFIED | 2 distinct payloads x 3 reps, certified backend (plugin 50a5aa94...): every run exec_events=0 with paper_termination_reason=no_execution_launch_failed, sample_started=false and ... |
 | hxor_packer | 0.1 | UNCLASSIFIED | — |
 | hyperion | 1.2 | UNCLASSIFIED | — |
-| armadillo | 252b2 | INFRASTRUCTURE | 0/6 runs hit the host timeout, 3 had an incomplete trace, 3 were TRACE_LOSS/CRASH -- the recording never reached a usable end state (retryable) |
-| obsidium | 1.5.2.11 | INFRASTRUCTURE | 1/6 runs hit the host timeout, 1 had an incomplete trace, 1 were TRACE_LOSS/CRASH -- the recording never reached a usable end state (retryable) |
-| telock | 0.98 | METHODOLOGY_LIMIT | RETRACTED. The TYPE_VI-B label finalised from this condition was measured on a mis-filed sample. Payload A (sha256 61d4d99e43406442d5faf6a1...) is byte-identical to yoda_protect... |
 
 ## Reproducing
 

@@ -30,7 +30,7 @@ The recurring lesson: an `UNRESOLVED_NO_UNPACKING_OBSERVED` verdict marked
 | 12 | Document counted the NAS index, not the corpus | **RESOLVED** | reporting only, no label affected |
 | 13 | armadillo's NAS output is not packed | **RESOLVED upstream** | fixed at source; armadillo now types TYPE_IV |
 | 14 | `NtReadFile` Length read as 64-bit | **OPEN** | blocks full cross-process certification |
-| 15 | hollowed child's execution not observed | **OPEN** | **YES — hxor cannot type even if certified** |
+| 15 | hxor's hollowed child never reaches the payload | **OPEN — likely not a detector gap** | hxor only |
 
 Clearing (1) requires re-running affected conditions with `LABEL_HOST_IDLE` raised;
 it is not a re-analysis, because the recordings were truncated at capture time.
@@ -275,24 +275,47 @@ fired. Confirm with a diagnostic run on the unchanged plugin — it is unstrippe
 carries debug info — before rebuilding. Two fixes here have already been aimed at
 conditions that never fired.
 
-## 15. The hollowed child's payload execution is never observed
+## 15. hxor's hollowed child never reaches the payload
 
-This is the reason hxor_packer cannot be typed, and it is NOT the certification
-gate.
+This is why hxor_packer cannot be typed, and it is **not** the certification gate
+and **not** the `role: system` filter.
 
-Its retained classification is `layers: 1`, `forward_transitions: 0`,
-`backward_transitions: 0`, `cross_process_activity: true`. `classifier.py:117`
-returns `UNRESOLVED_NO_UNPACKING` whenever `layers == 1`, *regardless of
-certification*. Clearing the cross-process gate therefore moves hxor from
+Its classification is `layers: 1`, zero transitions, `cross_process_activity: true`.
+`classifier.py:117` returns `UNRESOLVED_NO_UNPACKING` at `layers == 1` regardless of
+certification, so clearing the cross-process gate moves it from
 `UNRESOLVED_UNCERTIFIED_CROSS_PROCESS` to `UNRESOLVED_NO_UNPACKING` — a different
-unresolved verdict, not a Type.
+unresolved verdict, not a Type. (An earlier claim in this work that tiering the
+certification would unblock hxor was wrong.)
 
-The trace contains the remote image write to child PID 3264 at `0x400000`, size
-`0x4000`. It contains **zero child exec events in that range**: all descendant
-execution is tagged `role: system`, which `paper.py:281` skips. So the write is
-observed and the execution of the written bytes is not, and write-then-execute
-needs both.
+The trace shows the hollowing succeeding up to the write and then stopping:
 
-This corrects a claim made earlier in this work — that tiering the certification
-would unblock hxor. It would not. hxor needs an observed write-to-payload-execution
-chain in the child; certification is a separate and lesser obstacle.
+| process | reason | exec events |
+|---|---|---|
+| 2972 | root_marker (the stub) | 7,347 own code + 473,443 system |
+| 3264 | remote_write_target | 450,795 — **all** system |
+| 3284 | job_descendant | 1,243,198 — all system |
+
+Remote writes from 2972 into 3264: `0x400000` size 16384 (the payload PE image),
+`0x0b0000` size 4544, `0x3fa2d8` size 8 (a PEB ImageBaseAddress patch), `0x3fb1e8`
+size 4.
+
+**Child 3264 executed zero blocks in `0x400000-0x404000`.** Its 450,795 events are
+entirely at `0x077c00000` (WOW64 32-bit ntdll, 326,011) and `0x7ffa71700000`
+(native 64-bit ntdll, 110,327), and its last executed address is in native ntdll.
+
+So the payload was written and the child then ran 450k basic blocks inside the
+loader without ever reaching it. Note the `role: system` filter is not what hides
+this: after `NtUnmapViewOfSection` and `VirtualAllocEx` the region at `0x400000`
+has no backing file, so execution there could not be system-role — there is simply
+nothing there to filter.
+
+That makes "no unpacking observed" plausibly a CORRECT empirical result for this
+sample rather than a detector gap. The open question is whether the child stalls
+because of something in our environment (the launcher's job object with no
+breakaway, icount timing) or because of a defect in hxor itself — a 32-bit stub on
+64-bit Windows must drive the hollowed thread through
+`Wow64SetThreadContext`, not `SetThreadContext`, and using the wrong one would
+leave the resumed thread in the loader exactly as observed. Under review.
+
+Until that is settled, hxor should not be recorded as a methodology limit: the
+evidence currently favours the payload genuinely not executing.
