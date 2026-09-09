@@ -158,9 +158,19 @@ read by `run_condition_matrix.py` and passed through to `run_trace.py`.
 | `LABEL_DELETE_TRACE` | unset | Delete `trace.jsonl`/`work.qcow2` after classifying. Traces reach 8+ GB. |
 | `LABEL_JOBS` | `1` | Parallel traces. **Raising this is not free**: host contention is itself what trips `LABEL_HOST_IDLE`, so parallelism can manufacture the truncation it is meant to outrun. |
 
+There is a FOURTH limit not in this table: the **guest timeout**, baked into the
+image by `stage_sample.sh <sample> <image> [timeout]` (default **300**). It is
+written into the SYSTEM hive at staging time, not passed at run time, so changing it
+means re-staging. It binds on packers that WAIT rather than compute — with
+`icount sleep=on` the guest clock advances at real speed while the vCPU idles — which
+is why telock's payload B hit it at 2.6M executed blocks while obsidium reached
+22.2M under the same 300s.
+
 If a condition comes back `UNRESOLVED_NO_UNPACKING_OBSERVED`, check
 `paper_termination_reason` and `host_idle_seconds` in `meta.json` before concluding
-anything about the packer. See [ORACLE_LIMITATIONS.md](ORACLE_LIMITATIONS.md).
+anything about the packer. Per-packer values that are known to work, with the
+evidence for each, are in [PACKER_RUN_PARAMETERS.md](PACKER_RUN_PARAMETERS.md).
+See also [ORACLE_LIMITATIONS.md](ORACLE_LIMITATIONS.md).
 
 ```bash
 
