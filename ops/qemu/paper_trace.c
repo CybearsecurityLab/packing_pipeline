@@ -274,6 +274,10 @@ static uint64_t file_io_handle_failures;
 static uint64_t file_io_disk_failures;
 static uint64_t file_io_argument_failures;
 static uint64_t file_io_status_failures;
+static uint64_t file_io_stack_read_failures;
+static uint64_t file_io_pointer_failures;
+static uint64_t file_io_offset_failures;
+static uint64_t file_io_zero_length_skips;
 static uint64_t asynchronous_file_io;
 static uint64_t mapped_file_exec_events;
 static uint64_t mapped_file_failures;
@@ -1511,11 +1515,11 @@ static bool capture_file_offset(uint64_t file_object, uint64_t pointer,
         if (!read_u64(pointer, &value)) {
             return false;
         }
-        if (value == UINT64_MAX) {
-            /* FILE_WRITE_TO_END_OF_FILE requires querying end-of-file state. */
-            return false;
-        }
-        if (value != UINT64_MAX - 1) {
+        /* UINT64_MAX is FILE_WRITE_TO_END_OF_FILE and UINT64_MAX-1 is
+         * FILE_USE_FILE_POINTER_POSITION.  Both are ordinary requests that name
+         * no explicit offset, so both fall through to the file object's current
+         * offset below rather than being reported as a channel failure. */
+        if (value != UINT64_MAX && value != UINT64_MAX - 1) {
             if (value > INT64_MAX) {
                 return false;
             }
@@ -1569,15 +1573,52 @@ static void file_io_entry(unsigned int vcpu_index, uint64_t pc,
         file_io_failures++;
         return;
     }
+    /* One compound condition with nine ways to fail told us only that "an
+     * argument failed", which is the same opacity the aggregate file_io_failures
+     * counter had.  Split it, and separate the two cases that are LEGAL rather
+     * than erroneous:
+     *   - a zero-length read/write transfers nothing, so there is no I/O to
+     *     record.  Counting it as a channel failure disqualified the run.
+     *   - FILE_WRITE_TO_END_OF_FILE (ByteOffset == -1) is an ordinary append;
+     *     capture_file_offset already falls back to the file object's current
+     *     offset for -2, and -1 should take the same path rather than fail.
+     * Both are skips, not failures. */
     rsp = read_register_value(regs->rsp, &ok);
-    if (!ok || !read_u64(rsp, &return_address) ||
+    if (!ok) {
+        file_io_register_failures++;
+        file_io_failures++;
+        return;
+    }
+    if (!read_u64(rsp, &return_address) ||
         !read_u64(rsp + UINT64_C(0x28), &io_status_block) ||
         !read_u64(rsp + UINT64_C(0x30), &buffer) ||
         !read_u64(rsp + UINT64_C(0x38), &length) ||
-        !read_u64(rsp + UINT64_C(0x40), &byte_offset) ||
-        !canonical_kernel_pointer(return_address) || !io_status_block ||
-        !buffer || !length || length > UINT32_MAX ||
-        !capture_file_offset(file_object, byte_offset, &offset)) {
+        !read_u64(rsp + UINT64_C(0x40), &byte_offset)) {
+        file_io_stack_read_failures++;
+        file_io_argument_failures++;
+        file_io_failures++;
+        return;
+    }
+    if (!canonical_kernel_pointer(return_address) || !io_status_block ||
+        !buffer) {
+        file_io_pointer_failures++;
+        file_io_argument_failures++;
+        file_io_failures++;
+        return;
+    }
+    if (!length) {
+        /* Legal: nothing is transferred, so there is nothing to attribute. */
+        file_io_zero_length_skips++;
+        return;
+    }
+    if (length > UINT32_MAX) {
+        file_io_pointer_failures++;
+        file_io_argument_failures++;
+        file_io_failures++;
+        return;
+    }
+    if (!capture_file_offset(file_object, byte_offset, &offset)) {
+        file_io_offset_failures++;
         file_io_argument_failures++;
         file_io_failures++;
         return;
@@ -3006,6 +3047,10 @@ static void plugin_exit(void *userdata)
                 ",\"file_io_disk_failures\":%" PRIu64
                 ",\"file_io_argument_failures\":%" PRIu64
                 ",\"file_io_status_failures\":%" PRIu64
+                ",\"file_io_stack_read_failures\":%" PRIu64
+                ",\"file_io_pointer_failures\":%" PRIu64
+                ",\"file_io_offset_failures\":%" PRIu64
+                ",\"file_io_zero_length_skips\":%" PRIu64
                 ",\"asynchronous_file_io\":%" PRIu64
                 ",\"mapped_file_exec_events\":%" PRIu64
                 ",\"mapped_file_failures\":%" PRIu64
@@ -3058,6 +3103,8 @@ static void plugin_exit(void *userdata)
                 file_io_evictions, file_io_register_failures,
                 file_io_handle_failures, file_io_disk_failures,
                 file_io_argument_failures, file_io_status_failures,
+                file_io_stack_read_failures, file_io_pointer_failures,
+                file_io_offset_failures, file_io_zero_length_skips,
                 asynchronous_file_io,
                 mapped_file_exec_events, mapped_file_failures,
                 system_role_failures, exception_dispatch_events,
