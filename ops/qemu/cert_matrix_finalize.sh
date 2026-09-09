@@ -29,13 +29,13 @@ mkdir -p empirical_results/full_matrix
 uv run packer-types finalize \
   empirical_results/qemu_runtime/matrix_runs/plan.json \
   empirical_results/qemu_runtime/matrix_runs \
-  --yaml-output manifest/empirical_types_matrix.yaml \
+  --yaml-output manifest/type/empirical_types_matrix.yaml \
   --output empirical_results/full_matrix/empirical_labels.json \
   --csv-output empirical_results/full_matrix/empirical_labels.csv 2>&1 | tail -3
 echo "===== EMPIRICAL MANIFEST ====="
 python3 -c "
 import yaml
-d=yaml.safe_load(open('manifest/empirical_types_matrix.yaml'))
+d=yaml.safe_load(open('manifest/type/empirical_types_matrix.yaml'))
 print('label_distribution:', d.get('label_distribution'))
 for c in d.get('conditions',[]):
     print('condition:', c.get('configuration_id'))

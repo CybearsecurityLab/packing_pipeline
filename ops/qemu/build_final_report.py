@@ -9,7 +9,7 @@ a corpus/sample defect, a limitation of the write->execute methodology, or a
 retryable infrastructure failure.
 
 Inputs:
-  manifest/empirical_types_*.yaml                      the FINAL labels
+  manifest/type/empirical_types_*.yaml                      the FINAL labels
   empirical_results/full_matrix/unresolved_rootcause.json  (investigate_unresolved.py)
   empirical_results/qemu_runtime/worklist.json         corpus membership + tags
 Output:
@@ -65,7 +65,7 @@ def main() -> int:
               for tag, w in work.items()}
 
     best: dict[tuple[str, str], dict] = {}
-    for path in sorted(glob.glob(str(REPO / "manifest" / "empirical_types_*.yaml"))):
+    for path in sorted(glob.glob(str(REPO / "manifest/type" / "empirical_types_*.yaml"))):
         data = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
         for cond in data.get("conditions", []):
             status = cond.get("label_status")
@@ -107,7 +107,7 @@ def main() -> int:
     L.append("Every packer family+version in the NAS corpus, accounted for. Types are "
              "Ugarte et al. I–VI assigned **empirically** from real dynamic traces "
              "(see [AUTOMATIC_LABELING.md](AUTOMATIC_LABELING.md)). Generated from "
-             "`manifest/empirical_types_*.yaml` — the final labels — so this document "
+             "`manifest/type/empirical_types_*.yaml` — the final labels — so this document "
              "always matches the manifests rather than any one sweep. The `Rule` column "
              "records which labelling rule produced each Type, so the strongest evidence "
              "class stays distinguishable from the weaker ones.\n")

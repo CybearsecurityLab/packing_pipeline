@@ -174,10 +174,10 @@ def run_pair(tag: str, cond: dict, pair) -> tuple[str, dict]:
             c.setdefault("available_samples", 2)
         plan.write_text(json.dumps(pd, indent=2))
         sh(["uv", "run", "packer-types", "finalize", str(plan), str(REPO / runs_dir),
-            "--yaml-output", f"manifest/empirical_types_{tag}.yaml",
+            "--yaml-output", f"manifest/type/empirical_types_{tag}.yaml",
             "--output", f"empirical_results/full_matrix/{tag}_labels.json"])
         import yaml
-        m = yaml.safe_load((REPO / f"manifest/empirical_types_{tag}.yaml").read_text())
+        m = yaml.safe_load((REPO / f"manifest/type/empirical_types_{tag}.yaml").read_text())
         for c in m.get("conditions", []):
             if c.get("label_status") == "empirical_exact_trace_consensus" and c.get("label"):
                 return c["label"], types
@@ -187,7 +187,7 @@ def run_pair(tag: str, cond: dict, pair) -> tuple[str, dict]:
 def already_labeled(tag: str) -> bool:
     if (REPO / f"empirical_results/full_matrix/{tag}.done").exists():
         return True
-    f = REPO / f"manifest/empirical_types_{tag}.yaml"
+    f = REPO / f"manifest/type/empirical_types_{tag}.yaml"
     if not f.exists():
         return False
     import yaml
@@ -276,7 +276,7 @@ def label_condition(w: dict) -> None:
         # the two documents and the manifests drift apart (79 vs 92 vs 97).  Generate
         # it here so it stays derived from whatever the labeller just wrote.
         sh(["python3", "ops/qemu/build_packer_type_document.py"])
-        sh(["git", "add", "-f", f"manifest/empirical_types_{tag}.yaml",
+        sh(["git", "add", "-f", f"manifest/type/empirical_types_{tag}.yaml",
             "docs/EMPIRICAL_TYPE_LABELS.md", "docs/PACKER_TYPE_LABELS.md"])
         sh(["git", "add", f"empirical_results/qemu_runtime/configs/{tag}.json"])
         sh(["git", "commit", "-q", "-m",

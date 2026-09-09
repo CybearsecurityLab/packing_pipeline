@@ -31,7 +31,7 @@ CONDITIONS = [
 
 
 def existing_cid(tag: str, family: str, version: str) -> str | None:
-    path = REPO / f"manifest/empirical_types_{tag}.yaml"
+    path = REPO / f"manifest/type/empirical_types_{tag}.yaml"
     if path.exists():
         data = yaml.safe_load(path.read_text()) or {}
         for c in data.get("conditions", []):
@@ -106,11 +106,11 @@ def run_condition(tag: str, family: str, version: str) -> str:
 
     subprocess.run(
         ["uv", "run", "packer-types", "finalize", str(plan), str(REPO / runs_dir),
-         "--yaml-output", f"manifest/empirical_types_{tag}.yaml",
+         "--yaml-output", f"manifest/type/empirical_types_{tag}.yaml",
          "--output", f"empirical_results/full_matrix/{tag}_labels.json"],
         cwd=str(REPO),
     )
-    m = yaml.safe_load((REPO / f"manifest/empirical_types_{tag}.yaml").read_text())
+    m = yaml.safe_load((REPO / f"manifest/type/empirical_types_{tag}.yaml").read_text())
     dist = m.get("label_distribution")
     print(f"[{family} {version}] label_distribution: {dist}", flush=True)
     return json.dumps(dist)

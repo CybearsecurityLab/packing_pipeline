@@ -9,7 +9,7 @@ label_one() {  # <nas_dir> <testcase> <family> <version>
   .venv/bin/python ops/qemu/label_nas_condition.py "$1" "$2" "$3" "$4" || {
     echo "!! $3 $4 failed; continuing"; return 0; }
   tag=$(printf '%s' "$3" | tr 'A-Z' 'a-z')
-  git add -f "manifest/empirical_types_${tag}.yaml" docs/EMPIRICAL_TYPE_LABELS.md docs/PACKER_TYPE_LABELS.md 2>/dev/null
+  git add -f "manifest/type/empirical_types_${tag}.yaml" docs/EMPIRICAL_TYPE_LABELS.md docs/PACKER_TYPE_LABELS.md 2>/dev/null
   git add "empirical_results/qemu_runtime/configs/${tag}.json" 2>/dev/null || true
   git commit -q -m "Empirical label: $3 $4 $2 (see docs/EMPIRICAL_TYPE_LABELS.md)" || true
   git push origin feature/empirical-type-backend 2>&1 | tail -1

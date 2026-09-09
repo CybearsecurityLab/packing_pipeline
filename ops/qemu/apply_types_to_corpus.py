@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Fill the `type:` field of each packer definition in manifest/packer_corpus.yaml
-from the empirical labels in manifest/empirical_types_*.yaml.
+from the empirical labels in manifest/type/empirical_types_*.yaml.
 
 The Type is copied from whatever the labeller produced -- nothing is inferred here.
 Conditions with no empirical label keep an empty type. Edits are text-level so the
@@ -43,7 +43,7 @@ def norm(value: str) -> str:
 
 def empirical_labels() -> dict[tuple[str, str], str]:
     out: dict[tuple[str, str], str] = {}
-    for path in sorted(glob.glob(str(REPO / "manifest" / "empirical_types_*.yaml"))):
+    for path in sorted(glob.glob(str(REPO / "manifest/type" / "empirical_types_*.yaml"))):
         data = yaml.safe_load(pathlib.Path(path).read_text(encoding="utf-8")) or {}
         for cond in data.get("conditions", []):
             label = cond.get("label")

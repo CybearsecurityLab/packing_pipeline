@@ -77,7 +77,7 @@ def main() -> int:
     print(f"dataset_stats.json             : pruned={d != d2}")
 
     targets = [
-        REPO / "manifest/empirical_types_simpledpack_v0.5.3_0.5.3.yaml",
+        REPO / "manifest/type/empirical_types_simpledpack_v0.5.3_0.5.3.yaml",
         REPO / "empirical_results/full_matrix/simpledpack_v0.5.3_0.5.3_labels.json",
         REPO / "empirical_results/full_matrix/simpledpack_v0.5.3_0.5.3.done",
         REPO / "empirical_results/qemu_runtime/simpledpack_v0.5.3_0.5.3_s1",

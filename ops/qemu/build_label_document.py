@@ -2,7 +2,7 @@
 """Generate docs/EMPIRICAL_TYPE_LABELS.md -- the final packer -> Type document --
 from the empirical manifests produced by `packer-types finalize`.
 
-Scans every manifest/empirical_types_*.yaml, collects each condition that carries an
+Scans every manifest/type/empirical_types_*.yaml, collects each condition that carries an
 EMPIRICAL (exact-consensus) Type label, and writes a single sorted markdown table.
 Provisional/hypothesis-only rows are excluded: this document is the empirical result.
 """
@@ -35,7 +35,7 @@ def corpus_keys() -> set[tuple[str, str]]:
 def main() -> int:
     rows: dict[tuple[str, str], dict] = {}
     corpus = corpus_keys()
-    manifests = sorted(glob.glob(str(REPO / "manifest" / "empirical_types_*.yaml")))
+    manifests = sorted(glob.glob(str(REPO / "manifest/type" / "empirical_types_*.yaml")))
     for path in manifests:
         data = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
         for cond in data.get("conditions", []):

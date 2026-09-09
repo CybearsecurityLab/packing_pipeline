@@ -1,14 +1,14 @@
 # Empirical Packer-Type Results — Complete Corpus
 
-Every packer family+version in the NAS corpus, accounted for. Types are Ugarte et al. I–VI assigned **empirically** from real dynamic traces (see [AUTOMATIC_LABELING.md](AUTOMATIC_LABELING.md)). Generated from `manifest/empirical_types_*.yaml` — the final labels — so this document always matches the manifests rather than any one sweep. The `Rule` column records which labelling rule produced each Type, so the strongest evidence class stays distinguishable from the weaker ones.
+Every packer family+version in the NAS corpus, accounted for. Types are Ugarte et al. I–VI assigned **empirically** from real dynamic traces (see [AUTOMATIC_LABELING.md](AUTOMATIC_LABELING.md)). Generated from `manifest/type/empirical_types_*.yaml` — the final labels — so this document always matches the manifests rather than any one sweep. The `Rule` column records which labelling rule produced each Type, so the strongest evidence class stays distinguishable from the weaker ones.
 
 Unlike [EMPIRICAL_TYPE_LABELS.md](EMPIRICAL_TYPE_LABELS.md), which lists only successful labels, this document also states **why** each unresolved condition is unresolved, so no condition is silently missing.
 
 ## Summary
 
 - Corpus: **107** packer family+versions
-- Empirically typed: **100**
-- Unresolved: **5**
+- Empirically typed: **99**
+- Unresolved: **6**
 
 | Type | Conditions |
 |---|---|
@@ -18,7 +18,6 @@ Unlike [EMPIRICAL_TYPE_LABELS.md](EMPIRICAL_TYPE_LABELS.md), which lists only su
 | **TYPE_III** | 5 |
 | **TYPE_IV** | 10 |
 | **TYPE_V-F** | 1 |
-| **TYPE_VI-B** | 1 |
 | **TYPE_VI-F** | 4 |
 
 ### Why the unresolved are unresolved
@@ -27,6 +26,7 @@ Unlike [EMPIRICAL_TYPE_LABELS.md](EMPIRICAL_TYPE_LABELS.md), which lists only su
 |---|---|---|
 | UNCLASSIFIED | 3 |  |
 | INFRASTRUCTURE | 2 | infrastructure — trace truncated/timed out (retryable) |
+| METHODOLOGY_LIMIT | 1 | methodology limit — unpacking invisible to write→execute |
 
 A `SAMPLE_NOT_PACKED` verdict is a **corpus** problem, not a classifier one: the payload runs as an ordinary unpacked binary, so there is no unpacking to observe. `INFRASTRUCTURE` is retryable and says nothing about the packer. Only `METHODOLOGY_LIMIT` reflects a genuine boundary of the runtime write→execute model.
 
@@ -66,7 +66,6 @@ A `SAMPLE_NOT_PACKED` verdict is a **corpus** problem, not a classifier one: the
 | pezor | 3.3.0 | PEZOR_001_DEFAULT_32 | **TYPE_I** | 6 | exact |
 | rlpack | 1.21_Basic | . | **TYPE_I** | 6 | exact |
 | shrinker | 3.4_Demo | . | **TYPE_III** | 6 | exact |
-| telock | 0.98 | . | **TYPE_VI-B** | 3 | max-observed |
 | themida | 3.2.4.34 | . | **TYPE_I** | 6 | max-observed |
 | upack | 0.399__Brute | UPACK_001_DEFAULT | **TYPE_IV** | 6 | exact |
 | upx | 0.60 | UPX_V060_001_DEFAULT | **TYPE_I** | 6 | exact |
@@ -144,6 +143,7 @@ A `SAMPLE_NOT_PACKED` verdict is a **corpus** problem, not a classifier one: the
 | hyperion | 1.2 | UNCLASSIFIED | — |
 | armadillo | 252b2 | INFRASTRUCTURE | 0/6 runs hit the host timeout, 3 had an incomplete trace, 3 were TRACE_LOSS/CRASH -- the recording never reached a usable end state (retryable) |
 | obsidium | 1.5.2.11 | INFRASTRUCTURE | 1/6 runs hit the host timeout, 1 had an incomplete trace, 1 were TRACE_LOSS/CRASH -- the recording never reached a usable end state (retryable) |
+| telock | 0.98 | METHODOLOGY_LIMIT | RETRACTED. The TYPE_VI-B label finalised from this condition was measured on a mis-filed sample. Payload A (sha256 61d4d99e43406442d5faf6a1...) is byte-identical to yoda_protect... |
 
 ## Reproducing
 

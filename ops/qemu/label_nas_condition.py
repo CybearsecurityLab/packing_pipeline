@@ -120,7 +120,7 @@ def main() -> int:
         c.setdefault("available_samples", 2)
     plan.write_text(json.dumps(pd, indent=2))
     sh(["uv", "run", "packer-types", "finalize", str(plan), str(REPO / runs_dir),
-        "--yaml-output", f"manifest/empirical_types_{tag}.yaml",
+        "--yaml-output", f"manifest/type/empirical_types_{tag}.yaml",
         "--output", f"empirical_results/full_matrix/{tag}_labels.json"])
     sh(["python3", "ops/qemu/build_label_document.py"])
     # Also regenerate the authoritative packer->Type document, which covers every
@@ -128,7 +128,7 @@ def main() -> int:
     # the exact-consensus subset).  Keeping it generated is what stops it drifting
     # from the manifests, as it did while hand-maintained.
     sh(["python3", "ops/qemu/build_packer_type_document.py"])
-    m = yaml.safe_load((REPO / f"manifest/empirical_types_{tag}.yaml").read_text())
+    m = yaml.safe_load((REPO / f"manifest/type/empirical_types_{tag}.yaml").read_text())
     print(f"[{family} {version} {testcase}] label_distribution:",
           m.get("label_distribution"), flush=True)
     return 0

@@ -41,7 +41,7 @@ trace.jsonl  (exec / write / free / unmap / exception / marker events, one
 classification.json  (complexity_type = TYPE_I..VI, layers, tail, linear, ...)
    │  packer-types finalize   (exact consensus across reps × payloads)
    ▼
-manifest/empirical_types_*.yaml  +  doc/EMPIRICAL_TYPE_LABELS.md
+manifest/type/empirical_types_*.yaml  +  doc/EMPIRICAL_TYPE_LABELS.md
 ```
 
 Why the specific QEMU flags:
@@ -166,7 +166,7 @@ anything about the packer. See [ORACLE_LIMITATIONS.md](ORACLE_LIMITATIONS.md).
 
 # 3) aggregate into an empirical manifest:
 uv run packer-types finalize <runs_dir>/plan.json <runs_dir> \
-    --yaml-output manifest/empirical_types_<cond>.yaml
+    --yaml-output manifest/type/empirical_types_<cond>.yaml
 ```
 
 `ops/qemu/cert_matrix_finalize.sh` chains cert → matrix → finalize for one condition.

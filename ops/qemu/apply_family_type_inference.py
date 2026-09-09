@@ -61,7 +61,7 @@ def main() -> int:
     labelled_by_family: dict[str, dict[str, str]] = defaultdict(dict)
     unlabelled: list[tuple[str, str, str]] = []   # (path, family, version)
 
-    for path in sorted(glob.glob(str(REPO / "manifest" / "empirical_types_*.yaml"))):
+    for path in sorted(glob.glob(str(REPO / "manifest/type" / "empirical_types_*.yaml"))):
         data = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
         for cond in data.get("conditions", []):
             family = str(cond.get("packer_family")).lower()

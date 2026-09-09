@@ -43,7 +43,7 @@ I=/data/antivm_runs/images
 redo "$I/obsidium_v1.5.2_1.5.2.11_1.qcow2" "$O/obsidiumA_rep3" "None__obsidiumA__rep3" 1
 redo "$I/obsidium_v1.5.2_1.5.2.11_2.qcow2" "$O/obsidiumB_rep1" "None__obsidiumB__rep1" 1
 PACKER_ACCEPT_BOUNDED=1 uv run packer-types finalize "$O/plan.json" "$O" \
-    --yaml-output manifest/empirical_types_obsidium_v1.5.2_1.5.2.11.yaml \
+    --yaml-output manifest/type/empirical_types_obsidium_v1.5.2_1.5.2.11.yaml \
     --output empirical_results/full_matrix/obsidium_v1.5.2_1.5.2.11_labels.json
 
 wait_for "label_nas_condition.py hxor_packer_0.1"
@@ -53,7 +53,7 @@ redo empirical_results/qemu_runtime/windows10-qemu-hxor_packer1.qcow2 \
 redo empirical_results/qemu_runtime/windows10-qemu-hxor_packer1.qcow2 \
      "$H/hxor_packerA_rep2" "HXOR_001_DEFAULT__hxor_packerA__rep2" 0
 PACKER_ACCEPT_BOUNDED=1 uv run packer-types finalize "$H/plan.json" "$H" \
-    --yaml-output manifest/empirical_types_hxor_packer.yaml \
+    --yaml-output manifest/type/empirical_types_hxor_packer.yaml \
     --output empirical_results/full_matrix/hxor_packer_labels.json
 
 uv run python ops/qemu/build_packer_type_document.py

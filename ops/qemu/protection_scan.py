@@ -33,7 +33,7 @@ TRACE_LOSS_TERMS = {"trace_loss", "crash", "unrecovered_exception_two_minutes"}
 
 
 def resolved_label(tag: str) -> str | None:
-    mf = REPO / f"manifest/empirical_types_{tag}.yaml"
+    mf = REPO / f"manifest/type/empirical_types_{tag}.yaml"
     if not mf.exists():
         return None
     try:
