@@ -16,10 +16,10 @@ retry_run_count: 0
 in_place_validation_run_count: 0
 alternate_payload_run_count: 0
 conditions:
-- packer_family: obsidium
-  packer_version: 1.5.2.11
-  configuration_id: gui-e80ab1d53785
-  test_case_id: null
+- packer_family: alushpacker
+  packer_version: 1.0.0
+  configuration_id: alushpacker_001_default-b0e78ff4e870
+  test_case_id: ALUSHPACKER_001_DEFAULT
   condition_source: yaml_test_case
   nas_status: planned
   available_nas_samples: 2
@@ -43,3 +43,11 @@ conditions:
   label_status: null
   confidence: 0.0
   paper_evidence_level: null
+  pipeline_verdict: output_nonfunctional_confirmed
+  needs_pipeline: false
+  pipeline_evidence: '2 distinct payloads x 3 reps, certified backend (plugin 50a5aa94...):
+    every run exec_events=0 with paper_termination_reason=no_execution_launch_failed.
+    root_image_base/size are populated and vary per run (ASLR live), so the process
+    image IS created and mapped, but not one basic block executes -- the loader rejects
+    the packed PE before its entry point. Not an oracle gap: with zero executed instructions
+    there is no runtime behaviour for any dynamic method to observe.'
