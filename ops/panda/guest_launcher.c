@@ -214,6 +214,9 @@ static int run_sample(int argc, char **argv) {
     PROCESS_INFORMATION process;
     JOBOBJECT_EXTENDED_LIMIT_INFORMATION limits;
     HANDLE job = NULL;
+    HANDLE stdio_sink = INVALID_HANDLE_VALUE;
+    SECURITY_ATTRIBUTES sink_security;
+    BOOL inherit_handles = FALSE;
     char *command_line = NULL;
     DWORD timeout_seconds;
     uint64_t idle_milliseconds;
@@ -252,10 +255,38 @@ static int run_sample(int argc, char **argv) {
 
     write_status(argv[4], "starting", timeout_seconds, 0);
 
+    ZeroMemory(&sink_security, sizeof(sink_security));
+    sink_security.nLength = sizeof(sink_security);
+    sink_security.bInheritHandle = TRUE;
+
     ZeroMemory(&startup, sizeof(startup));
     ZeroMemory(&process, sizeof(process));
     ZeroMemory(&limits, sizeof(limits));
     startup.cb = sizeof(startup);
+
+    /* Give the sample real standard handles.  Previously STARTUPINFO was zeroed
+     * with no STARTF_USESTDHANDLES and CreateProcess was called with
+     * bInheritHandles=FALSE, so the sample ran with NO stdin/stdout/stderr at all.
+     * A process launched from a desktop or a shell always has them; a guest that
+     * does not is the outlier, and a packer stub that writes progress output can
+     * stall there through no fault of its own.  alushpacker maps its payload --
+     * header copy, section copy and destination stores are all recorded -- and
+     * then its last observed user code is a CRT print call from which it never
+     * returns, with the trace ending inside ntdll.
+     *
+     * The handles go to a file rather than NUL so the output is recoverable as
+     * evidence.  Failure is non-fatal: the sample simply runs as it did before. */
+    stdio_sink = CreateFileA("C:\\Panda\\sample_stdout.txt",
+                             FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                             &sink_security, OPEN_ALWAYS,
+                             FILE_ATTRIBUTE_NORMAL, NULL);
+    if (stdio_sink != INVALID_HANDLE_VALUE) {
+        startup.dwFlags |= STARTF_USESTDHANDLES;
+        startup.hStdInput = INVALID_HANDLE_VALUE;
+        startup.hStdOutput = stdio_sink;
+        startup.hStdError = stdio_sink;
+        inherit_handles = TRUE;
+    }
 
     command_line = _strdup(argv[1]);
     if (command_line == NULL) {
@@ -276,7 +307,7 @@ static int run_sample(int argc, char **argv) {
         goto cleanup;
     }
 
-    if (!CreateProcessA(argv[1], command_line, NULL, NULL, FALSE,
+    if (!CreateProcessA(argv[1], command_line, NULL, NULL, inherit_handles,
                         CREATE_SUSPENDED, NULL, NULL, &startup, &process)) {
         write_status(argv[4], "create_process_failed", GetLastError(), 0);
         goto cleanup;
@@ -441,6 +472,9 @@ process_cleanup:
 cleanup:
     if (job != NULL) {
         CloseHandle(job);
+    }
+    if (stdio_sink != INVALID_HANDLE_VALUE) {
+        CloseHandle(stdio_sink);
     }
     free(command_line);
     return result;
