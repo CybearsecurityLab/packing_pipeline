@@ -1,54 +1,61 @@
-#!/bin/sh
-# Install the x86 VC++ runtime DLL into a guest qcow2.
+#!/bin/bash
+# Install the VC++ runtime redistributable DLLs into a guest qcow2.
 #
-# Why: AlushPacker's builder appends a precompiled MSVC-built stub
+# WHY: AlushPacker's builder appends a precompiled MSVC-built stub
 # (Builder/builder.c:298-308), so every alushpacker output imports
-# VCRUNTIME140.dll.  Our Windows 10 guest has no VC++ redistributable -- neither
-# System32 nor SysWOW64 carries VCRUNTIME140.dll (only the .NET-private
+# VCRUNTIME140.dll.  Our Windows 10 guest ships no VC++ redistributable --
+# neither System32 nor SysWOW64 has VCRUNTIME140.dll (only the .NET-private
 # vcruntime140_clr0400.dll, which does not satisfy an import by that name), and
-# WinSxS holds only vc80/vc90 CRTs.  Import resolution therefore fails before the
-# entry point, which the tracer records as exec_events=0 with
+# WinSxS carries only vc80/vc90 CRTs.  Import resolution therefore fails before
+# the entry point.  The tracer records that as exec_events=0 with
 # no_execution_launch_failed, sample_started=false and root_entry_seen=false while
-# the launcher's own PACK markers still fire.  That is an environment defect and
-# must not be read as the packer emitting a broken PE.
+# the launcher's own PACK markers still fire -- which reads exactly like a packer
+# emitting an unloadable PE, and is not.  Any MSVC-built stub hits this.
 #
-# The samples are PE32 on a 64-bit guest, so they run under WOW64 and resolve
-# DLLs from C:\Windows\SysWOW64 -- the x86 DLL goes there, not System32.
+# The api-ms-win-crt-* imports are NOT implicated: those are API sets the Win10
+# apiset schema resolves to ucrtbase.dll, which is present.
 #
-# This touches no component of the backend identity pin (qemu, plugin, launcher,
-# ntdll, kernel profile), so certification is preserved.
+# x86 -> SysWOW64 and x64 -> System32, mirroring VC_redist.x86.exe and
+# VC_redist.x64.exe.  PE32 samples run under WOW64 and resolve from SysWOW64.
+# Existing files are never overwritten, so nothing Windows shipped is perturbed.
 #
-# Provenance of the DLL (reproducible, no browser):
-#   pip download --platform win32 --python-version 39 --only-binary=:all: \
-#       --no-deps msvc-runtime==14.29.30133 -d .
-#   unzip -o msvc_runtime-14.29.30133-cp39-cp39-win32.whl -d x
-#   x/msvc_runtime-14.29.30133.data/data/Scripts/vcruntime140.dll
-# machine=0x14c (x86), 76168 bytes, Authenticode signature present,
-# sha256 1e0f8f7f13502f5cee17232e9bebca7b44dd6ec29f1842bb61033044c65b2bbf.
-# Note that later msvc-runtime releases ship x64 binaries under a win32 wheel tag;
-# 14.29.30133 is the version that actually carries an x86 build.
+# Installing these touches no component of the backend identity pin (qemu, plugin,
+# launcher, ntdll, kernel profile), so certification is preserved.
 #
-# SAFETY: pass an OVERLAY, or the base only when no qemu is running.  Running
-# guests hold the base as a backing file and writing it under them corrupts them.
+# DLL provenance (reproducible with pip alone, no browser):
+#   x86: pip download --platform win32 --python-version 39 --only-binary=:all: \
+#            --no-deps msvc-runtime==14.29.30133
+#   x64: ... msvc-runtime==14.44.35112
+#   then unzip and take the PE32/PE32+ DLLs respectively.
+# Note 14.29.30133 is the version whose win32 wheel actually ships x86 binaries;
+# later releases ship x64 under a win32 wheel tag.  vcruntime140.dll x86 is
+# sha256 1e0f8f7f13502f5cee17232e9bebca7b44dd6ec29f1842bb61033044c65b2bbf with an
+# Authenticode signature present.
 #
-# Usage: sudo ops/qemu/install_guest_vcredist.sh <image.qcow2> [dll] [nbd]
-set -e
+# SAFETY: pass an overlay freely.  The BASE image may only be written when no qemu
+# is running -- running guests hold it as a backing file and writing under them
+# corrupts every one of them.
+#
+# Usage: sudo ops/qemu/install_guest_vcredist.sh <image.qcow2> [nbd]
+set -euo pipefail
 repo=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
-img="$1"
-dll="${2:-$repo/empirical_results/qemu_runtime/guest_deps/VCRUNTIME140.x86.dll}"
-nbd="${3:-/dev/nbd14}"
+img="${1:?usage: install_guest_vcredist.sh <image.qcow2> [nbd]}"
+nbd="${2:-/dev/nbd14}"
+deps="$repo/empirical_results/qemu_runtime/guest_deps"
 mnt=/tmp/vcrtinst.$$
-[ -f "$img" ] || { echo "no such image: $img" >&2; exit 1; }
-[ -f "$dll" ] || { echo "no such dll: $dll (see provenance in this script)" >&2; exit 1; }
 
-running=$(pgrep -x qemu-system-x86 2>/dev/null | wc -l)
+[ -f "$img" ] || { echo "no such image: $img" >&2; exit 1; }
+[ -d "$deps/x86" ] || { echo "missing $deps/x86 (see provenance above)" >&2; exit 1; }
+
+running=$(pgrep -x qemu-system-x86 2>/dev/null | grep -c . || true)
 case "$img" in
   *windows10-qemu-repair.qcow2)
-    if [ "$running" -gt 0 ]; then
-        echo "refusing: $running qemu process(es) running and this is the BASE image;" >&2
-        echo "their overlays would be corrupted.  Wait for them to finish." >&2
+    if [ "${running:-0}" -gt 0 ]; then
+        echo "REFUSING: $running qemu process(es) running and this is the BASE image." >&2
+        echo "Their overlays would be corrupted.  Stop them first." >&2
         exit 1
-    fi;;
+    fi
+    echo "[vcredist] BASE image, host is quiet ($running qemu) -- proceeding";;
 esac
 
 mkdir -p "$mnt"
@@ -58,6 +65,7 @@ trap cleanup EXIT
 qemu-nbd --disconnect "$nbd" >/dev/null 2>&1 || true
 qemu-nbd --connect="$nbd" "$img"
 sleep 1; partprobe "$nbd" 2>/dev/null || true; sleep 1
+
 for part in "$nbd"p1 "$nbd"p2 "$nbd"p3 "$nbd"p4; do
     [ -b "$part" ] || continue
     umount "$mnt" 2>/dev/null || true
@@ -65,10 +73,27 @@ for part in "$nbd"p1 "$nbd"p2 "$nbd"p3 "$nbd"p4; do
     if [ -f "$mnt/Windows/System32/config/SYSTEM" ]; then
         umount "$mnt"
         mount -t ntfs-3g -o rw "$part" "$mnt"
-        cp -f "$dll" "$mnt/Windows/SysWOW64/VCRUNTIME140.dll"
+        inst=0; skip=0
+        for pair in "x86:SysWOW64" "x64:System32"; do
+            set -- $(echo "$pair" | tr ':' ' ')
+            src="$deps/$1"; dstdir="$mnt/Windows/$2"
+            [ -d "$dstdir" ] || { echo "[vcredist] no $2 in guest, skipping $1"; continue; }
+            for f in "$src"/*.dll; do
+                b=$(basename "$f")
+                # match the guest's own casing convention for these names
+                target="$dstdir/$(echo "$b" | tr '[:lower:]' '[:upper:]' | sed 's/\.DLL$/.dll/')"
+                if [ -e "$dstdir/$b" ] || [ -e "$target" ]; then
+                    skip=$((skip+1)); continue
+                fi
+                cp -f "$f" "$dstdir/$b"; inst=$((inst+1))
+            done
+            echo "[vcredist] $1 -> Windows/$2"
+        done
         sync
-        echo "installed SysWOW64/VCRUNTIME140.dll into $img"
-        sha256sum "$mnt/Windows/SysWOW64/VCRUNTIME140.dll"
+        echo "[vcredist] installed $inst dll(s), skipped $skip already present"
+        echo "[vcredist] verify:"
+        ls -l "$mnt/Windows/SysWOW64/vcruntime140.dll" 2>/dev/null || echo "   MISSING SysWOW64/vcruntime140.dll"
+        ls -l "$mnt/Windows/System32/vcruntime140.dll" 2>/dev/null || echo "   MISSING System32/vcruntime140.dll"
         umount "$mnt"
         exit 0
     fi
