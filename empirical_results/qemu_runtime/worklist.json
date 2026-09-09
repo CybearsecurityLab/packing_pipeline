@@ -70,9 +70,23 @@
     "family": "alienyze_protector",
     "version": "1.4",
     "testcase": ".",
-    "n": 266,
+    "n": 270,
     "cid": "gui-086c6c0e931a",
     "samples": [
+      {
+        "testcase": "",
+        "name": "bison_unxutils_X86_portable_en-US.exe",
+        "size": 82432,
+        "sha256": "8e9dcaf44769557ffc737a52fa7af47725cf950e05a6122310d3837ae33f5356",
+        "remote": "//10.100.99.29/samples/benign_packed/alienyze_protector_1.4/bison_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "",
+        "name": "agrep_unxutils_X86_portable_en-US.exe",
+        "size": 147456,
+        "sha256": "d3a8d1e4b962bba497675d163fb308621dd0c62ccb5b28b49ea62a999e3eac6e",
+        "remote": "//10.100.99.29/samples/benign_packed/alienyze_protector_1.4/agrep_unxutils_X86_portable_en-US.exe"
+      },
       {
         "testcase": "CR_20A6F.tmp",
         "name": "setup.exe",
@@ -114,20 +128,72 @@
         "size": 734112,
         "sha256": null,
         "remote": "//10.100.99.29/samples/benign_packed/alienyze_protector_1.4/Bitwarden_2026.5.0_User_X86_nullsoft_en-US.exe"
+      }
+    ]
+  },
+  {
+    "nas_dir": "alushpacker_1.0.0",
+    "family": "alushpacker",
+    "version": "1.0.0",
+    "testcase": "ALUSHPACKER_001_DEFAULT",
+    "n": 220,
+    "cid": "alushpacker_001_default-b0e78ff4e870",
+    "samples": [
+      {
+        "testcase": "ALUSHPACKER_001_DEFAULT",
+        "name": "ansi2knr_unxutils_X86_portable_en-US.exe",
+        "size": 19968,
+        "sha256": "f72543b11dcd1529de9a3ca0bfbe2ae6d15561bd4acf15fdd9bd151efeafbe56",
+        "remote": "//10.100.99.29/samples/benign_packed/alushpacker_1.0.0/ALUSHPACKER_001_DEFAULT/ansi2knr_unxutils_X86_portable_en-US.exe"
       },
       {
-        "testcase": "",
-        "name": "Bome SendSX_1.4_Machine_X86_inno_en-US.exe",
-        "size": 837144,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/alienyze_protector_1.4/Bome SendSX_1.4_Machine_X86_inno_en-US.exe"
+        "testcase": "ALUSHPACKER_001_DEFAULT",
+        "name": "basename_unxutils_X86_portable_en-US.exe",
+        "size": 20480,
+        "sha256": "381ee58e4f59c2710f380c9aef3975a9387dfa3da07a61c6aeaa356160bf6006",
+        "remote": "//10.100.99.29/samples/benign_packed/alushpacker_1.0.0/ALUSHPACKER_001_DEFAULT/basename_unxutils_X86_portable_en-US.exe"
       },
       {
-        "testcase": "",
-        "name": "setup.exe",
-        "size": 887296,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/alienyze_protector_1.4/setup.exe"
+        "testcase": "ALUSHPACKER_001_DEFAULT",
+        "name": "bzip2recover_unxutils_X86_portable_en-US.exe",
+        "size": 20992,
+        "sha256": "b8084f513df97b498ef522497b1b703b918c1061d43af61bfec08082db6811f8",
+        "remote": "//10.100.99.29/samples/benign_packed/alushpacker_1.0.0/ALUSHPACKER_001_DEFAULT/bzip2recover_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "ALUSHPACKER_001_DEFAULT",
+        "name": "cmp_unxutils_X86_portable_en-US.exe",
+        "size": 23552,
+        "sha256": "4b803e2939acd7465fe67d9486054fc8b09531dd53b0710837f1b2928ebbb062",
+        "remote": "//10.100.99.29/samples/benign_packed/alushpacker_1.0.0/ALUSHPACKER_001_DEFAULT/cmp_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "ALUSHPACKER_001_DEFAULT",
+        "name": "cksum_unxutils_X86_portable_en-US.exe",
+        "size": 30208,
+        "sha256": "79bade95abb30703c7e5aadc0797066256462a19535202b18ea20bb17a3b41eb",
+        "remote": "//10.100.99.29/samples/benign_packed/alushpacker_1.0.0/ALUSHPACKER_001_DEFAULT/cksum_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "ALUSHPACKER_001_DEFAULT",
+        "name": "comm_unxutils_X86_portable_en-US.exe",
+        "size": 30208,
+        "sha256": "6b381e3e14aa0a3c7670b06a7d1ff8af9dd4d51adb3cf30c2de26b0c300f067c",
+        "remote": "//10.100.99.29/samples/benign_packed/alushpacker_1.0.0/ALUSHPACKER_001_DEFAULT/comm_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "ALUSHPACKER_001_DEFAULT",
+        "name": "cat_unxutils_X86_portable_en-US.exe",
+        "size": 31232,
+        "sha256": "47b0a5f9601b30bcfe81c74aaf993e24860582e6c5d87973579cfa0af55322be",
+        "remote": "//10.100.99.29/samples/benign_packed/alushpacker_1.0.0/ALUSHPACKER_001_DEFAULT/cat_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "ALUSHPACKER_001_DEFAULT",
+        "name": "chmod_unxutils_X86_portable_en-US.exe",
+        "size": 32768,
+        "sha256": "08a29ffa18301b86a31411a6c10b0a7e9b5e2cd621fbf07b5f7f88189240fd9e",
+        "remote": "//10.100.99.29/samples/benign_packed/alushpacker_1.0.0/ALUSHPACKER_001_DEFAULT/chmod_unxutils_X86_portable_en-US.exe"
       }
     ]
   },
@@ -135,65 +201,197 @@
     "nas_dir": "amber_v2.0_2.0",
     "family": "amber",
     "version": "2.0",
-    "testcase": "AMBER_V2_002_REFLECTIVE",
-    "n": 88,
+    "testcase": "AMBER_V2_001_DEFAULT_BUILD",
+    "n": 490,
     "cid": "amber_v2_001_default_build-0559d11933b7",
     "samples": [
       {
-        "testcase": "AMBER_V2_002_REFLECTIVE",
-        "name": "IconViewer_3.2.147_Machine_X86_exe_en-US.exe",
-        "size": 700992,
+        "testcase": "AMBER_V2_005_SCRAPE_HEADER",
+        "name": "Airytec_Switch_Off_3.5.1_Machine_X86_nullsoft_en-US.exe",
+        "size": 3996672,
         "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v2.0_2.0/AMBER_V2_002_REFLECTIVE/IconViewer_3.2.147_Machine_X86_exe_en-US.exe"
+        "remote": "//10.100.99.29/samples/benign_packed/amber_v2.0_2.0/AMBER_V2_005_SCRAPE_HEADER/Airytec_Switch_Off_3.5.1_Machine_X86_nullsoft_en-US.exe"
       },
       {
-        "testcase": "AMBER_V2_002_REFLECTIVE",
-        "name": "Bitwarden_2026.5.0_User_X86_nullsoft_en-US.exe",
-        "size": 734112,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v2.0_2.0/AMBER_V2_002_REFLECTIVE/Bitwarden_2026.5.0_User_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_V2_002_REFLECTIVE",
-        "name": "Bome_SendSX_1.4_Machine_X86_inno_en-US.exe",
-        "size": 837144,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v2.0_2.0/AMBER_V2_002_REFLECTIVE/Bome_SendSX_1.4_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_V2_002_REFLECTIVE",
-        "name": "setup.exe",
-        "size": 887296,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v2.0_2.0/AMBER_V2_002_REFLECTIVE/setup.exe"
-      },
-      {
-        "testcase": "AMBER_V2_002_REFLECTIVE",
-        "name": "PNGGauntlet_3.1.1_X86_exe_en-US.exe",
-        "size": 921646,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v2.0_2.0/AMBER_V2_002_REFLECTIVE/PNGGauntlet_3.1.1_X86_exe_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_V2_002_REFLECTIVE",
-        "name": "PCI-Z_2.0_X86_portable_en-US.exe",
-        "size": 1172464,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v2.0_2.0/AMBER_V2_002_REFLECTIVE/PCI-Z_2.0_X86_portable_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_V2_002_REFLECTIVE",
+        "testcase": "AMBER_V2_005_SCRAPE_HEADER",
         "name": "AkelPad_4.9.9_Machine_X86_nullsoft_en-US.exe",
-        "size": 1241412,
+        "size": 3996672,
         "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v2.0_2.0/AMBER_V2_002_REFLECTIVE/AkelPad_4.9.9_Machine_X86_nullsoft_en-US.exe"
+        "remote": "//10.100.99.29/samples/benign_packed/amber_v2.0_2.0/AMBER_V2_005_SCRAPE_HEADER/AkelPad_4.9.9_Machine_X86_nullsoft_en-US.exe"
       },
       {
-        "testcase": "AMBER_V2_002_REFLECTIVE",
-        "name": "Ant_Renamer_2.13.0_Machine_X86_inno_en-US.exe",
-        "size": 1295122,
+        "testcase": "AMBER_V2_005_SCRAPE_HEADER",
+        "name": "AltSnap_1.67_User_X86_nullsoft_en-US.exe",
+        "size": 3996672,
         "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v2.0_2.0/AMBER_V2_002_REFLECTIVE/Ant_Renamer_2.13.0_Machine_X86_inno_en-US.exe"
+        "remote": "//10.100.99.29/samples/benign_packed/amber_v2.0_2.0/AMBER_V2_005_SCRAPE_HEADER/AltSnap_1.67_User_X86_nullsoft_en-US.exe"
+      },
+      {
+        "testcase": "AMBER_V2_005_SCRAPE_HEADER",
+        "name": "Amazon_Games_3.0.9700.3_User_X86_exe_en-US.exe",
+        "size": 3996672,
+        "sha256": null,
+        "remote": "//10.100.99.29/samples/benign_packed/amber_v2.0_2.0/AMBER_V2_005_SCRAPE_HEADER/Amazon_Games_3.0.9700.3_User_X86_exe_en-US.exe"
+      },
+      {
+        "testcase": "AMBER_V2_005_SCRAPE_HEADER",
+        "name": "Ant_Renamer_2.13.0_Machine_X86_inno_en-US.exe",
+        "size": 3996672,
+        "sha256": null,
+        "remote": "//10.100.99.29/samples/benign_packed/amber_v2.0_2.0/AMBER_V2_005_SCRAPE_HEADER/Ant_Renamer_2.13.0_Machine_X86_inno_en-US.exe"
+      },
+      {
+        "testcase": "AMBER_V2_005_SCRAPE_HEADER",
+        "name": "Armagetron_Advanced_0.2.9.2.3_Machine_X86_nullsoft_en-US.exe",
+        "size": 3996672,
+        "sha256": null,
+        "remote": "//10.100.99.29/samples/benign_packed/amber_v2.0_2.0/AMBER_V2_005_SCRAPE_HEADER/Armagetron_Advanced_0.2.9.2.3_Machine_X86_nullsoft_en-US.exe"
+      },
+      {
+        "testcase": "AMBER_V2_005_SCRAPE_HEADER",
+        "name": "AstroGrep_4.4.9_Machine_X86_nullsoft_en-US.exe",
+        "size": 3996672,
+        "sha256": null,
+        "remote": "//10.100.99.29/samples/benign_packed/amber_v2.0_2.0/AMBER_V2_005_SCRAPE_HEADER/AstroGrep_4.4.9_Machine_X86_nullsoft_en-US.exe"
+      },
+      {
+        "testcase": "AMBER_V2_005_SCRAPE_HEADER",
+        "name": "AutoHotkey_2.0.26_User_X86_exe_en-US.exe",
+        "size": 3996672,
+        "sha256": null,
+        "remote": "//10.100.99.29/samples/benign_packed/amber_v2.0_2.0/AMBER_V2_005_SCRAPE_HEADER/AutoHotkey_2.0.26_User_X86_exe_en-US.exe"
+      }
+    ]
+  },
+  {
+    "nas_dir": "amber_v3.0_3.0",
+    "family": "amber",
+    "version": "3.0",
+    "testcase": "AMBER_V30_001_DEFAULT",
+    "n": 660,
+    "cid": "amber_v30_001_default-e405bdce899a",
+    "samples": [
+      {
+        "testcase": "AMBER_V30_002_IAT",
+        "name": "ansi2knr_unxutils_X86_portable_en-US.exe",
+        "size": 186880,
+        "sha256": "24b9fd4a4eed8d6a8311b95eff5bd8c523a3dabb38c6386a4f53bdb171b434fc",
+        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.0_3.0/AMBER_V30_002_IAT/ansi2knr_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "AMBER_V30_003_ENCODED",
+        "name": "ansi2knr_unxutils_X86_portable_en-US.exe",
+        "size": 186880,
+        "sha256": "17bc8e6aae5eaf6e2c1066ecc38f4113c737cf2786843662cf9849a30e13144f",
+        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.0_3.0/AMBER_V30_003_ENCODED/ansi2knr_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "AMBER_V30_001_DEFAULT",
+        "name": "ansi2knr_unxutils_X86_portable_en-US.exe",
+        "size": 187392,
+        "sha256": "038eda73bd14aace7505471e472faddc204535cedda4f36ac655848f1262a015",
+        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.0_3.0/AMBER_V30_001_DEFAULT/ansi2knr_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "AMBER_V30_001_DEFAULT",
+        "name": "basename_unxutils_X86_portable_en-US.exe",
+        "size": 190976,
+        "sha256": "55c8e8ae5a044ce450776dd9f6c5ed3e932e14df44628941707188aade6f0f2a",
+        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.0_3.0/AMBER_V30_001_DEFAULT/basename_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "AMBER_V30_002_IAT",
+        "name": "basename_unxutils_X86_portable_en-US.exe",
+        "size": 190976,
+        "sha256": "67d272741e7511183fa212b46fd68ad2358cd8094880ab56df4bce95ce80d020",
+        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.0_3.0/AMBER_V30_002_IAT/basename_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "AMBER_V30_003_ENCODED",
+        "name": "basename_unxutils_X86_portable_en-US.exe",
+        "size": 190976,
+        "sha256": "0c175589c5078e6a93ab77d0e4bb53e071c5e292ceec1166339f6542d5cd76c2",
+        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.0_3.0/AMBER_V30_003_ENCODED/basename_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "AMBER_V30_001_DEFAULT",
+        "name": "cmp_unxutils_X86_portable_en-US.exe",
+        "size": 195072,
+        "sha256": "bc4180084a56ffb6809059493a5a5f46075a4c2ef50f5b448364abff5fbeec4b",
+        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.0_3.0/AMBER_V30_001_DEFAULT/cmp_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "AMBER_V30_002_IAT",
+        "name": "cmp_unxutils_X86_portable_en-US.exe",
+        "size": 195072,
+        "sha256": "d7abd84402d398b66da3d101d72e5913bf7f98eec2d6058fa4fda2cd3aacc980",
+        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.0_3.0/AMBER_V30_002_IAT/cmp_unxutils_X86_portable_en-US.exe"
+      }
+    ]
+  },
+  {
+    "nas_dir": "amber_v3.1_3.1",
+    "family": "amber",
+    "version": "3.1",
+    "testcase": "AMBER_001_DEFAULT_BUILD",
+    "n": 880,
+    "cid": "amber_001_default_build-569c77b73f26",
+    "samples": [
+      {
+        "testcase": "AMBER_001_DEFAULT_BUILD",
+        "name": "ansi2knr_unxutils_X86_portable_en-US.exe",
+        "size": 186880,
+        "sha256": "e989c65dd3302bd173077c4b06e52731abeb753df42f5633b607b1cd5d651fe3",
+        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/ansi2knr_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "AMBER_002_IAT_RESOLVER",
+        "name": "ansi2knr_unxutils_X86_portable_en-US.exe",
+        "size": 186880,
+        "sha256": "0bc8a61edddf53647df4478a58cddd1640c4f8437fd3279977d2afe163258ff7",
+        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_002_IAT_RESOLVER/ansi2knr_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "AMBER_003_MULTI_ENCODE",
+        "name": "ansi2knr_unxutils_X86_portable_en-US.exe",
+        "size": 187392,
+        "sha256": "42aba9e813dafbc885d0988f6eee08b0cc6e901dd4d6092086c6ef7c9ef4eaa7",
+        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_003_MULTI_ENCODE/ansi2knr_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "AMBER_004_MAX_OBFUSCATION",
+        "name": "ansi2knr_unxutils_X86_portable_en-US.exe",
+        "size": 187392,
+        "sha256": "d3421f985efa73b12ca0c476cadf8b0bbb09a1e8db2f79ae126b56c4b300d3ab",
+        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_004_MAX_OBFUSCATION/ansi2knr_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "AMBER_001_DEFAULT_BUILD",
+        "name": "basename_unxutils_X86_portable_en-US.exe",
+        "size": 190976,
+        "sha256": "355854c3f2671bab4135b85bc6941faacdb9c2be813e5e65c7cd9099b8f54dc1",
+        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/basename_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "AMBER_002_IAT_RESOLVER",
+        "name": "basename_unxutils_X86_portable_en-US.exe",
+        "size": 190976,
+        "sha256": "d6d425cb715f5555b779a34cb2344a3244a285546fc214f36910256bce927cc7",
+        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_002_IAT_RESOLVER/basename_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "AMBER_003_MULTI_ENCODE",
+        "name": "basename_unxutils_X86_portable_en-US.exe",
+        "size": 191488,
+        "sha256": "6711e6c1042beca4cc0a14f43f47ebd2bdbb26113bbac39263ab4aeae00a43e5",
+        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_003_MULTI_ENCODE/basename_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "AMBER_004_MAX_OBFUSCATION",
+        "name": "basename_unxutils_X86_portable_en-US.exe",
+        "size": 191488,
+        "sha256": "92cd1de85e43f2e174c18107e8a5e9a9992006763b1fdc0617709293c6276a2f",
+        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_004_MAX_OBFUSCATION/basename_unxutils_X86_portable_en-US.exe"
       }
     ]
   },
@@ -792,6 +990,204 @@
     ]
   },
   {
+    "nas_dir": "hxor_packer_0.1",
+    "family": "hxor_packer",
+    "version": "0.1",
+    "testcase": "HXOR_001_DEFAULT",
+    "n": 857,
+    "cid": "hxor_001_default-14ec28b1bc56",
+    "samples": [
+      {
+        "testcase": "HXOR_002_COMPRESSION",
+        "name": "ansi2knr_unxutils_X86_portable_en-US.exe",
+        "size": 225439,
+        "sha256": "174d641f7b07629952b445c6be12a36e47b6b6f4e60b1ad6f222251f93e40f60",
+        "remote": "//10.100.99.29/samples/benign_packed/hxor_packer_0.1/HXOR_002_COMPRESSION/ansi2knr_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "HXOR_004_COMPRESSION_ENCRYPTION",
+        "name": "ansi2knr_unxutils_X86_portable_en-US.exe",
+        "size": 225439,
+        "sha256": "5869c65be00af74a95b37e8894edc0ba87fdfe8ea6fcf31a3b9d92d0fc30463e",
+        "remote": "//10.100.99.29/samples/benign_packed/hxor_packer_0.1/HXOR_004_COMPRESSION_ENCRYPTION/ansi2knr_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "HXOR_002_COMPRESSION",
+        "name": "basename_unxutils_X86_portable_en-US.exe",
+        "size": 226684,
+        "sha256": "2defa79aa5ea55c2876bf2c707b60769b6f25015dacad623464d39def9f232b8",
+        "remote": "//10.100.99.29/samples/benign_packed/hxor_packer_0.1/HXOR_002_COMPRESSION/basename_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "HXOR_004_COMPRESSION_ENCRYPTION",
+        "name": "basename_unxutils_X86_portable_en-US.exe",
+        "size": 226684,
+        "sha256": "3fe0c5dea11f585fbca83db0dac5b366b064e34771ad93c1ef8a51a4bf024a38",
+        "remote": "//10.100.99.29/samples/benign_packed/hxor_packer_0.1/HXOR_004_COMPRESSION_ENCRYPTION/basename_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "HXOR_001_DEFAULT",
+        "name": "ansi2knr_unxutils_X86_portable_en-US.exe",
+        "size": 226925,
+        "sha256": "2bf91eb36943fc23dab0c844350b4a41bf4b52d00598b1060163c5085462bddb",
+        "remote": "//10.100.99.29/samples/benign_packed/hxor_packer_0.1/HXOR_001_DEFAULT/ansi2knr_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "HXOR_003_ENCRYPTION",
+        "name": "ansi2knr_unxutils_X86_portable_en-US.exe",
+        "size": 226925,
+        "sha256": "c3776b0e14e20c88d65827ad38ca47b4e2dd4145b1157726da4d08a6bf9a66e2",
+        "remote": "//10.100.99.29/samples/benign_packed/hxor_packer_0.1/HXOR_003_ENCRYPTION/ansi2knr_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "HXOR_002_COMPRESSION",
+        "name": "bzip2recover_unxutils_X86_portable_en-US.exe",
+        "size": 227260,
+        "sha256": "3900dac255430c2f50a9a488e546da6b5cb4bbb516dcd5c50a4e519e5c587144",
+        "remote": "//10.100.99.29/samples/benign_packed/hxor_packer_0.1/HXOR_002_COMPRESSION/bzip2recover_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "HXOR_004_COMPRESSION_ENCRYPTION",
+        "name": "bzip2recover_unxutils_X86_portable_en-US.exe",
+        "size": 227260,
+        "sha256": "0a4998b9c1d47ee863ab560ca6df19be78b1428a99d20143e04d28ed545c3892",
+        "remote": "//10.100.99.29/samples/benign_packed/hxor_packer_0.1/HXOR_004_COMPRESSION_ENCRYPTION/bzip2recover_unxutils_X86_portable_en-US.exe"
+      }
+    ]
+  },
+  {
+    "nas_dir": "hyperion_v1.2_1.2",
+    "family": "hyperion",
+    "version": "1.2",
+    "testcase": "HYPERION_V12_001_DEFAULT",
+    "n": 129,
+    "cid": "hyperion_v12_001_default-51bc029a53e4",
+    "samples": [
+      {
+        "testcase": "HYPERION_V12_001_DEFAULT",
+        "name": "ansi2knr_unxutils_X86_portable_en-US.exe",
+        "size": 22016,
+        "sha256": "e227347360efacfeb9a216c62f183ffbd0e670d86f0cb0cbfdc85d0a5c55e608",
+        "remote": "//10.100.99.29/samples/benign_packed/hyperion_v1.2_1.2/HYPERION_V12_001_DEFAULT/ansi2knr_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "HYPERION_V12_001_DEFAULT",
+        "name": "Audacity_3.7.7_Machine_X86_inno_en-US.exe",
+        "size": 24064,
+        "sha256": "5e519e816087b380a6d0ca8d4692eb06e3a0dca48d9f94a3911b3b3b9cc79a0e",
+        "remote": "//10.100.99.29/samples/benign_packed/hyperion_v1.2_1.2/HYPERION_V12_001_DEFAULT/Audacity_3.7.7_Machine_X86_inno_en-US.exe"
+      },
+      {
+        "testcase": "HYPERION_V12_001_DEFAULT",
+        "name": "basename_unxutils_X86_portable_en-US.exe",
+        "size": 24064,
+        "sha256": "ad5ab2acc95632f46c47e6c9ceeb525e8b8e2b0de7de25900f3207720927bbd0",
+        "remote": "//10.100.99.29/samples/benign_packed/hyperion_v1.2_1.2/HYPERION_V12_001_DEFAULT/basename_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "HYPERION_V12_001_DEFAULT",
+        "name": "bzip2recover_unxutils_X86_portable_en-US.exe",
+        "size": 24576,
+        "sha256": "82712d03ee11e04d8157d2c6c46c5b53f59dc3b97dc1ad4bac2484411cfc8cdf",
+        "remote": "//10.100.99.29/samples/benign_packed/hyperion_v1.2_1.2/HYPERION_V12_001_DEFAULT/bzip2recover_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "HYPERION_V12_001_DEFAULT",
+        "name": "cmp_unxutils_X86_portable_en-US.exe",
+        "size": 27648,
+        "sha256": "a7b905bef7a389b159af4a443efcb0ca4887be990cc114c11ad664f3819fd500",
+        "remote": "//10.100.99.29/samples/benign_packed/hyperion_v1.2_1.2/HYPERION_V12_001_DEFAULT/cmp_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "HYPERION_V12_001_DEFAULT",
+        "name": "cksum_unxutils_X86_portable_en-US.exe",
+        "size": 36352,
+        "sha256": "7c78dee0e7f2abcde029a23a34e468cacda1cbc76a898f9d0b590dae60234a95",
+        "remote": "//10.100.99.29/samples/benign_packed/hyperion_v1.2_1.2/HYPERION_V12_001_DEFAULT/cksum_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "HYPERION_V12_001_DEFAULT",
+        "name": "Bitvise_SSH_Server_9.64_Machine_X86_exe_en-US.exe",
+        "size": 38400,
+        "sha256": "5b1aef907718761ee2f49a64789d40f16d7ef246736c3ae201024324c726627b",
+        "remote": "//10.100.99.29/samples/benign_packed/hyperion_v1.2_1.2/HYPERION_V12_001_DEFAULT/Bitvise_SSH_Server_9.64_Machine_X86_exe_en-US.exe"
+      },
+      {
+        "testcase": "HYPERION_V12_001_DEFAULT",
+        "name": "cat_unxutils_X86_portable_en-US.exe",
+        "size": 38400,
+        "sha256": "8d2f8b16e2b93a697047a685505483833fb4777a85753b010fd9c2927254b69a",
+        "remote": "//10.100.99.29/samples/benign_packed/hyperion_v1.2_1.2/HYPERION_V12_001_DEFAULT/cat_unxutils_X86_portable_en-US.exe"
+      }
+    ]
+  },
+  {
+    "nas_dir": "hyperion_v2.3.1_2.3.1",
+    "family": "hyperion",
+    "version": "2.3.1",
+    "testcase": "HYPERION_001_DEFAULT",
+    "n": 142,
+    "cid": "hyperion_001_default-0b9165cceb12",
+    "samples": [
+      {
+        "testcase": "HYPERION_001_DEFAULT",
+        "name": "ansi2knr_unxutils_X86_portable_en-US.exe",
+        "size": 19456,
+        "sha256": "be25a5dada6e270aa6fa7ff158e97148c2c2d62205799c32d7a22a2f9ee8d25f",
+        "remote": "//10.100.99.29/samples/benign_packed/hyperion_v2.3.1_2.3.1/HYPERION_001_DEFAULT/ansi2knr_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "HYPERION_001_DEFAULT",
+        "name": "bzip2recover_unxutils_X86_portable_en-US.exe",
+        "size": 22016,
+        "sha256": "dffe0f4c7be4bbfd984ae4985d2defefd9704d0f04ec68da2b793ddf9b556f60",
+        "remote": "//10.100.99.29/samples/benign_packed/hyperion_v2.3.1_2.3.1/HYPERION_001_DEFAULT/bzip2recover_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "HYPERION_001_DEFAULT",
+        "name": "cmp_unxutils_X86_portable_en-US.exe",
+        "size": 25088,
+        "sha256": "db87f5c7ed13267e76023c2ff810433fa8e21ba1966943ef97ed69b829abfca3",
+        "remote": "//10.100.99.29/samples/benign_packed/hyperion_v2.3.1_2.3.1/HYPERION_001_DEFAULT/cmp_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "HYPERION_001_DEFAULT",
+        "name": "cksum_unxutils_X86_portable_en-US.exe",
+        "size": 33792,
+        "sha256": "a39ccd426874ab73a7a13e3b155695dbd7ae9d7ec120aa81a03a18086007d4e1",
+        "remote": "//10.100.99.29/samples/benign_packed/hyperion_v2.3.1_2.3.1/HYPERION_001_DEFAULT/cksum_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "HYPERION_001_DEFAULT",
+        "name": "comm_unxutils_X86_portable_en-US.exe",
+        "size": 34816,
+        "sha256": "b92be0339300e53c300d58f0618f85cff1dfc2815f3819ec73baa6521cc672a3",
+        "remote": "//10.100.99.29/samples/benign_packed/hyperion_v2.3.1_2.3.1/HYPERION_001_DEFAULT/comm_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "HYPERION_001_DEFAULT",
+        "name": "cat_unxutils_X86_portable_en-US.exe",
+        "size": 35840,
+        "sha256": "db11ea91a875c18f69dc9d32b532358ee1e2c43ff02ee34de3788e64a73abfb5",
+        "remote": "//10.100.99.29/samples/benign_packed/hyperion_v2.3.1_2.3.1/HYPERION_001_DEFAULT/cat_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "HYPERION_001_DEFAULT",
+        "name": "chmod_unxutils_X86_portable_en-US.exe",
+        "size": 36352,
+        "sha256": "960dbf09a176f0061f5a2452a2cc8b659cbcea437eb0ff463ff922c554a18452",
+        "remote": "//10.100.99.29/samples/benign_packed/hyperion_v2.3.1_2.3.1/HYPERION_001_DEFAULT/chmod_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "HYPERION_001_DEFAULT",
+        "name": "bc_unxutils_X86_portable_en-US.exe",
+        "size": 66560,
+        "sha256": "552e6ab448607d9820212a40c42f226fd40a439be8c3820a0129f645ec3186ab",
+        "remote": "//10.100.99.29/samples/benign_packed/hyperion_v2.3.1_2.3.1/HYPERION_001_DEFAULT/bc_unxutils_X86_portable_en-US.exe"
+      }
+    ]
+  },
+  {
     "nas_dir": "jdpack_v1.00_1.00",
     "family": "jdpack",
     "version": "1.00",
@@ -929,7 +1325,7 @@
     "version": "0.23_alpha",
     "testcase": "KKRUNCHY_001_DEFAULT",
     "n": 163,
-    "cid": null,
+    "cid": "kkrunchy_v0.23a_0.23_alpha-auto",
     "samples": [
       {
         "testcase": "KKRUNCHY_001_DEFAULT",
@@ -994,7 +1390,7 @@
     "family": "mew",
     "version": "1.1_SE",
     "testcase": ".",
-    "n": 103,
+    "n": 107,
     "cid": "mew_1.1_SE-auto",
     "samples": [
       {
@@ -1324,7 +1720,7 @@
     "family": "nspack",
     "version": "3.7",
     "testcase": ".",
-    "n": 131,
+    "n": 132,
     "cid": "gui-f9fdbfcb3783",
     "samples": [
       {
@@ -1390,29 +1786,64 @@
     "family": "obsidium",
     "version": "1.5.2.11",
     "testcase": ".",
-    "n": 8,
+    "n": 429,
     "cid": "gui-e80ab1d53785",
     "samples": [
       {
-        "testcase": "",
-        "name": "Advanced_File_Finder_Free_Edition_5.0_User_X86_nullsoft_en-US.exe",
-        "size": 5089758,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/obsidium_v1.5.2_1.5.2.11/Advanced_File_Finder_Free_Edition_5.0_User_X86_nullsoft_en-US.exe"
+        "testcase": "OBSIDIUM_V152_001_SHORT",
+        "name": "ansi2knr_unxutils_X86_portable_en-US.exe",
+        "size": 217344,
+        "sha256": "afa20cc68821ee7e3ef9d1b015eca40717a33c410127436695089afb358fb777",
+        "remote": "//10.100.99.29/samples/benign_packed/obsidium_v1.5.2_1.5.2.11/OBSIDIUM_V152_001_SHORT/ansi2knr_unxutils_X86_portable_en-US.exe"
       },
       {
-        "testcase": "",
-        "name": "AirPort_Utility_5.6.1.2_Machine_X86_exe_en-US.exe",
-        "size": 10815592,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/obsidium_v1.5.2_1.5.2.11/AirPort_Utility_5.6.1.2_Machine_X86_exe_en-US.exe"
+        "testcase": "OBSIDIUM_V152_001_SHORT",
+        "name": "bzip2recover_unxutils_X86_portable_en-US.exe",
+        "size": 217728,
+        "sha256": "f0cee4484c5cd56ec5c4d7d3078a1e6677b206ebcd1b28bf6fea93bf49bba150",
+        "remote": "//10.100.99.29/samples/benign_packed/obsidium_v1.5.2_1.5.2.11/OBSIDIUM_V152_001_SHORT/bzip2recover_unxutils_X86_portable_en-US.exe"
       },
       {
-        "testcase": "",
-        "name": "AdGuardHome.exe",
-        "size": 31735432,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/obsidium_v1.5.2_1.5.2.11/AdGuardHome.exe"
+        "testcase": "OBSIDIUM_V152_001_SHORT",
+        "name": "basename_unxutils_X86_portable_en-US.exe",
+        "size": 217824,
+        "sha256": "6d9c6752e5f2328f5b2c393e25cb91f73a388f44ee571c356e2705bc40d6114f",
+        "remote": "//10.100.99.29/samples/benign_packed/obsidium_v1.5.2_1.5.2.11/OBSIDIUM_V152_001_SHORT/basename_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "OBSIDIUM_V152_001_SHORT",
+        "name": "cmp_unxutils_X86_portable_en-US.exe",
+        "size": 219920,
+        "sha256": "f140400381ce1adf1b2b210d62a121159222fce4530b1acb109a46221b6cc225",
+        "remote": "//10.100.99.29/samples/benign_packed/obsidium_v1.5.2_1.5.2.11/OBSIDIUM_V152_001_SHORT/cmp_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "OBSIDIUM_V152_002_LONG",
+        "name": "ansi2knr_unxutils_X86_portable_en-US.exe",
+        "size": 223712,
+        "sha256": "bf1c56ef7c863a49fefbe3ba82c668a03ff3651eebe83068cfc3a24c2c9972cc",
+        "remote": "//10.100.99.29/samples/benign_packed/obsidium_v1.5.2_1.5.2.11/OBSIDIUM_V152_002_LONG/ansi2knr_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "OBSIDIUM_V152_002_LONG",
+        "name": "bzip2recover_unxutils_X86_portable_en-US.exe",
+        "size": 223856,
+        "sha256": "63d7736021b508a59fa7bc0b9015c9d1023b31448540e4720db875e94e65dbdd",
+        "remote": "//10.100.99.29/samples/benign_packed/obsidium_v1.5.2_1.5.2.11/OBSIDIUM_V152_002_LONG/bzip2recover_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "OBSIDIUM_V152_002_LONG",
+        "name": "basename_unxutils_X86_portable_en-US.exe",
+        "size": 223968,
+        "sha256": "e22930dd48716bb6bcd07b93e402137e7981329593d43fa37e729fbd86b748f8",
+        "remote": "//10.100.99.29/samples/benign_packed/obsidium_v1.5.2_1.5.2.11/OBSIDIUM_V152_002_LONG/basename_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "OBSIDIUM_V152_001_SHORT",
+        "name": "comm_unxutils_X86_portable_en-US.exe",
+        "size": 224224,
+        "sha256": "c4a7b622ec0254e27c1a94ea27217e92f7315a312e76b475ad0552fc1ada0449",
+        "remote": "//10.100.99.29/samples/benign_packed/obsidium_v1.5.2_1.5.2.11/OBSIDIUM_V152_001_SHORT/comm_unxutils_X86_portable_en-US.exe"
       }
     ]
   },
@@ -1883,9 +2314,16 @@
     "family": "pezor",
     "version": "3.3.0",
     "testcase": "PEZOR_002_SELF_INJECT_32",
-    "n": 67,
+    "n": 68,
     "cid": "pezor_001_default_32-89d71f8eefac",
     "samples": [
+      {
+        "testcase": "PEZOR_007_SLEEP_32",
+        "name": "CPUID_CPU-Z_2.20_Machine_X86_inno_en-US.exe",
+        "size": 4842496,
+        "sha256": null,
+        "remote": "//10.100.99.29/samples/benign_packed/pezor_3.3.0/PEZOR_007_SLEEP_32/CPUID_CPU-Z_2.20_Machine_X86_inno_en-US.exe"
+      },
       {
         "testcase": "PEZOR_002_SELF_INJECT_32",
         "name": "REAPER_7.73_Machine_X86_exe_en-US.exe",
@@ -1934,13 +2372,6 @@
         "size": 21585920,
         "sha256": null,
         "remote": "//10.100.99.29/samples/benign_packed/pezor_3.3.0/PEZOR_002_SELF_INJECT_32/Biorhythms_Calculator_Free_Edition_3.0_Machine_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "PEZOR_002_SELF_INJECT_32",
-        "name": "TickTick_8.0.9.0_Machine_X86_inno_en-US.exe",
-        "size": 21688320,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/pezor_3.3.0/PEZOR_002_SELF_INJECT_32/TickTick_8.0.9.0_Machine_X86_inno_en-US.exe"
       }
     ]
   },
@@ -2081,36 +2512,64 @@
     "family": "telock",
     "version": "0.98",
     "testcase": ".",
-    "n": 9,
+    "n": 60,
     "cid": "gui-0ad5214af185",
     "samples": [
       {
         "testcase": "",
-        "name": "Abyss_Overlay_2.0.3_User_X86_nullsoft_en-US.exe",
-        "size": 54784,
-        "sha256": "5dd5f948e732f3b7cbe3d809cb3eebdf2454211a0e54d011a9a8bf84d97e18e2",
-        "remote": "//10.100.99.29/samples/benign_packed/telock_v0.98_0.98/Abyss_Overlay_2.0.3_User_X86_nullsoft_en-US.exe"
+        "name": "bzip2recover_unxutils_X86_portable_en-US.exe",
+        "size": 13824,
+        "sha256": "2cf09296bef404ebbeb04c63d139c7b27744479f17d6d8dd89a11af866bfb83c",
+        "remote": "//10.100.99.29/samples/benign_packed/telock_v0.98_0.98/bzip2recover_unxutils_X86_portable_en-US.exe"
       },
       {
         "testcase": "",
-        "name": "Advanced_File_Finder_Free_Edition_5.0_User_X86_nullsoft_en-US.exe",
-        "size": 5089758,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/telock_v0.98_0.98/Advanced_File_Finder_Free_Edition_5.0_User_X86_nullsoft_en-US.exe"
+        "name": "cmp_unxutils_X86_portable_en-US.exe",
+        "size": 15360,
+        "sha256": "0c0cf2d0da34b6fe53048583796b786a476a73b56f83e5809aca248e6792969e",
+        "remote": "//10.100.99.29/samples/benign_packed/telock_v0.98_0.98/cmp_unxutils_X86_portable_en-US.exe"
       },
       {
         "testcase": "",
-        "name": "Air_Explorer_5.9.0_Machine_X86_nullsoft_en-US.exe",
-        "size": 9150952,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/telock_v0.98_0.98/Air_Explorer_5.9.0_Machine_X86_nullsoft_en-US.exe"
+        "name": "comm_unxutils_X86_portable_en-US.exe",
+        "size": 20480,
+        "sha256": "eb80bb38fe761ea07a259c5e7dbe3f785bfe99704d38871ceed320be8646b0d8",
+        "remote": "//10.100.99.29/samples/benign_packed/telock_v0.98_0.98/comm_unxutils_X86_portable_en-US.exe"
       },
       {
         "testcase": "",
-        "name": "AdGuardHome.exe",
-        "size": 31735432,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/telock_v0.98_0.98/AdGuardHome.exe"
+        "name": "cat_unxutils_X86_portable_en-US.exe",
+        "size": 20992,
+        "sha256": "4b9c4bfa393f7a622c155b27a7abe13fe3a47b7114c3a4077f46d6efaa65f40b",
+        "remote": "//10.100.99.29/samples/benign_packed/telock_v0.98_0.98/cat_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "",
+        "name": "cksum_unxutils_X86_portable_en-US.exe",
+        "size": 20992,
+        "sha256": "f28c994e087af3febae61816fea2981cb51ef39d9c48989ea880376be2b2cd05",
+        "remote": "//10.100.99.29/samples/benign_packed/telock_v0.98_0.98/cksum_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "",
+        "name": "Cube_2005.08.29_Machine_X86_nullsoft_en-US.exe",
+        "size": 31232,
+        "sha256": "1199af4166b4f202f12a0ffa9ed7a1d4e5f2304ee6e26928ae8f16560a5f0560",
+        "remote": "//10.100.99.29/samples/benign_packed/telock_v0.98_0.98/Cube_2005.08.29_Machine_X86_nullsoft_en-US.exe"
+      },
+      {
+        "testcase": "",
+        "name": "CloneSpy_3.43_X86_nullsoft_en-US.exe",
+        "size": 36864,
+        "sha256": "1595437e791fff9ed885f7914adc067d27ab2c26561d4286bba51b4c1bfb275e",
+        "remote": "//10.100.99.29/samples/benign_packed/telock_v0.98_0.98/CloneSpy_3.43_X86_nullsoft_en-US.exe"
+      },
+      {
+        "testcase": "",
+        "name": "bunzip2_unxutils_X86_portable_en-US.exe",
+        "size": 40960,
+        "sha256": "454515b2b2ddb148dff681da93f62108790c9ef86ef9b34e7b22c60f62f5f476",
+        "remote": "//10.100.99.29/samples/benign_packed/telock_v0.98_0.98/bunzip2_unxutils_X86_portable_en-US.exe"
       }
     ]
   },
@@ -2348,15 +2807,43 @@
     "family": "upx_scrambler_rc103_unknown",
     "version": "?",
     "testcase": ".",
-    "n": 187,
+    "n": 212,
     "cid": null,
     "samples": [
+      {
+        "testcase": "",
+        "name": "ansi2knr_unxutils_X86_portable_en-US.exe",
+        "size": 4096,
+        "sha256": "d77d2965afd82e9f0c99816c1e1d57dc3f6da2ec81a00075a8df892b39524801",
+        "remote": "//10.100.99.29/samples/benign_packed/upx_scrambler_rc103_unknown/ansi2knr_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "",
+        "name": "agrep_unxutils_X86_portable_en-US.exe",
+        "size": 51712,
+        "sha256": "310fe0a9a9915df708ad4851090650b2f326bfca63d66ba2e0f3afb558e69380",
+        "remote": "//10.100.99.29/samples/benign_packed/upx_scrambler_rc103_unknown/agrep_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "",
+        "name": "AltSnap_1.67_User_X86_nullsoft_en-US.exe",
+        "size": 177353,
+        "sha256": "3ca501b4e5d781fd181e94195ead86ddab1bda2564bc767ca7aa34321aa0046c",
+        "remote": "//10.100.99.29/samples/benign_packed/upx_scrambler_rc103_unknown/AltSnap_1.67_User_X86_nullsoft_en-US.exe"
+      },
       {
         "testcase": "temp_upx",
         "name": "Bitwarden_2026.5.0_User_X86_nullsoft_en-US.exe",
         "size": 716704,
         "sha256": null,
         "remote": "//10.100.99.29/samples/benign_packed/upx_scrambler_rc103_unknown/temp_upx/Bitwarden_2026.5.0_User_X86_nullsoft_en-US.exe"
+      },
+      {
+        "testcase": "",
+        "name": "Amazon_Games_3.0.9700.3_User_X86_exe_en-US.exe",
+        "size": 758816,
+        "sha256": null,
+        "remote": "//10.100.99.29/samples/benign_packed/upx_scrambler_rc103_unknown/Amazon_Games_3.0.9700.3_User_X86_exe_en-US.exe"
       },
       {
         "testcase": "temp_upx",
@@ -2378,34 +2865,6 @@
         "size": 873518,
         "sha256": null,
         "remote": "//10.100.99.29/samples/benign_packed/upx_scrambler_rc103_unknown/temp_upx/PNGGauntlet_3.1.1_X86_exe_en-US.exe"
-      },
-      {
-        "testcase": "temp_upx",
-        "name": "AkelPad_4.9.9_Machine_X86_nullsoft_en-US.exe",
-        "size": 1229636,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/upx_scrambler_rc103_unknown/temp_upx/AkelPad_4.9.9_Machine_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "temp_upx",
-        "name": "Ant_Renamer_2.13.0_Machine_X86_inno_en-US.exe",
-        "size": 1275154,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/upx_scrambler_rc103_unknown/temp_upx/Ant_Renamer_2.13.0_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "temp_upx",
-        "name": "rg.exe",
-        "size": 1335296,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/upx_scrambler_rc103_unknown/temp_upx/rg.exe"
-      },
-      {
-        "testcase": "temp_upx",
-        "name": "QuteMol_0.4.1_X86_nullsoft_en-US.exe",
-        "size": 1685901,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/upx_scrambler_rc103_unknown/temp_upx/QuteMol_0.4.1_X86_nullsoft_en-US.exe"
       }
     ]
   },
@@ -2480,64 +2939,64 @@
     "family": "upx_scrambler_rc1_RC1",
     "version": "?",
     "testcase": ".",
-    "n": 186,
+    "n": 355,
     "cid": "gui-4470683c0a12",
     "samples": [
       {
-        "testcase": "temp_upx",
-        "name": "Bitwarden_2026.5.0_User_X86_nullsoft_en-US.exe",
-        "size": 716704,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/upx_scrambler_rc1_RC1/temp_upx/Bitwarden_2026.5.0_User_X86_nullsoft_en-US.exe"
+        "testcase": "",
+        "name": "ansi2knr_unxutils_X86_portable_en-US.exe",
+        "size": 4096,
+        "sha256": "7e09f566b1bec52c4cb7e89a21589d8b8ac9d9b64cffc4ff2b77bae2c7845920",
+        "remote": "//10.100.99.29/samples/benign_packed/upx_scrambler_rc1_RC1/ansi2knr_unxutils_X86_portable_en-US.exe"
       },
       {
-        "testcase": "temp_upx",
-        "name": "Amazon_Games_3.0.9700.3_User_X86_exe_en-US.exe",
-        "size": 758816,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/upx_scrambler_rc1_RC1/temp_upx/Amazon_Games_3.0.9700.3_User_X86_exe_en-US.exe"
+        "testcase": "",
+        "name": "basename_unxutils_X86_portable_en-US.exe",
+        "size": 5120,
+        "sha256": "0f1bfea9b21947febe27867cd906a6ac83340b065ecc2f1cef56f1f33e2b6301",
+        "remote": "//10.100.99.29/samples/benign_packed/upx_scrambler_rc1_RC1/basename_unxutils_X86_portable_en-US.exe"
       },
       {
-        "testcase": "temp_upx",
-        "name": "Bome_SendSX_1.4_Machine_X86_inno_en-US.exe",
-        "size": 815128,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/upx_scrambler_rc1_RC1/temp_upx/Bome_SendSX_1.4_Machine_X86_inno_en-US.exe"
+        "testcase": "",
+        "name": "cmp_unxutils_X86_portable_en-US.exe",
+        "size": 6656,
+        "sha256": "ed597218c54bccdc431c6010d4a53d63eb94fccc0af5c8b198ef25aa0dc46503",
+        "remote": "//10.100.99.29/samples/benign_packed/upx_scrambler_rc1_RC1/cmp_unxutils_X86_portable_en-US.exe"
       },
       {
-        "testcase": "temp_upx",
-        "name": "PNGGauntlet_3.1.1_X86_exe_en-US.exe",
-        "size": 873518,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/upx_scrambler_rc1_RC1/temp_upx/PNGGauntlet_3.1.1_X86_exe_en-US.exe"
+        "testcase": "",
+        "name": "comm_unxutils_X86_portable_en-US.exe",
+        "size": 10752,
+        "sha256": "474965acf67978b0324c933f21819ebb520413416cd9b08c4186c61d63940524",
+        "remote": "//10.100.99.29/samples/benign_packed/upx_scrambler_rc1_RC1/comm_unxutils_X86_portable_en-US.exe"
       },
       {
-        "testcase": "temp_upx",
-        "name": "AkelPad_4.9.9_Machine_X86_nullsoft_en-US.exe",
-        "size": 1229636,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/upx_scrambler_rc1_RC1/temp_upx/AkelPad_4.9.9_Machine_X86_nullsoft_en-US.exe"
+        "testcase": "",
+        "name": "cat_unxutils_X86_portable_en-US.exe",
+        "size": 11264,
+        "sha256": "fdf472899585d401e17f23ba71efc8a20b48cd200773fc6804cfb7de73b4d3a8",
+        "remote": "//10.100.99.29/samples/benign_packed/upx_scrambler_rc1_RC1/cat_unxutils_X86_portable_en-US.exe"
       },
       {
-        "testcase": "temp_upx",
-        "name": "Ant_Renamer_2.13.0_Machine_X86_inno_en-US.exe",
-        "size": 1275154,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/upx_scrambler_rc1_RC1/temp_upx/Ant_Renamer_2.13.0_Machine_X86_inno_en-US.exe"
+        "testcase": "",
+        "name": "cksum_unxutils_X86_portable_en-US.exe",
+        "size": 11264,
+        "sha256": "deb35ae65396042444ea6b69c952ec7f44c98eaaab9331a63c79f81e29da58d4",
+        "remote": "//10.100.99.29/samples/benign_packed/upx_scrambler_rc1_RC1/cksum_unxutils_X86_portable_en-US.exe"
       },
       {
-        "testcase": "temp_upx",
-        "name": "rg.exe",
-        "size": 1335296,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/upx_scrambler_rc1_RC1/temp_upx/rg.exe"
+        "testcase": "",
+        "name": "chmod_unxutils_X86_portable_en-US.exe",
+        "size": 12800,
+        "sha256": "b4d00c9a90c2cfd730478ee16434b75b471d086c471247913de945e8a04f7abc",
+        "remote": "//10.100.99.29/samples/benign_packed/upx_scrambler_rc1_RC1/chmod_unxutils_X86_portable_en-US.exe"
       },
       {
-        "testcase": "temp_upx",
-        "name": "QuteMol_0.4.1_X86_nullsoft_en-US.exe",
-        "size": 1685901,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/upx_scrambler_rc1_RC1/temp_upx/QuteMol_0.4.1_X86_nullsoft_en-US.exe"
+        "testcase": "",
+        "name": "bc_unxutils_X86_portable_en-US.exe",
+        "size": 25600,
+        "sha256": "8cc819b8942d305df51f5962cf925f5c2009b9dab53170e93e254ad223c752d7",
+        "remote": "//10.100.99.29/samples/benign_packed/upx_scrambler_rc1_RC1/bc_unxutils_X86_portable_en-US.exe"
       }
     ]
   },
@@ -5964,7 +6423,7 @@
     "family": "xcomp",
     "version": "0.97",
     "testcase": "XCOMP_001_DEFAULT",
-    "n": 846,
+    "n": 855,
     "cid": "xcomp_001_default-afe1bac7f64e",
     "samples": [
       {
@@ -6162,29 +6621,64 @@
     "family": "yoda_protector",
     "version": "1.01.2",
     "testcase": ".",
-    "n": 5,
+    "n": 210,
     "cid": "gui-9ad149fcd9ee",
     "samples": [
       {
         "testcase": "",
-        "name": "Advanced_File_Finder_Free_Edition_5.0_User_X86_nullsoft_en-US.exe",
-        "size": 5089758,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/yoda_protector_v1.01.2_1.01.2/Advanced_File_Finder_Free_Edition_5.0_User_X86_nullsoft_en-US.exe"
+        "name": "basename_unxutils_X86_portable_en-US.exe",
+        "size": 11410,
+        "sha256": "3159a0b0089b1002d2f7c0ee7c4f0b20d1a337da7f5bf6307c943ba3d8c68c46",
+        "remote": "//10.100.99.29/samples/benign_packed/yoda_protector_v1.01.2_1.01.2/basename_unxutils_X86_portable_en-US.exe"
       },
       {
         "testcase": "",
-        "name": "Air_Explorer_5.9.0_Machine_X86_nullsoft_en-US.exe",
-        "size": 9150952,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/yoda_protector_v1.01.2_1.01.2/Air_Explorer_5.9.0_Machine_X86_nullsoft_en-US.exe"
+        "name": "bzip2recover_unxutils_X86_portable_en-US.exe",
+        "size": 12434,
+        "sha256": "dac3915bc96f2a1abff22d92c237714f7819a8c2752f83b9d0fc27db71b6007a",
+        "remote": "//10.100.99.29/samples/benign_packed/yoda_protector_v1.01.2_1.01.2/bzip2recover_unxutils_X86_portable_en-US.exe"
       },
       {
         "testcase": "",
-        "name": "AdGuardHome.exe",
-        "size": 31735432,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/yoda_protector_v1.01.2_1.01.2/AdGuardHome.exe"
+        "name": "cmp_unxutils_X86_portable_en-US.exe",
+        "size": 14482,
+        "sha256": "b8857a97ba3c0ee397485cd46cb837d6362c8820a80367de3c47c31c9993b70c",
+        "remote": "//10.100.99.29/samples/benign_packed/yoda_protector_v1.01.2_1.01.2/cmp_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "",
+        "name": "Belarc Advisor_13.1.0.0_X86_exe_en-US.exe",
+        "size": 19602,
+        "sha256": "dcce970b9f2dec907aa9d3e8a6490d9b8d8ca03a62123ef24c37be9d53ad6343",
+        "remote": "//10.100.99.29/samples/benign_packed/yoda_protector_v1.01.2_1.01.2/Belarc Advisor_13.1.0.0_X86_exe_en-US.exe"
+      },
+      {
+        "testcase": "",
+        "name": "cksum_unxutils_X86_portable_en-US.exe",
+        "size": 19602,
+        "sha256": "fcc999167f0ddcbbfc10b80a9a9fd7e2bdc39160cf91def46172959b23e8af29",
+        "remote": "//10.100.99.29/samples/benign_packed/yoda_protector_v1.01.2_1.01.2/cksum_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "",
+        "name": "comm_unxutils_X86_portable_en-US.exe",
+        "size": 19602,
+        "sha256": "c328c16993724539e2eb30c22bb83bd578e372df892123b2639c35a535066f51",
+        "remote": "//10.100.99.29/samples/benign_packed/yoda_protector_v1.01.2_1.01.2/comm_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "",
+        "name": "cat_unxutils_X86_portable_en-US.exe",
+        "size": 20114,
+        "sha256": "2d2d35f0ed5362af3231be1fe554dd65ccc89441878f5889466bf626e6319298",
+        "remote": "//10.100.99.29/samples/benign_packed/yoda_protector_v1.01.2_1.01.2/cat_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "",
+        "name": "AltSnap_1.67_User_X86_nullsoft_en-US.exe",
+        "size": 30866,
+        "sha256": "f493f3839f916a50bfbb02dcb3d1ddb7cd9a58e1c904c34ec5eea4e29339701b",
+        "remote": "//10.100.99.29/samples/benign_packed/yoda_protector_v1.01.2_1.01.2/AltSnap_1.67_User_X86_nullsoft_en-US.exe"
       }
     ]
   },
@@ -6193,7 +6687,7 @@
     "family": "yoda_protector",
     "version": "1.02",
     "testcase": ".",
-    "n": 170,
+    "n": 172,
     "cid": "gui-ba37f4c8f00e",
     "samples": [
       {
@@ -6259,22 +6753,64 @@
     "family": "yoda_protector",
     "version": "1.03.2",
     "testcase": ".",
-    "n": 2,
+    "n": 205,
     "cid": "gui-ba37f4c8f00e",
     "samples": [
       {
         "testcase": "",
-        "name": "Abyss_Overlay_2.0.3_User_X86_nullsoft_en-US.exe",
-        "size": 67072,
-        "sha256": "00695129b788fef8b1f38557bd2b8253f20fba51b34741f4a980e4f2b446defa",
-        "remote": "//10.100.99.29/samples/benign_packed/yoda_protector_v1.03.2_1.03.2/Abyss_Overlay_2.0.3_User_X86_nullsoft_en-US.exe"
+        "name": "basename_unxutils_X86_portable_en-US.exe",
+        "size": 18944,
+        "sha256": "db9cb0a2098d077896a2b2ba2dccb8264787af58971b637856028e649b9ee915",
+        "remote": "//10.100.99.29/samples/benign_packed/yoda_protector_v1.03.2_1.03.2/basename_unxutils_X86_portable_en-US.exe"
       },
       {
         "testcase": "",
-        "name": "AdGuard_7.22.5271.0_Machine_X86_burn_en-US.exe",
-        "size": 58610608,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/yoda_protector_v1.03.2_1.03.2/AdGuard_7.22.5271.0_Machine_X86_burn_en-US.exe"
+        "name": "bzip2recover_unxutils_X86_portable_en-US.exe",
+        "size": 19456,
+        "sha256": "a2f95063ab5dffea81653131a50b6469e1850fc91afc04ccddbf336861a12b84",
+        "remote": "//10.100.99.29/samples/benign_packed/yoda_protector_v1.03.2_1.03.2/bzip2recover_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "",
+        "name": "cmp_unxutils_X86_portable_en-US.exe",
+        "size": 20992,
+        "sha256": "7100751fb54e0737b431e412ebe06314c4d3ddfa8ea04d232c9411a51324702e",
+        "remote": "//10.100.99.29/samples/benign_packed/yoda_protector_v1.03.2_1.03.2/cmp_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "",
+        "name": "Belarc Advisor_13.1.0.0_X86_exe_en-US.exe",
+        "size": 26112,
+        "sha256": "6fd5c65421537ca1a58ac57c6035cf9764d431aa6b2849b1ae7e669a2986fbe8",
+        "remote": "//10.100.99.29/samples/benign_packed/yoda_protector_v1.03.2_1.03.2/Belarc Advisor_13.1.0.0_X86_exe_en-US.exe"
+      },
+      {
+        "testcase": "",
+        "name": "comm_unxutils_X86_portable_en-US.exe",
+        "size": 26112,
+        "sha256": "55b08599425ed98792a251b488a8cba7200069aaf228cbdaccb3304d5f1e319f",
+        "remote": "//10.100.99.29/samples/benign_packed/yoda_protector_v1.03.2_1.03.2/comm_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "",
+        "name": "cat_unxutils_X86_portable_en-US.exe",
+        "size": 26624,
+        "sha256": "d0c9ae4bf17f7290343c954c16c54156bea727d0ee4ae15d0a189753163e6b65",
+        "remote": "//10.100.99.29/samples/benign_packed/yoda_protector_v1.03.2_1.03.2/cat_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "",
+        "name": "cksum_unxutils_X86_portable_en-US.exe",
+        "size": 26624,
+        "sha256": "ed489e48483e65870b6ecaac398cde52535c232a6a04f9cfb7710e55e6e14d59",
+        "remote": "//10.100.99.29/samples/benign_packed/yoda_protector_v1.03.2_1.03.2/cksum_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "",
+        "name": "AltSnap_1.67_User_X86_nullsoft_en-US.exe",
+        "size": 36864,
+        "sha256": "a2386af5bb71f8b4b3aae62fa406f77fad3147dd4b4957447c5333fc869b9fd2",
+        "remote": "//10.100.99.29/samples/benign_packed/yoda_protector_v1.03.2_1.03.2/AltSnap_1.67_User_X86_nullsoft_en-US.exe"
       }
     ]
   },
@@ -6283,43 +6819,64 @@
     "family": "yoda_protector",
     "version": "1.03.3",
     "testcase": ".",
-    "n": 5,
+    "n": 157,
     "cid": "gui-ba37f4c8f00e",
     "samples": [
       {
         "testcase": "",
-        "name": "Air_Explorer_5.9.0_Machine_X86_nullsoft_en-US.exe",
-        "size": 75516,
-        "sha256": "b9db40c6d951265c61a11f9b082189681cd3c84abff0fd10fbaf176978b51944",
-        "remote": "//10.100.99.29/samples/benign_packed/yoda_protector_v1.03.3_1.03.3/Air_Explorer_5.9.0_Machine_X86_nullsoft_en-US.exe"
+        "name": "ansi2knr_unxutils_X86_portable_en-US.exe",
+        "size": 16384,
+        "sha256": "8c54d97be5cb17870e0ef7e37486b5c1f961b7f8977d1988af057b56a52db39a",
+        "remote": "//10.100.99.29/samples/benign_packed/yoda_protector_v1.03.3_1.03.3/ansi2knr_unxutils_X86_portable_en-US.exe"
       },
       {
         "testcase": "",
-        "name": "Abyss_Overlay_2.0.3_User_X86_nullsoft_en-US.exe",
-        "size": 79360,
-        "sha256": "cb4e7bf490ee06fc18a175e96a4b55e4d79f12fc7578af7ac757a2c233e3027a",
-        "remote": "//10.100.99.29/samples/benign_packed/yoda_protector_v1.03.3_1.03.3/Abyss_Overlay_2.0.3_User_X86_nullsoft_en-US.exe"
+        "name": "basename_unxutils_X86_portable_en-US.exe",
+        "size": 17408,
+        "sha256": "9c880c571ca849726595a752e1dfd3e6db02f118cf276aa892ff4943df5731e9",
+        "remote": "//10.100.99.29/samples/benign_packed/yoda_protector_v1.03.3_1.03.3/basename_unxutils_X86_portable_en-US.exe"
       },
       {
         "testcase": "",
-        "name": "AdGuard_7.22.5271.0_Machine_X86_burn_en-US.exe",
-        "size": 622644,
-        "sha256": "4de66545e0d8db4ab9ee9c8faa8f594264b217ef40d7a74f31d48302f413d212",
-        "remote": "//10.100.99.29/samples/benign_packed/yoda_protector_v1.03.3_1.03.3/AdGuard_7.22.5271.0_Machine_X86_burn_en-US.exe"
+        "name": "bzip2recover_unxutils_X86_portable_en-US.exe",
+        "size": 17920,
+        "sha256": "50e81f4a5a88e5332ae4e48d9dd8f98f2ff07d517688a85adf7318bcd207394b",
+        "remote": "//10.100.99.29/samples/benign_packed/yoda_protector_v1.03.3_1.03.3/bzip2recover_unxutils_X86_portable_en-US.exe"
       },
       {
         "testcase": "",
-        "name": "Advanced_File_Finder_Free_Edition_5.0_User_X86_nullsoft_en-US.exe",
-        "size": 5089758,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/yoda_protector_v1.03.3_1.03.3/Advanced_File_Finder_Free_Edition_5.0_User_X86_nullsoft_en-US.exe"
+        "name": "cmp_unxutils_X86_portable_en-US.exe",
+        "size": 19456,
+        "sha256": "e19de3914505ac9cc71f1d4048b2b77021efd2d50ff7d2f4454c59d336e8b083",
+        "remote": "//10.100.99.29/samples/benign_packed/yoda_protector_v1.03.3_1.03.3/cmp_unxutils_X86_portable_en-US.exe"
       },
       {
         "testcase": "",
-        "name": "AdGuardHome.exe",
-        "size": 31735432,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/yoda_protector_v1.03.3_1.03.3/AdGuardHome.exe"
+        "name": "comm_unxutils_X86_portable_en-US.exe",
+        "size": 24576,
+        "sha256": "099af7754a47334bfded1d3dce94dd999b42323791d51726eed207d140b054cf",
+        "remote": "//10.100.99.29/samples/benign_packed/yoda_protector_v1.03.3_1.03.3/comm_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "",
+        "name": "cat_unxutils_X86_portable_en-US.exe",
+        "size": 25088,
+        "sha256": "f47a5912d5cb295c59e0a3aaaeaf07408fc7b0a8671a37f73125ba7bd692e9f4",
+        "remote": "//10.100.99.29/samples/benign_packed/yoda_protector_v1.03.3_1.03.3/cat_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "",
+        "name": "cksum_unxutils_X86_portable_en-US.exe",
+        "size": 25088,
+        "sha256": "a7446c3324a6047f1009328c20b1fd55871487608786c846c304bff48a89cd12",
+        "remote": "//10.100.99.29/samples/benign_packed/yoda_protector_v1.03.3_1.03.3/cksum_unxutils_X86_portable_en-US.exe"
+      },
+      {
+        "testcase": "",
+        "name": "Belarc Advisor_13.1.0.0_X86_exe_en-US.exe",
+        "size": 25600,
+        "sha256": "7f202bd2553e5d6630d27049b5e7d9472085dcaf0a6b0ee4d59af512b79761f2",
+        "remote": "//10.100.99.29/samples/benign_packed/yoda_protector_v1.03.3_1.03.3/Belarc Advisor_13.1.0.0_X86_exe_en-US.exe"
       }
     ]
   },
@@ -6328,7 +6885,7 @@
     "family": "yoda_protector",
     "version": "1.0",
     "testcase": ".",
-    "n": 204,
+    "n": 211,
     "cid": "gui-ba37f4c8f00e",
     "samples": [
       {
@@ -6394,7 +6951,7 @@
     "family": "zprotect",
     "version": "1.4.2.0",
     "testcase": ".",
-    "n": 184,
+    "n": 185,
     "cid": "gui-90b72824891a",
     "samples": [
       {
@@ -6452,1556 +7009,6 @@
         "size": 391943,
         "sha256": "20288fadb7c5c112d051673f9354b49cb66638b387d85a2ced89f4fd1093b67c",
         "remote": "//10.100.99.29/samples/benign_packed/zprotect_1.4.2.0/bunzip2_unxutils_X86_portable_en-US.zp.exe"
-      }
-    ]
-  },
-  {
-    "nas_dir": "amber_v3.1_3.1",
-    "family": "amber",
-    "version": "3.1",
-    "testcase": "AMBER_001_DEFAULT_BUILD",
-    "n": 220,
-    "cid": "amber_001_default_build-569c77b73f26",
-    "samples": [
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "ansi2knr_unxutils_X86_portable_en-US.exe",
-        "size": 186880,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/ansi2knr_unxutils_X86_portable_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "basename_unxutils_X86_portable_en-US.exe",
-        "size": 190976,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/basename_unxutils_X86_portable_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "cmp_unxutils_X86_portable_en-US.exe",
-        "size": 195072,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/cmp_unxutils_X86_portable_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Belarc_Advisor_13.1.0.0_X86_exe_en-US.exe",
-        "size": 199168,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Belarc_Advisor_13.1.0.0_X86_exe_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "chmod_unxutils_X86_portable_en-US.exe",
-        "size": 203264,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/chmod_unxutils_X86_portable_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "cksum_unxutils_X86_portable_en-US.exe",
-        "size": 207360,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/cksum_unxutils_X86_portable_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "cat_unxutils_X86_portable_en-US.exe",
-        "size": 207360,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/cat_unxutils_X86_portable_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "comm_unxutils_X86_portable_en-US.exe",
-        "size": 207360,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/comm_unxutils_X86_portable_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Altap_Salamander_4.0_Machine_X86_exe_en-US.exe",
-        "size": 231936,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Altap_Salamander_4.0_Machine_X86_exe_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "bc_unxutils_X86_portable_en-US.exe",
-        "size": 240128,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/bc_unxutils_X86_portable_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Rocks'n'Diamonds_4.3.8.1_Machine_X86_inno_en-US.exe",
-        "size": 248320,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Rocks'n'Diamonds_4.3.8.1_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "cp_unxutils_X86_portable_en-US.exe",
-        "size": 248320,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/cp_unxutils_X86_portable_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Ant_Renamer_2.13.0_Machine_X86_inno_en-US.exe",
-        "size": 252416,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Ant_Renamer_2.13.0_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "GSAK_9.0.0.14_X86_inno_en-US.exe",
-        "size": 252416,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/GSAK_9.0.0.14_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "WizKey_1.5.0.8_Machine_X86_inno_en-US.exe",
-        "size": 252416,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/WizKey_1.5.0.8_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Find_and_Mount_2.32_Machine_X86_inno_en-US.exe",
-        "size": 252416,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Find_and_Mount_2.32_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "CuteWriter.exe",
-        "size": 252416,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/CuteWriter.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "WizMouse_1.7.0.3_Machine_X86_inno_en-US.exe",
-        "size": 252416,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/WizMouse_1.7.0.3_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Bome_SendSX_1.4_Machine_X86_inno_en-US.exe",
-        "size": 256512,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Bome_SendSX_1.4_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "bunzip2_unxutils_X86_portable_en-US.exe",
-        "size": 260608,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/bunzip2_unxutils_X86_portable_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "bzip2_unxutils_X86_portable_en-US.exe",
-        "size": 265216,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/bzip2_unxutils_X86_portable_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "PDFTKBuilder_3.10.0_Machine_X86_inno_en-US.exe",
-        "size": 268800,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/PDFTKBuilder_3.10.0_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "BPBible_0.5.3.1_X86_inno_en-US.exe",
-        "size": 268800,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/BPBible_0.5.3.1_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "roots.exe",
-        "size": 269312,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/roots.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "bison_unxutils_X86_portable_en-US.exe",
-        "size": 272896,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/bison_unxutils_X86_portable_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Launchy_2.5.0_X86_inno_en-US.exe",
-        "size": 276992,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Launchy_2.5.0_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "IconViewer_3.2.147_Machine_X86_exe_en-US.exe",
-        "size": 313856,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/IconViewer_3.2.147_Machine_X86_exe_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "PuTTY_pageant_0.67_X86_portable_en-US.exe",
-        "size": 326144,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/PuTTY_pageant_0.67_X86_portable_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "DVDStyler_3.2.1_Machine_X86_inno_en-US.exe",
-        "size": 334336,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/DVDStyler_3.2.1_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "WizFile_3.15_Machine_X86_inno_en-US.exe",
-        "size": 334336,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/WizFile_3.15_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "WizTree_4.31_Machine_X86_inno_en-US.exe",
-        "size": 334336,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/WizTree_4.31_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Studio_2.26.5_1_Machine_X86_inno_en-US.exe",
-        "size": 334336,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Studio_2.26.5_1_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "AnyTXT_Searcher_1.3.2477_Machine_X86_inno_en-US.exe",
-        "size": 334336,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/AnyTXT_Searcher_1.3.2477_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "SpeedFan_4.52_X86_nullsoft_en-US.exe",
-        "size": 358912,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/SpeedFan_4.52_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "AltSnap_1.67_User_X86_nullsoft_en-US.exe",
-        "size": 358912,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/AltSnap_1.67_User_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "PuTTY_puttygen_0.67_X86_portable_en-US.exe",
-        "size": 358912,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/PuTTY_puttygen_0.67_X86_portable_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Cube_2005.08.29_Machine_X86_nullsoft_en-US.exe",
-        "size": 363008,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Cube_2005.08.29_Machine_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "sox.exe",
-        "size": 371200,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/sox.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "BKChem_0.14.0-pre2_Machine_X86_inno_en-US.exe",
-        "size": 375296,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/BKChem_0.14.0-pre2_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "LICEcap_1.32_X86_nullsoft_en-US.exe",
-        "size": 379392,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/LICEcap_1.32_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "AviSynth+_3.7.5.4289_Machine_X86_inno_en-US.exe",
-        "size": 379392,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/AviSynth+_3.7.5.4289_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "BYOND_515.1633_Machine_X86_nullsoft_en-US.exe",
-        "size": 387584,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/BYOND_515.1633_Machine_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "AkelPad_4.9.9_Machine_X86_nullsoft_en-US.exe",
-        "size": 387584,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/AkelPad_4.9.9_Machine_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Armagetron_Advanced_0.2.9.2.3_Machine_X86_nullsoft_en-US.exe",
-        "size": 388096,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Armagetron_Advanced_0.2.9.2.3_Machine_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "InfraRecorder_0.53.00.00_X86_nullsoft_en-US.exe",
-        "size": 391680,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/InfraRecorder_0.53.00.00_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Artha_1.0.3.0_Machine_X86_inno_en-US.exe",
-        "size": 391680,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Artha_1.0.3.0_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "PNGGauntlet_3.1.1_X86_exe_en-US.exe",
-        "size": 399872,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/PNGGauntlet_3.1.1_X86_exe_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "ClipX_1.0.3.8_X86_nullsoft_en-US.exe",
-        "size": 403968,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/ClipX_1.0.3.8_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Billfish_3.1.5.12_Machine_X86_inno_en-US.exe",
-        "size": 412160,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Billfish_3.1.5.12_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Audacious_4.5.1_X86_nullsoft_en-US.exe",
-        "size": 420352,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Audacious_4.5.1_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "QuteMol_0.4.1_X86_nullsoft_en-US.exe",
-        "size": 424448,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/QuteMol_0.4.1_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Brutal_Chess_0.5.2_Machine_X86_nullsoft_en-US.exe",
-        "size": 428544,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Brutal_Chess_0.5.2_Machine_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Exact_Audio_Copy_1.8_Machine_X86_nullsoft_en-US.exe",
-        "size": 449024,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Exact_Audio_Copy_1.8_Machine_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "CloneSpy_3.43_X86_nullsoft_en-US.exe",
-        "size": 457216,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/CloneSpy_3.43_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "autoit-v3.3.18.0-setup.exe",
-        "size": 457216,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/autoit-v3.3.18.0-setup.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "SageThumbs_2.0.0.23_X86_nullsoft_en-US.exe",
-        "size": 461312,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/SageThumbs_2.0.0.23_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Text_to_MP3_Converter_Free_Edition_2.0_Machine_X86_nullsoft_en-US.exe",
-        "size": 481792,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Text_to_MP3_Converter_Free_Edition_2.0_Machine_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Batch_Word_Replace_Free_Edition_5.6_User_X86_nullsoft_en-US.exe",
-        "size": 485888,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Batch_Word_Replace_Free_Edition_5.6_User_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Random_Number_Generator_Free_Edition_3.0_Machine_X86_nullsoft_en-US.exe",
-        "size": 485888,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Random_Number_Generator_Free_Edition_3.0_Machine_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Batch_Docs_Free_Edition_5.6_User_X86_nullsoft_en-US.exe",
-        "size": 486400,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Batch_Docs_Free_Edition_5.6_User_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Streaming_Video_Downloader_Lite_7.0_Machine_X86_nullsoft_en-US.exe",
-        "size": 486400,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Streaming_Video_Downloader_Lite_7.0_Machine_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Password_Generator_2020_Pro_Trial_3.0_Machine_X86_nullsoft_en-US.exe",
-        "size": 489984,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Password_Generator_2020_Pro_Trial_3.0_Machine_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Batch_Images_Free_Edition_5.6_User_X86_nullsoft_en-US.exe",
-        "size": 498176,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Batch_Images_Free_Edition_5.6_User_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Batch_Photo_Face_Free_Edition_5.6_User_X86_nullsoft_en-US.exe",
-        "size": 498176,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Batch_Photo_Face_Free_Edition_5.6_User_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Batch_Image_Enhancer_Free_Edition_5.6_User_X86_nullsoft_en-US.exe",
-        "size": 498176,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Batch_Image_Enhancer_Free_Edition_5.6_User_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Batch_Image_Resizer_Free_Edition_5.6_User_X86_nullsoft_en-US.exe",
-        "size": 498176,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Batch_Image_Resizer_Free_Edition_5.6_User_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Batch_Image_Splitter_Free_Edition_5.6_User_X86_nullsoft_en-US.exe",
-        "size": 498176,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Batch_Image_Splitter_Free_Edition_5.6_User_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "AstroGrep_4.4.9_Machine_X86_nullsoft_en-US.exe",
-        "size": 498176,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/AstroGrep_4.4.9_Machine_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Batch_Image_Watermarker_Free_Edition_5.6_User_X86_nullsoft_en-US.exe",
-        "size": 498176,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Batch_Image_Watermarker_Free_Edition_5.6_User_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Batch_Image_Converter_Free_Edition_5.6_User_X86_nullsoft_en-US.exe",
-        "size": 498688,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Batch_Image_Converter_Free_Edition_5.6_User_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Batch_Text_File_Editor_Free_Edition_5.0_User_X86_nullsoft_en-US.exe",
-        "size": 502272,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Batch_Text_File_Editor_Free_Edition_5.0_User_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Advanced_File_Finder_Free_Edition_5.0_User_X86_nullsoft_en-US.exe",
-        "size": 502272,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Advanced_File_Finder_Free_Edition_5.0_User_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Batch_File_Rename_Free_Edition_5.0_User_X86_nullsoft_en-US.exe",
-        "size": 502272,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Batch_File_Rename_Free_Edition_5.0_User_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "File_Hash_Generator_Free_Edition_5.0_Machine_X86_nullsoft_en-US.exe",
-        "size": 502272,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/File_Hash_Generator_Free_Edition_5.0_Machine_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Batch_Encoding_Converter_Free_Edition_5.0_User_X86_nullsoft_en-US.exe",
-        "size": 502272,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Batch_Encoding_Converter_Free_Edition_5.0_User_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Batch_Files_Free_Edition_5.0_User_X86_nullsoft_en-US.exe",
-        "size": 502272,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Batch_Files_Free_Edition_5.0_User_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Batch_File_Encrypt_Free_Edition_5.0_User_X86_nullsoft_en-US.exe",
-        "size": 502272,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Batch_File_Encrypt_Free_Edition_5.0_User_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Batch_File_Replace_Free_Edition_5.0_User_X86_nullsoft_en-US.exe",
-        "size": 502272,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Batch_File_Replace_Free_Edition_5.0_User_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Batch_File_Manager_Free_Edition_5.0_User_X86_nullsoft_en-US.exe",
-        "size": 502272,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Batch_File_Manager_Free_Edition_5.0_User_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Batch_RegEx_Free_Edition_5.0_User_X86_nullsoft_en-US.exe",
-        "size": 502272,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Batch_RegEx_Free_Edition_5.0_User_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Batch_Hex_Editor_Free_Edition_5.0_User_X86_nullsoft_en-US.exe",
-        "size": 502784,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Batch_Hex_Editor_Free_Edition_5.0_User_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Batch_File_Split_&_Join_Free_Edition_5.0_User_X86_nullsoft_en-US.exe",
-        "size": 502784,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Batch_File_Split_&_Join_Free_Edition_5.0_User_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Clementine_1.4.1_Machine_X86_nullsoft_en-US.exe",
-        "size": 510464,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Clementine_1.4.1_Machine_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "OpenOffice_4.116.9816_Machine_X86_nullsoft_en-US.exe",
-        "size": 510464,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/OpenOffice_4.116.9816_Machine_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "PuTTY_puttytel_0.67_X86_portable_en-US.exe",
-        "size": 514560,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/PuTTY_puttytel_0.67_X86_portable_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Bethesda.net_Launcher_1.84.0_Machine_X86_inno_en-US.exe",
-        "size": 518656,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Bethesda.net_Launcher_1.84.0_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "EVO_4.4.0.0_X86_nullsoft_en-US.exe",
-        "size": 522752,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/EVO_4.4.0.0_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "PuTTY_plink_0.67_X86_portable_en-US.exe",
-        "size": 522752,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/PuTTY_plink_0.67_X86_portable_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "PuTTY_pscp_0.67_X86_portable_en-US.exe",
-        "size": 530944,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/PuTTY_pscp_0.67_X86_portable_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Amazon_Kindle_2.9.1.71006_User_X86_nullsoft_en-US.exe",
-        "size": 539136,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Amazon_Kindle_2.9.1.71006_User_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "PuTTY_psftp_0.67_X86_portable_en-US.exe",
-        "size": 539136,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/PuTTY_psftp_0.67_X86_portable_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Angry_IP_Scanner_3.9.3_Machine_X86_nullsoft_en-US.exe",
-        "size": 551424,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Angry_IP_Scanner_3.9.3_Machine_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "GNU_Arm_Embedded_Toolchain_14.2.Rel1_Machine_X86_nullsoft_en-US.exe",
-        "size": 555520,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/GNU_Arm_Embedded_Toolchain_14.2.Rel1_Machine_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "BililiveRecorder.WPF.exe",
-        "size": 564224,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/BililiveRecorder.WPF.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Biorhythms_Calculator_Free_Edition_3.0_Machine_X86_nullsoft_en-US.exe",
-        "size": 567808,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Biorhythms_Calculator_Free_Edition_3.0_Machine_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "AppCheck_3.1.45.7_X86_nullsoft_en-US.exe",
-        "size": 580096,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/AppCheck_3.1.45.7_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Air_Explorer_5.9.0_Machine_X86_nullsoft_en-US.exe",
-        "size": 584192,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Air_Explorer_5.9.0_Machine_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Code__Blocks_25.03_User_X86_nullsoft_en-US.exe",
-        "size": 592384,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Code__Blocks_25.03_User_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "BZFlag_2.4.30_Machine_X86_nullsoft_en-US.exe",
-        "size": 600576,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/BZFlag_2.4.30_Machine_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "6.1.10.14_Machine_X86_nullsoft_en-US_af2d692e.exe",
-        "size": 637440,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/6.1.10.14_Machine_X86_nullsoft_en-US_af2d692e.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "BleachBit_6.0.0.3482_User_X86_nullsoft_en-US.exe",
-        "size": 645632,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/BleachBit_6.0.0.3482_User_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Azkar_1.3.0_Machine_X86_exe_ar-SA.exe",
-        "size": 646144,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Azkar_1.3.0_Machine_X86_exe_ar-SA.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Udemy_Coupon_Fetcher_1.2_Machine_X86_exe_en-US.exe",
-        "size": 662528,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Udemy_Coupon_Fetcher_1.2_Machine_X86_exe_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "REAPER_7.73_Machine_X86_exe_en-US.exe",
-        "size": 666112,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/REAPER_7.73_Machine_X86_exe_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Session_Manager_Plugin_1.2.814.0_Machine_X86_burn_en-US.exe",
-        "size": 666624,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Session_Manager_Plugin_1.2.814.0_Machine_X86_burn_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "YTSubConverter_1.6.5_X86_portable_en-US.exe",
-        "size": 670720,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/YTSubConverter_1.6.5_X86_portable_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "K-Lite_Codec_Pack_Basic_19.7.5_Machine_X86_inno_en-US.exe",
-        "size": 674816,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/K-Lite_Codec_Pack_Basic_19.7.5_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "K-Lite_Codec_Pack_Standard_19.7.5_Machine_X86_inno_en-US.exe",
-        "size": 674816,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/K-Lite_Codec_Pack_Standard_19.7.5_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "K-Lite_Codec_Pack_Full_19.7.5_Machine_X86_inno_en-US.exe",
-        "size": 674816,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/K-Lite_Codec_Pack_Full_19.7.5_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "K-Lite_Mega_Codec_Pack_19.7.5_Machine_X86_inno_en-US.exe",
-        "size": 674816,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/K-Lite_Mega_Codec_Pack_19.7.5_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Avogadro_1.2.0_X86_nullsoft_en-US.exe",
-        "size": 690688,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Avogadro_1.2.0_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "BumpTop_2.5.6268_X86_inno_en-US.exe",
-        "size": 711168,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/BumpTop_2.5.6268_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "BitDefender_Agent_26.0.1.233_X86_exe_en-US.exe",
-        "size": 764928,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/BitDefender_Agent_26.0.1.233_X86_exe_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "AdGuard_VPN_2.9.2004.0_Machine_X86_burn_en-US.exe",
-        "size": 777216,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/AdGuard_VPN_2.9.2004.0_Machine_X86_burn_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Bandizip_7.43_Machine_X86_exe_en-US.exe",
-        "size": 814080,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Bandizip_7.43_Machine_X86_exe_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "AOMEI_Partition_Assistant_10.10.1_Machine_X86_inno_en-US.exe",
-        "size": 829952,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/AOMEI_Partition_Assistant_10.10.1_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "BiglyBT_4.0.0.0_Machine_X86_exe_en-US.exe",
-        "size": 883712,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/BiglyBT_4.0.0.0_Machine_X86_exe_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Guitar_Pro_7_7.6.0.2089_Machine_X86_inno_en-US.exe",
-        "size": 948736,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Guitar_Pro_7_7.6.0.2089_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "HLAE_2.190.2_Machine_X86_burn_en-US.exe",
-        "size": 969728,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/HLAE_2.190.2_Machine_X86_burn_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Typora_1.13.6_User_X86_inno_en-US.exe",
-        "size": 985600,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Typora_1.13.6_User_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "CPUID_CPU-Z_Aorus_2.19_Machine_X86_inno_en-US.exe",
-        "size": 1001984,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/CPUID_CPU-Z_Aorus_2.19_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "CPUID_CPU-Z_OC_Formula_2.19_Machine_X86_inno_en-US.exe",
-        "size": 1001984,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/CPUID_CPU-Z_OC_Formula_2.19_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "CPUID_ROG_CPU-Z_2.20.1_Machine_X86_inno_en-US.exe",
-        "size": 1001984,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/CPUID_ROG_CPU-Z_2.20.1_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "CPUID_CoolerMaster_CPU-Z_2.19_Machine_X86_inno_en-US.exe",
-        "size": 1001984,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/CPUID_CoolerMaster_CPU-Z_2.19_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "CPUID_HWMonitor_1.63_Machine_X86_inno_en-US.exe",
-        "size": 1001984,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/CPUID_HWMonitor_1.63_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "CPUID_CPU-Z_2.20_Machine_X86_inno_en-US.exe",
-        "size": 1001984,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/CPUID_CPU-Z_2.20_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "CPUID_TAICHI_CPU-Z_2.19_Machine_X86_inno_en-US.exe",
-        "size": 1001984,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/CPUID_TAICHI_CPU-Z_2.19_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "CPUID_CPU-Z_MSI_2.20.1_Machine_X86_inno_en-US.exe",
-        "size": 1002496,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/CPUID_CPU-Z_MSI_2.20.1_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "CPUID_CPU-Z_Gigabyte_2.19_Machine_X86_inno_en-US.exe",
-        "size": 1002496,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/CPUID_CPU-Z_Gigabyte_2.19_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "CPUID_PHANTOM_CPU-Z_2.19_Machine_X86_inno_en-US.exe",
-        "size": 1002496,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/CPUID_PHANTOM_CPU-Z_2.19_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Cairo_Desktop_Environment_0.4.434_Machine_X86_nullsoft_en-US.exe",
-        "size": 1006080,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Cairo_Desktop_Environment_0.4.434_Machine_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "JDownloader_2_2.0_User_X86_exe_en-US.exe",
-        "size": 1010688,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/JDownloader_2_2.0_User_X86_exe_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "CBackup_4.0.0_X86_inno_en-US.exe",
-        "size": 1022464,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/CBackup_4.0.0_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Listary_6.3_Machine_X86_inno_en-US.exe",
-        "size": 1055232,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Listary_6.3_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Path_Copy_Copy_20.0_User_X86_inno_en-US.exe",
-        "size": 1055232,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Path_Copy_Copy_20.0_User_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Celestia_1.6.4_Machine_X86_inno_en-US.exe",
-        "size": 1055744,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Celestia_1.6.4_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "DrMIPS_2.0.4_Machine_X86_inno_en-US.exe",
-        "size": 1059328,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/DrMIPS_2.0.4_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "AdGuard_7.22.5271.0_Machine_X86_burn_en-US.exe",
-        "size": 1059840,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/AdGuard_7.22.5271.0_Machine_X86_burn_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "BlueBubbles_1.15.7_User_X86_inno_en-US.exe",
-        "size": 1068032,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/BlueBubbles_1.15.7_User_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "setup.exe",
-        "size": 1076224,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/setup.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Resource_Hacker_5.2.8_Machine_X86_inno_en-US.exe",
-        "size": 1096192,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Resource_Hacker_5.2.8_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "DisplayFusion_12.0.2.0_Machine_X86_inno_en-US.exe",
-        "size": 1104896,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/DisplayFusion_12.0.2.0_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Window_Inspector_3.9.1.0_Machine_X86_inno_en-US.exe",
-        "size": 1104896,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Window_Inspector_3.9.1.0_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Balsamiq_Wireframes_4.8.6_User_X86_inno_en-US.exe",
-        "size": 1113088,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Balsamiq_Wireframes_4.8.6_User_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "wget.exe",
-        "size": 1149440,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/wget.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "ClipboardFusion_6.3.0.0_Machine_X86_inno_en-US.exe",
-        "size": 1170432,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/ClipboardFusion_6.3.0.0_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "LogFusion_7.1.0.0_Machine_X86_inno_en-US.exe",
-        "size": 1170432,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/LogFusion_7.1.0.0_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "VoiceBot_3.9.9.0_Machine_X86_inno_en-US.exe",
-        "size": 1170432,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/VoiceBot_3.9.9.0_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "FileSeek_7.1.0.0_Machine_X86_inno_en-US.exe",
-        "size": 1170432,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/FileSeek_7.1.0.0_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "HashTools_4.8.3.0_Machine_X86_inno_en-US.exe",
-        "size": 1170432,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/HashTools_4.8.3.0_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "TrayStatus_5.1.4.0_Machine_X86_inno_en-US.exe",
-        "size": 1178624,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/TrayStatus_5.1.4.0_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "MOBILedit!_SIM_Clone_3.3.1.0_X86_inno_en-US.exe",
-        "size": 1186304,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/MOBILedit!_SIM_Clone_3.3.1.0_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Audacity_3.7.7_Machine_X86_inno_en-US.exe",
-        "size": 1240064,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Audacity_3.7.7_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "PCI-Z_2.0_X86_portable_en-US.exe",
-        "size": 1354240,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/PCI-Z_2.0_X86_portable_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Donkey_for_Oracle_25.10.20.0_Machine_X86_inno_en-US.exe",
-        "size": 1354752,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Donkey_for_Oracle_25.10.20.0_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "8.0.9.0_Machine_X86_inno_en-US_7f1715dc.exe",
-        "size": 1370624,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/8.0.9.0_Machine_X86_inno_en-US_7f1715dc.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "TickTick_8.0.9.0_Machine_X86_inno_en-US.exe",
-        "size": 1370624,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/TickTick_8.0.9.0_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Semanta_Modeler_6.8.4.5319_Machine_X86_inno_en-US.exe",
-        "size": 1428480,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Semanta_Modeler_6.8.4.5319_Machine_X86_inno_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "AirDroid_3.8.0.4_Machine_X86_nullsoft_en-US.exe",
-        "size": 1587712,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/AirDroid_3.8.0.4_Machine_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "bzip2recover_unxutils_X86_portable_en-US.exe",
-        "size": 1800704,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/bzip2recover_unxutils_X86_portable_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Stopawu_1.0.0_X86_nullsoft_en-US.exe",
-        "size": 1903104,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Stopawu_1.0.0_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "7.9.0_Machine_X86_nullsoft_en-US_01b6b02b.exe",
-        "size": 1907200,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/7.9.0_Machine_X86_nullsoft_en-US_01b6b02b.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "agrep_unxutils_X86_portable_en-US.exe",
-        "size": 1907200,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/agrep_unxutils_X86_portable_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "1.1.30_Machine_X86_nullsoft_en-US_6955a611.exe",
-        "size": 1968640,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/1.1.30_Machine_X86_nullsoft_en-US_6955a611.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Airytec_Switch_Off_3.5.1_Machine_X86_nullsoft_en-US.exe",
-        "size": 2116608,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Airytec_Switch_Off_3.5.1_Machine_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Better-CrewLink_3.1.4_User_X86_nullsoft_en-US.exe",
-        "size": 2144768,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Better-CrewLink_3.1.4_User_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Amazon_Games_3.0.9700.3_User_X86_exe_en-US.exe",
-        "size": 2161664,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Amazon_Games_3.0.9700.3_User_X86_exe_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "ADAMANT_Messenger_4.11.1_User_X86_nullsoft_en-US.exe",
-        "size": 2251264,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/ADAMANT_Messenger_4.11.1_User_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Airtame_4.15.0_Machine_X86_nullsoft_en-US.exe",
-        "size": 2255872,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Airtame_4.15.0_Machine_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "BestNotes_3.5.1_X86_nullsoft_en-US.exe",
-        "size": 2267648,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/BestNotes_3.5.1_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Canva_1.122.0_User_X86_nullsoft_en-US.exe",
-        "size": 2300416,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Canva_1.122.0_User_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Abyss_Overlay_2.0.3_User_X86_nullsoft_en-US.exe",
-        "size": 2329088,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Abyss_Overlay_2.0.3_User_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Bitwarden_2026.5.0_User_X86_nullsoft_en-US.exe",
-        "size": 2370048,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Bitwarden_2026.5.0_User_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "WordPress.com_8.0.4_User_X86_nullsoft_en-US.exe",
-        "size": 2374144,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/WordPress.com_8.0.4_User_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "1.1.1_Machine_X86_nullsoft_en-US_41b73e85.exe",
-        "size": 2378240,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/1.1.1_Machine_X86_nullsoft_en-US_41b73e85.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Plottr_2025.12.4_Machine_X86_nullsoft_en-US.exe",
-        "size": 2382336,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Plottr_2025.12.4_Machine_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Simplenote_2.24.0_User_X86_nullsoft_en-US.exe",
-        "size": 2382336,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Simplenote_2.24.0_User_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Unfx_Proxy_Checker_1.7.2_Machine_X86_nullsoft_en-US.exe",
-        "size": 2386432,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Unfx_Proxy_Checker_1.7.2_Machine_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Teambition_2.0.3_User_X86_nullsoft_en-US.exe",
-        "size": 2472448,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Teambition_2.0.3_User_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Caprine_2.61.0_User_X86_nullsoft_en-US.exe",
-        "size": 2492928,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Caprine_2.61.0_User_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Motrix_1.8.19_User_X86_nullsoft_en-US.exe",
-        "size": 2537984,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Motrix_1.8.19_User_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "ClipCC_3.1.4_User_X86_nullsoft_en-US.exe",
-        "size": 2746880,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/ClipCC_3.1.4_User_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "ClipCC_Beta_3.1.2-beta2_User_X86_nullsoft_en-US.exe",
-        "size": 2746880,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/ClipCC_Beta_3.1.2-beta2_User_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "9.63.20N_Machine_X86_exe_en-US_c994af8d.exe",
-        "size": 2907136,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/9.63.20N_Machine_X86_exe_en-US_c994af8d.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Amazon_Music_9.4.0.2386_User_X86_exe_en-US.exe",
-        "size": 3132416,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Amazon_Music_9.4.0.2386_User_X86_exe_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "10.03.39C_Machine_X86_exe_en-US_c51e8882.exe",
-        "size": 3259392,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/10.03.39C_Machine_X86_exe_en-US_c51e8882.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Malwarebytes_Windows_Firewall_Control_6.32.0.0_Machine_X86_exe_en-US.exe",
-        "size": 3734528,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Malwarebytes_Windows_Firewall_Control_6.32.0.0_Machine_X86_exe_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "rg.exe",
-        "size": 3959808,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/rg.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "TeraCopy_3.17_Machine_X86_exe_en-US.exe",
-        "size": 3972096,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/TeraCopy_3.17_Machine_X86_exe_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Sidebar_Diagnostics_3.6.3_User_X86_exe_en-US.exe",
-        "size": 4041728,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Sidebar_Diagnostics_3.6.3_User_X86_exe_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "HFSExplorer_2021.10.9_Machine_X86_nullsoft_en-US.exe",
-        "size": 4106752,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/HFSExplorer_2021.10.9_Machine_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "CLAN_8.59.00_X86_exe_en-US.exe",
-        "size": 4361216,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/CLAN_8.59.00_X86_exe_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "DVD_or_CD_Sharing_1.0.1.4_X86_exe_en-US.exe",
-        "size": 5200384,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/DVD_or_CD_Sharing_1.0.1.4_X86_exe_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "AutoHotkey_2.0.26_User_X86_exe_en-US.exe",
-        "size": 5786112,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/AutoHotkey_2.0.26_User_X86_exe_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "aria2c.exe",
-        "size": 6212608,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/aria2c.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Zadig_2.9.788_X86_portable_en-US.exe",
-        "size": 7699456,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Zadig_2.9.788_X86_portable_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "converter.exe",
-        "size": 8284672,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/converter.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "AirPort_Utility_5.6.1.2_Machine_X86_exe_en-US.exe",
-        "size": 11004928,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/AirPort_Utility_5.6.1.2_Machine_X86_exe_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "chromedriver.exe",
-        "size": 19119104,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/chromedriver.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Avidemux_2.8.1_X86_nullsoft_en-US.exe",
-        "size": 20225024,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Avidemux_2.8.1_X86_nullsoft_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Sourcetree_3.4.30_User_X86_exe_en-US.exe",
-        "size": 25472000,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Sourcetree_3.4.30_User_X86_exe_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Bitvise_SSH_Client_9.63_Machine_X86_exe_en-US.exe",
-        "size": 27311104,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Bitvise_SSH_Client_9.63_Machine_X86_exe_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Bitvise_SSH_Server_9.64_Machine_X86_exe_en-US.exe",
-        "size": 33737728,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Bitvise_SSH_Server_9.64_Machine_X86_exe_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "op.exe",
-        "size": 38624256,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/op.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Markdownify.exe",
-        "size": 64785408,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Markdownify.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "AdGuardHome.exe",
-        "size": 70511616,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/AdGuardHome.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "aliceandbob.io_1.1.0-Beta2_User_X86_exe_en-US.exe",
-        "size": 74431488,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/aliceandbob.io_1.1.0-Beta2_User_X86_exe_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Cent_Browser_5.2.1168.83_User_X86_exe_en-US.exe",
-        "size": 101473280,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Cent_Browser_5.2.1168.83_User_X86_exe_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Brave_Dev_119.1.61.87_User_X86_exe_en-US.exe",
-        "size": 111819776,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Brave_Dev_119.1.61.87_User_X86_exe_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Catsxp_149.6.6.1_User_X86_exe_en-US.exe",
-        "size": 118459392,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Catsxp_149.6.6.1_User_X86_exe_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "alist.exe",
-        "size": 131320832,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/alist.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Brave_Beta_149.1.92.114_User_X86_exe_en-US.exe",
-        "size": 136313856,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Brave_Beta_149.1.92.114_User_X86_exe_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Brave_149.1.91.168_User_X86_exe_en-US.exe",
-        "size": 136604672,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Brave_149.1.91.168_User_X86_exe_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Brave_Nightly_149.1.93.30_User_X86_exe_en-US.exe",
-        "size": 136911872,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Brave_Nightly_149.1.93.30_User_X86_exe_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Amazon_Chime_5.23.32138_User_X86_exe_en-US.exe",
-        "size": 147741696,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Amazon_Chime_5.23.32138_User_X86_exe_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "iTunes_12.13.10.3_Machine_X86_exe_en-US.exe",
-        "size": 177585152,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/iTunes_12.13.10.3_Machine_X86_exe_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Camunda_Modeler.exe",
-        "size": 192646144,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Camunda_Modeler.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Lark_7.68.7_User_X86_exe_en-US.exe",
-        "size": 353889280,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Lark_7.68.7_User_X86_exe_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Feishu_7.69.9_User_X86_exe_en-US.exe",
-        "size": 355478528,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Feishu_7.69.9_User_X86_exe_en-US.exe"
-      },
-      {
-        "testcase": "AMBER_001_DEFAULT_BUILD",
-        "name": "Adobe_Acrobat_Reader_(32-bit)_26.001.21529_Machine_X86_exe_en-US.exe",
-        "size": 715463168,
-        "sha256": null,
-        "remote": "//10.100.99.29/samples/benign_packed/amber_v3.1_3.1/AMBER_001_DEFAULT_BUILD/Adobe_Acrobat_Reader_(32-bit)_26.001.21529_Machine_X86_exe_en-US.exe"
       }
     ]
   }
