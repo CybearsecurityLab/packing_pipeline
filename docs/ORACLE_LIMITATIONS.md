@@ -1,10 +1,33 @@
 # Known limitations of the W→X oracle and its harness
 
 Hand-written. Records defects found by auditing the instrumentation rather than
-the packers. Every item here was originally mistaken for a packer property.
+the packers. Every one was originally mistaken for a packer property.
+
+**Why fixed defects are still listed.** Fixing a defect changes what future runs
+measure; it does not retroactively change labels already collected under it. The
+status of each entry below says which existing results are implicated and what
+would clear them. An entry marked RESOLVED with no residual impact is kept only
+so the same mistake is not re-derived later.
 
 The recurring lesson: an `UNRESOLVED_NO_UNPACKING_OBSERVED` verdict marked
 *eligible* and *complete* is not evidence that a packer does not unpack.
+
+## Status summary
+
+| # | Defect | Status | Existing corpus implicated? |
+|---|---|---|---|
+| 1 | Host-time completion boundary | fixed forward | **YES — 638/639 eligible runs** |
+| 2 | `file_io` gate biased against long runs | **OPEN** | **YES — disqualifies the longest runs** |
+| 3 | `single_process` certification | being re-certified | **YES — no result is a true negative** |
+| 4 | 64-bit validation fixture vs WOW64 samples | **OPEN** | yes, for PE32 samples |
+| 5 | `filtered_kernel_write_events` dead counter | **OPEN** (cosmetic) | no — it never gated anything |
+| 6 | icount shift changes packer behaviour | inherent, not a bug | yes — interpretive caveat |
+| 7 | Guest missing VC++ redistributable | **RESOLVED** | only alushpacker; re-run pending |
+| 8 | `guest_exit_code` without an observed exit | **RESOLVED** | no — no label consumed it |
+| 9 | W→X cross-check false positives | **RESOLVED** | no — cross-check only, not a label source |
+
+Clearing (1) requires re-running affected conditions with `LABEL_HOST_IDLE` raised;
+it is not a re-analysis, because the recordings were truncated at capture time.
 
 ## 1. The host-observed idle boundary is measured in HOST time
 
