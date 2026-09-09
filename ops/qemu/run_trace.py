@@ -753,6 +753,11 @@ def main() -> int:
         "monitor_socket": str(monitor.resolve()),
         "host_timed_out": host_timed_out,
         "host_observed_idle": host_observed_idle,
+        # The reason string below still says "two_minutes" because other code and
+        # the generated documents key on it, but the boundary is configurable now.
+        # Record what was ACTUALLY used so a run that idled for 900s is not read as
+        # having idled for 120s.
+        "host_idle_seconds": args.host_idle_seconds,
         "never_started": never_started,
         "write_settled": write_settled,
         "guest_timed_out": guest_timed_out,
