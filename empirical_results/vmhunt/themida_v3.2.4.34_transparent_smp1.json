@@ -1,0 +1,13 @@
+{
+  "tag": "themida_v3.2.4.34_3.2.4.34",
+  "scoping": "marker_self",
+  "verdict": "no_vm_detected",
+  "vcpus": [
+    {
+      "vcpu_file": "vm.trace.0",
+      "insns": 323245506,
+      "vmextract_stdout": "",
+      "vm_regions": 0
+    }
+  ]
+}
