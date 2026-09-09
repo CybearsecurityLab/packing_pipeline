@@ -1,0 +1,27 @@
+{
+  "profile": "slow-timer",
+  "tracing_parameters": {
+    "icount_shift": 0,
+    "icount_sleep": "on",
+    "cpu_model": "qemu64",
+    "guest_smp": "2",
+    "certification_mode": "single_process"
+  },
+  "backend_identity": {
+    "qemu_sha256": "a770c651c27e8d5838ea53ab0c32586faece099c4e48d1feff006e3cd5186e7c",
+    "plugin_sha256": "3ec908ff442189cbb386ee67a56d25dc5d656566ced5161bab5b029ed5cabf40",
+    "launcher_sha256": "f2d5da497142a48a7f5140f99ef5bc8557bcc83a312fa08386dbc5a2f6448425",
+    "fixture_sha256": "ab57dedf3aa15046dd3689d1d8c7224bfd3f83b1cb998d3f03e71c9c3e2b383d",
+    "ntdll_sha256": "fdb2689bffabe7d2e300882ca1c3fc2fe24a998ffcbd5f48795c7d95712d1e98",
+    "profile_header_sha256": "366e2f246ebad37b659812a2fdead594929694ee2b40b942b327cb32a02ed8de",
+    "kernel_profile_guid_age": "89284d0ca6acc8274b9a44bd5af9290b5",
+    "icount_shift": 0,
+    "icount_sleep": "on",
+    "cpu_model": "qemu64",
+    "guest_smp": "2"
+  },
+  "validated": false,
+  "certification_mode": "single_process",
+  "certified_from": null,
+  "note": "NOT YET CERTIFIED. Run the fixture under these parameters and stamp it before any label produced with this profile can be eligible."
+}

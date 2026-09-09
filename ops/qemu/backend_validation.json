@@ -11,7 +11,11 @@
     "fixture_sha256": "ab57dedf3aa15046dd3689d1d8c7224bfd3f83b1cb998d3f03e71c9c3e2b383d",
     "ntdll_sha256": "fdb2689bffabe7d2e300882ca1c3fc2fe24a998ffcbd5f48795c7d95712d1e98",
     "profile_header_sha256": "366e2f246ebad37b659812a2fdead594929694ee2b40b942b327cb32a02ed8de",
-    "kernel_profile_guid_age": "89284d0ca6acc8274b9a44bd5af9290b5"
+    "kernel_profile_guid_age": "89284d0ca6acc8274b9a44bd5af9290b5",
+    "icount_shift": 2,
+    "icount_sleep": "on",
+    "cpu_model": "qemu64",
+    "guest_smp": "2"
   },
   "evidence": {
     "event_counts": {
@@ -137,5 +141,6 @@
       "stop_detail": 0
     }
   },
-  "errors": []
+  "errors": [],
+  "tracing_parameters_pinned_note": "Back-filled from empirical_results/qemu_runtime/recert_full/fixture.meta.json, which records icount_shift 2 and icount_sleep on for the run that produced this stamp; cpu_model qemu64 and -smp 2 are run_trace.py's defaults, which that run used. Before this the identity pinned only binaries, so a run at a different icount shift could claim this certification -- which matters because hxor_packer only unpacks at shift=0."
 }

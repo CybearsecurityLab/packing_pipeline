@@ -65,10 +65,26 @@ ACCEPT_BOUNDED = bool(_cfg.get("accept_bounded") or
 DELETE_TRACE = bool(_cfg.get("delete_trace") or
                     os.environ.get("LABEL_DELETE_TRACE", "").lower()
                     in {"1", "true", "yes"})
-ICOUNT_SHIFT = str(_cfg.get("icount_shift") if _cfg.get("icount_shift") is not None
-                   else os.environ.get("LABEL_ICOUNT_SHIFT", "2"))
+# A named profile in ops/qemu/profiles/ supplies the tracing parameters AND names the
+# stamp that attests to them.  Selecting one is how a packer that needs a non-default
+# configuration (hxor_packer needs icount shift=0, or its Sleep/GetTickCount check fires
+# and it never unpacks) gets a configuration the certification can actually vouch for,
+# instead of an environment variable the stamp cannot see.
+PROFILE = os.environ.get("LABEL_PROFILE") or _cfg.get("profile") or "default"
+_profile_path = REPO / "ops/qemu/profiles" / f"{PROFILE}.json"
+_profile = {}
+if _profile_path.exists():
+    _profile = json.loads(_profile_path.read_text()).get("tracing_parameters", {})
+elif PROFILE != "default":
+    raise SystemExit(f"unknown backend profile: {PROFILE} ({_profile_path} missing)")
+
+ICOUNT_SHIFT = str(_cfg.get("icount_shift")
+                   if _cfg.get("icount_shift") is not None
+                   else os.environ.get("LABEL_ICOUNT_SHIFT",
+                                       _profile.get("icount_shift", 2)))
 ICOUNT_SLEEP = str(_cfg.get("icount_sleep")
-                   or os.environ.get("LABEL_ICOUNT_SLEEP", "on"))
+                   or os.environ.get("LABEL_ICOUNT_SLEEP",
+                                     _profile.get("icount_sleep", "on")))
 # Host-observed idle boundary.  The default 120s closes the recording whenever the
 # monitored process makes no progress for two HOST minutes -- which a guest sleep or
 # a protector's timed pause can exceed purely because the plugin slows the guest.

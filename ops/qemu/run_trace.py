@@ -44,6 +44,16 @@ def sha256(path: Path) -> str:
 # sample_start.  Zero activity (not merely slow) distinguishes a settled sample
 # from one still crawling through unpacking, so this cannot truncate an unpack.
 HOST_IDLE_SECONDS = 120
+
+# Guest vCPU count.  Pinned in the backend identity: icount requires
+# thread=single, so this changes how guest threads interleave and therefore what
+# a packer's timing and synchronisation observe.
+GUEST_SMP = "2"
+
+# Sentinel distinguishing "the stamp does not carry this key" from "the stamp
+# carries it with value None".  A stamp predating the tracing-parameter pin has
+# no icount_shift at all, and must not be treated as attesting to one.
+_UNSET = object()
 NO_START_SECONDS = 600
 _ACTIVITY_MARKERS = (b'"event":"exec"', b'"event":"write"')
 _READ_OVERLAP = 64
@@ -550,7 +560,7 @@ def main() -> int:
         "-m",
         args.guest_memory,
         "-smp",
-        "2",
+        GUEST_SMP,
         # icount: fixed-shift instruction-counted virtual clock so the guest
         # scheduler tick fires at a sane instructions-per-tick ratio despite the
         # plugin slowdown (ends the boot-lottery thread starvation).  Keeps
@@ -703,22 +713,45 @@ def main() -> int:
             )
         except (json.JSONDecodeError, OSError):
             backend_validation = None
+    # The identity pins the BINARIES and the TRACING PARAMETERS.  Binaries alone are
+    # not enough: hxor_packer only unpacks at icount shift=0, because at shift=2 the
+    # extra virtual-ns per instruction pushes its Sleep(500)/GetTickCount check past
+    # its own 550ms allowance and it takes the evasion path.  A shift=0 result is
+    # therefore a materially different measurement from the shift=2 results the rest
+    # of the corpus was labelled under, and before this the stamp could not tell them
+    # apart -- the shift was an environment variable invisible to certification.
+    #
+    # Parameters that change what the guest experiences are pinned.  Parameters that
+    # only bound how long we watch (host timeout, host idle) are NOT: they can
+    # truncate a recording, which the completion boundary already reports, but they
+    # do not alter the guest's behaviour.
     current_identity = {
         "qemu_sha256": sha256(qemu),
         "plugin_sha256": sha256(plugin),
         "profile_header_sha256": sha256(repo / "ops/qemu/win10_profile.h"),
         "ntdll_sha256": sha256(ntdll),
+        "icount_shift": args.icount_shift,
+        "icount_sleep": args.icount_sleep if args.icount_shift >= 0 else None,
+        "cpu_model": (args.cpu_model + ",-hypervisor"
+                      if args.transparent else args.cpu_model),
+        "guest_smp": GUEST_SMP,
     }
     stamped_identity = (
         backend_validation.get("backend_identity", {})
         if isinstance(backend_validation, dict)
         else {}
     )
+    # A stamp written before tracing parameters were pinned carries none of them.
+    # Treat a missing key as "not attested" rather than as a match, so an old stamp
+    # cannot silently vouch for a configuration it never saw.
+    identity_mismatches = [
+        key for key, value in current_identity.items()
+        if stamped_identity.get(key, _UNSET) != value
+    ]
     backend_validation_complete = bool(
         backend_validation
         and backend_validation.get("validated") is True
-        and all(stamped_identity.get(key) == value
-                for key, value in current_identity.items())
+        and not identity_mismatches
     )
     stop_detail = int(summary.get("stop_detail", 0)) if summary else 0
     saw_stop = bool(summary and summary.get("saw_stop"))
@@ -801,6 +834,7 @@ def main() -> int:
             str(validation_stamp.resolve()) if validation_stamp.exists() else None
         ),
         "backend_identity": current_identity,
+        "backend_identity_mismatches": identity_mismatches,
         "paper_label_eligible": (
             backend_validation_complete
             and completion_observed
