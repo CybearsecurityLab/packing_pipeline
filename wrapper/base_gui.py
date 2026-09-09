@@ -7,6 +7,8 @@ GUI-based packer applications on Windows.
 
 import yaml
 import time
+import json
+import hashlib
 import threading
 from pathlib import Path
 from abc import ABC, abstractmethod
@@ -43,6 +45,76 @@ _INPUT_LOCK = threading.RLock()
 # leaves orphaned packer GUIs littering the desktop.
 _ACTIVE_WRAPPERS = set()
 _ACTIVE_WRAPPERS_LOCK = threading.Lock()
+
+
+# --- PASS-THROUGH GUARD ---
+# Every GUI wrapper decides "packing finished" by watching the staged file
+# until it stops being locked. An untouched file is trivially unlocked, so a
+# packer that silently no-ops looks identical to one that succeeded, and the
+# unmodified input gets published as a packed sample. Hashing the artifact at
+# the single publish point and rejecting anything that still equals one of the
+# benign inputs turns that silent no-op into a visible failure.
+_BENIGN_SHAS = None
+_BENIGN_SHAS_LOCK = threading.Lock()
+
+
+def _sha256_file(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _benign_shas(main_dir):
+    """SHA-256 of every benign input, hashed once per process and cached on
+    disk keyed by (size, mtime_ns) so a restart does not re-hash ~11 GB."""
+    global _BENIGN_SHAS
+    with _BENIGN_SHAS_LOCK:
+        if _BENIGN_SHAS is not None:
+            return _BENIGN_SHAS
+
+        benign_dir = Path(main_dir) / "benign_sources" / "x86"
+        cache_path = Path(main_dir) / "packed_sources" / "_audit" / "benign_shas.json"
+        cached = {}
+        try:
+            with open(cache_path, "r", encoding="utf-8") as f:
+                cached = json.load(f)
+        except (OSError, ValueError):
+            cached = {}
+
+        shas = set()
+        fresh = {}
+        if benign_dir.is_dir():
+            for entry in sorted(benign_dir.iterdir()):
+                if not (entry.is_file() and entry.name.lower().endswith(".exe")):
+                    continue
+                try:
+                    st = entry.stat()
+                except OSError:
+                    continue
+                key = entry.name
+                row = cached.get(key)
+                if row and row.get("size") == st.st_size and row.get("mtime_ns") == st.st_mtime_ns:
+                    sha = row["sha256"]
+                else:
+                    try:
+                        sha = _sha256_file(entry)
+                    except OSError:
+                        continue
+                fresh[key] = {"sha256": sha, "size": st.st_size, "mtime_ns": st.st_mtime_ns}
+                shas.add(sha)
+
+        if fresh != cached:
+            try:
+                cache_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(cache_path, "w", encoding="utf-8") as f:
+                    json.dump(fresh, f)
+            except OSError:
+                pass
+
+        _BENIGN_SHAS = shas
+        return _BENIGN_SHAS
 
 
 # --- THREAD-LOCAL MOVE RESULT BRIDGE ---
@@ -840,6 +912,24 @@ class BaseGUI(ABC):
         source = Path(protected_file_path)
         if not source.exists():
             print(f"[ERROR] Protected file not found: {source}")
+            return None
+
+        try:
+            produced_sha = _sha256_file(source)
+        except OSError as e:
+            print(f"[ERROR] Could not hash produced file {source}: {e}")
+            return None
+
+        if produced_sha in _benign_shas(self.main_dir):
+            print(
+                f"[REJECTED] PASS-THROUGH: {source.name} is byte-identical to its "
+                f"benign input (sha={produced_sha[:16]}). The packer did not modify "
+                f"the file, so this is a failed pack, not a sample."
+            )
+            try:
+                source.unlink()
+            except OSError:
+                pass
             return None
 
         # If no output directory specified, leave file in place

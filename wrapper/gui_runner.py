@@ -2070,6 +2070,13 @@ Examples:
 
     # Output directory (if specified via CLI)
     output_dir = Path(args.output_dir).resolve() if args.output_dir else None
+    if output_dir is not None and output_dir == (main_dir / "packed_sources").resolve():
+        parser.error(
+            "--output-dir must not be the packed_sources root: every packer would "
+            "write flat into it, so samples lose their packer attribution and "
+            "collide on the input filename. Pass a per-packer subdirectory, or "
+            "omit --output-dir to use packed_sources/<packer>/."
+        )
 
     yaml_path = main_dir / "manifest" / "packer_corpus.yaml"
 
