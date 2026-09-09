@@ -1,7 +1,7 @@
 schema_version: 1
 taxonomy: Ugarte et al. Type I-VI
 warning: Only empirical_exact_trace_consensus is an exact paper-faithful measurement;
-  provisional and hypothesis-only labels retain their provenance.
+  conditions without it remain explicitly unresolved.
 minimum_repetitions_per_sample: 3
 minimum_distinct_samples: 2
 condition_count: 1
@@ -17,9 +17,9 @@ in_place_validation_run_count: 0
 alternate_payload_run_count: 0
 conditions:
 - packer_family: hyperion
-  packer_version: 2.3.1
-  configuration_id: hyperion_001_default-0b9165cceb12
-  test_case_id: HYPERION_001_DEFAULT
+  packer_version: '1.2'
+  configuration_id: hyperion_v12_001_default-51bc029a53e4
+  test_case_id: HYPERION_V12_001_DEFAULT
   condition_source: yaml_test_case
   nas_status: planned
   available_nas_samples: 2
@@ -38,9 +38,7 @@ conditions:
   original_mapped_distinct_samples: 0
   exact_trace_resolved_runs: 0
   exact_trace_distribution: {}
-  dynamic_failure_reasons:
-    missing_metadata: 6
-  taxonomy_hypothesis: null
+  dynamic_failure_reasons: {}
   label: null
   label_status: null
   confidence: 0.0

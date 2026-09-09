@@ -17,7 +17,7 @@ The recurring lesson: an `UNRESOLVED_NO_UNPACKING_OBSERVED` verdict marked
 | # | Defect | Status | Existing corpus implicated? |
 |---|---|---|---|
 | 1 | Host-time completion boundary | fixed forward | **YES — 638/639 eligible runs** |
-| 2 | `file_io` gate biased against long runs | **OPEN** | **YES — disqualifies the longest runs** |
+| 2 | `file_io` gate biased against long runs | **FIXED** (plugin rebuilt) | **YES — results collected before the rebuild** |
 | 3 | `single_process` certification | being re-certified | **YES — no result is a true negative** |
 | 4 | 64-bit validation fixture vs WOW64 samples | **OPEN** | yes, for PE32 samples |
 | 5 | `filtered_kernel_write_events` dead counter | **OPEN** (cosmetic) | no — it never gated anything |
@@ -25,6 +25,9 @@ The recurring lesson: an `UNRESOLVED_NO_UNPACKING_OBSERVED` verdict marked
 | 7 | Guest missing VC++ redistributable | **RESOLVED** | only alushpacker; re-run pending |
 | 8 | `guest_exit_code` without an observed exit | **RESOLVED** | no — no label consumed it |
 | 9 | W→X cross-check false positives | **RESOLVED** | no — cross-check only, not a label source |
+| 10 | Duplicate sample filed under two families | **OPEN** | **YES — corpus integrity** |
+| 11 | Two runs traced with an uncertified plugin | recorded | yes — those two reps only |
+| 12 | Document counted the NAS index, not the corpus | **RESOLVED** | reporting only, no label affected |
 
 Clearing (1) requires re-running affected conditions with `LABEL_HOST_IDLE` raised;
 it is not a re-analysis, because the recordings were truncated at capture time.
@@ -109,9 +112,20 @@ signature but is not proved — the single counter aggregates **seven** distinct
 failure sites (`paper_trace.c:1524,1529,1537,1549,1554,1594,1602`).
 
 Consequence: the harness is biased against exactly the packers that need long runs
-to reach their unpacking. Splitting the counter would settle it, but changing the
-plugin changes `plugin_sha256` and therefore the certified identity, so it must be
-done as a deliberate re-certification, not mid-corpus.
+to reach their unpacking.
+
+**FIXED.** `allocate_file_io()` now evicts the oldest entry instead of returning
+NULL, counted separately as `file_io_evictions`, and each of the seven sites is
+attributed (`file_io_register_failures`, `_handle_`, `_disk_`, `_argument_`,
+`_status_`) with `file_io_failures` kept as their sum so the certification gate is
+unchanged. All are emitted in the summary. This changed `plugin_sha256` from
+`50a5aa94…` to `a17a5c71…`, so the backend must be re-certified; results collected
+before the rebuild remain on the old identity.
+
+Note the eligibility rule is narrower than assumed: `run_trace.py`'s
+`trace_integrity` checks file-I/O failures and asynchronous I/O but **not**
+`memory_buffer_overflows`; only `validate_fixture_trace.py` checks that. Runs
+carrying overflows have therefore been accepted as eligible.
 
 ## 6. `filtered_kernel_write_events` is a dead counter
 
@@ -161,3 +175,35 @@ The classifier does **not** share defect 1; that was the cross-check only. Its o
 narrower gaps are alias writes and unmaps, which produce an extra frame with no
 layer change — which is what armadillo A2's 43 frames at `layers=1` are, and they
 are therefore not evidence of Type V/VI.
+
+## 10. One binary is filed under two packer families
+
+`obsidium` payload A and `telock` payload B are byte-identical: 5,089,758 bytes,
+sha256 `67454e77d5b9e0d4a9d5765cf0c6e227e4860161323cfee45341486e74706131`. Found by
+adversarial review and confirmed against the recorded `packed_sha256` in both
+conditions' `sample.json`.
+
+One of the two family assignments is wrong, and it explains what looked like a
+striking coincidence — obsidium-A and telock-B stalling at the same ~1.118M
+executed blocks. Same executable; never independent cross-packer evidence.
+
+telock's TYPE_VI-B label is **not** affected: it was finalised from payload A
+(sha `61d4d99e…`), a different binary. But a two-payload "consensus" over a
+duplicated input is one observation reported as two, so payload distinctness must
+be checked by hash, never by filename or directory.
+
+## 11. Two obsidium reps were traced with an uncertified plugin
+
+`obsidiumA_rep1` and `rep2` record `plugin_sha256 87a4bedd…`, not the pinned
+`50a5aa94…`; they were captured while a rebuilt plugin was briefly installed
+mid-sweep. Their `UNRESOLVED_TRACE_LOSS` is a backend-identity rejection, not a
+dropped-event mechanism, and is unrelated to the `file_io` exhaustion in (2). Do
+not read those two as evidence about obsidium.
+
+## 12. The type document counted the NAS index rather than the corpus
+
+`build_packer_type_document.py` filtered on `worklist.json`, so four corpus
+definitions never enumerated into it (alushpacker, hxor_packer, hyperion 1.2 and
+2.3.1) were dropped before counting, and it reported "2 unresolved" while six
+definitions carried no type. Fixed by taking the union of the worklist and
+`packer_corpus.yaml`, with the corpus `type:` field resolving family aliases.

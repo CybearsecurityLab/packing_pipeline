@@ -18,8 +18,8 @@ alternate_payload_run_count: 0
 conditions:
 - packer_family: hxor_packer
   packer_version: '0.1'
-  configuration_id: hxor_001_default-14ec28b1bc56
-  test_case_id: HXOR_001_DEFAULT
+  configuration_id: hxor_003_encryption-8783d40729f2
+  test_case_id: HXOR_003_ENCRYPTION
   condition_source: yaml_test_case
   nas_status: planned
   available_nas_samples: 2

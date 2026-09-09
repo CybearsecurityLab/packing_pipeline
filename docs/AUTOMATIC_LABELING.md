@@ -141,6 +141,28 @@ sudo ops/qemu/stage_sample.sh <payload2.exe> windows10-qemu-cond2.qcow2 300
 # 2) write a condition config (see empirical_results/qemu_runtime/configs/*.json)
 #    {condition:{...configuration_id...}, payloads:[[image,sha256,name],...], reps:3, runs_dir:...}
 python3 ops/qemu/run_condition_matrix.py <config.json>   # 6 traces + classify -> run dirs
+```
+
+**Tuning knobs that decide whether a packer resolves at all.** The defaults are
+tuned for fast unpackers; several packers produce `UNRESOLVED_NO_UNPACKING_OBSERVED`
+purely because a default cut the recording short. Each is an environment variable
+read by `run_condition_matrix.py` and passed through to `run_trace.py`.
+
+| Variable | Default | When to change it |
+|---|---|---|
+| `LABEL_HOST_IDLE` | `120` | **The one that matters most.** The completion boundary is measured in HOST seconds of no newly-serialised exec/write records, and the plugin slows the guest heavily, so a guest sleep or a protector's timed pause trips it while the sample is still live. It then reports a normal completion. telock produced `UNRESOLVED_NO_UNPACKING_OBSERVED` in every certified rep at 120; at 900 the same sample runs to ~14.3M blocks and classifies **TYPE_VI-B**. Raise it for anything that pauses. |
+| `LABEL_HOST_TIMEOUT` | `1200` | Raise for packers that are CPU-bound rather than idle. hyperion brute-forces its own AES key across 4096 candidates before decrypting anything and gets ~29% of the way in 1200s. |
+| `LABEL_ICOUNT_SHIFT` | `2` | Changes guest virtual-ns per instruction, and so how much a timed check overshoots. hXOR's `runtimeDelay()` allows 550ms for a `Sleep(500)`: at shift=2 it detects and bails, at shift=0 it passes and the unpack proceeds. |
+| `LABEL_ICOUNT_SLEEP` | `on` | `off` warps virtual time to the next deadline while idle instead of advancing it at real speed. |
+| `LABEL_ACCEPT_BOUNDED` | unset | Accept a truncated trace as a **lower bound** on the Type. |
+| `LABEL_DELETE_TRACE` | unset | Delete `trace.jsonl`/`work.qcow2` after classifying. Traces reach 8+ GB. |
+| `LABEL_JOBS` | `1` | Parallel traces. **Raising this is not free**: host contention is itself what trips `LABEL_HOST_IDLE`, so parallelism can manufacture the truncation it is meant to outrun. |
+
+If a condition comes back `UNRESOLVED_NO_UNPACKING_OBSERVED`, check
+`paper_termination_reason` and `host_idle_seconds` in `meta.json` before concluding
+anything about the packer. See [ORACLE_LIMITATIONS.md](ORACLE_LIMITATIONS.md).
+
+```bash
 
 # 3) aggregate into an empirical manifest:
 uv run packer-types finalize <runs_dir>/plan.json <runs_dir> \
@@ -149,12 +171,31 @@ uv run packer-types finalize <runs_dir>/plan.json <runs_dir> \
 
 `ops/qemu/cert_matrix_finalize.sh` chains cert → matrix → finalize for one condition.
 
-### C. Regenerate the final packer→Type document
+A condition needs **2 distinct payloads** for exact consensus. With only one,
+`PACKER_MAX_OBSERVED_MIN_PAYLOADS=1` finalises under the Ugarte Sec V-C
+max-observed rule instead; the label then records
+`label_status: empirical_max_observed_complexity` and the single-payload basis is
+visible in the manifest. Check the payload `sha256`s differ before trusting a
+two-payload consensus — one binary was found filed under two families (obsidium
+payload A and telock payload B are byte-identical), which a naive consensus would
+have silently treated as independent evidence.
+
+### C. Regenerate the documents
 
 ```bash
-python3 ops/qemu/build_label_document.py    # scans manifest/empirical_types_*.yaml
-                                            # -> doc/EMPIRICAL_TYPE_LABELS.md
+python3 ops/qemu/build_label_document.py         # -> docs/EMPIRICAL_TYPE_LABELS.md (exact-consensus only)
+python3 ops/qemu/build_final_report.py           # -> docs/EMPIRICAL_TYPE_RESULTS.md (every condition + root cause)
+python3 ops/qemu/build_packer_type_document.py   # -> docs/PACKER_TYPE_LABELS.md   (authoritative packer -> Type)
+uv run python ops/qemu/apply_types_to_corpus.py --apply   # writes type: back into manifest/packer_corpus.yaml
 ```
+
+`packer_corpus.yaml` is the curated membership and carries `type:`;
+`worklist.json` is the NAS index carrying sample paths and hashes. Both are needed
+and neither is the sole authority: filtering the document on the worklist hid four
+corpus definitions that had never been enumerated into it, and filtering on the
+yaml instead drops 13 typed rows whose manifests use NAS-derived naming
+(`acprotect_std_standard__installer` vs `acprotect`/`Standard (installer)`).
+`build_packer_type_document.py` takes the union of both.
 
 ---
 

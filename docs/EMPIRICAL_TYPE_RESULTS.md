@@ -6,9 +6,9 @@ Unlike [EMPIRICAL_TYPE_LABELS.md](EMPIRICAL_TYPE_LABELS.md), which lists only su
 
 ## Summary
 
-- Corpus: **102** packer family+versions
-- Empirically typed: **99**
-- Unresolved: **3**
+- Corpus: **107** packer family+versions
+- Empirically typed: **100**
+- Unresolved: **5**
 
 | Type | Conditions |
 |---|---|
@@ -18,14 +18,15 @@ Unlike [EMPIRICAL_TYPE_LABELS.md](EMPIRICAL_TYPE_LABELS.md), which lists only su
 | **TYPE_III** | 5 |
 | **TYPE_IV** | 10 |
 | **TYPE_V-F** | 1 |
+| **TYPE_VI-B** | 1 |
 | **TYPE_VI-F** | 4 |
 
 ### Why the unresolved are unresolved
 
 | Root cause | Conditions | Meaning |
 |---|---|---|
+| UNCLASSIFIED | 3 |  |
 | INFRASTRUCTURE | 2 | infrastructure — trace truncated/timed out (retryable) |
-| METHODOLOGY_LIMIT | 1 | methodology limit — unpacking invisible to write→execute |
 
 A `SAMPLE_NOT_PACKED` verdict is a **corpus** problem, not a classifier one: the payload runs as an ordinary unpacked binary, so there is no unpacking to observe. `INFRASTRUCTURE` is retryable and says nothing about the packer. Only `METHODOLOGY_LIMIT` reflects a genuine boundary of the runtime write→execute model.
 
@@ -65,6 +66,7 @@ A `SAMPLE_NOT_PACKED` verdict is a **corpus** problem, not a classifier one: the
 | pezor | 3.3.0 | PEZOR_001_DEFAULT_32 | **TYPE_I** | 6 | exact |
 | rlpack | 1.21_Basic | . | **TYPE_I** | 6 | exact |
 | shrinker | 3.4_Demo | . | **TYPE_III** | 6 | exact |
+| telock | 0.98 | . | **TYPE_VI-B** | 3 | max-observed |
 | themida | 3.2.4.34 | . | **TYPE_I** | 6 | max-observed |
 | upack | 0.399__Brute | UPACK_001_DEFAULT | **TYPE_IV** | 6 | exact |
 | upx | 0.60 | UPX_V060_001_DEFAULT | **TYPE_I** | 6 | exact |
@@ -137,9 +139,11 @@ A `SAMPLE_NOT_PACKED` verdict is a **corpus** problem, not a classifier one: the
 
 | Packer family | Version | Root cause | Detail |
 |---|---|---|---|
+| alushpacker | 1.0.0 | UNCLASSIFIED | 2 distinct payloads x 3 reps, certified backend (plugin 50a5aa94...): every run exec_events=0 with paper_termination_reason=no_execution_launch_failed, sample_started=false and ... |
+| hxor_packer | 0.1 | UNCLASSIFIED | — |
+| hyperion | 1.2 | UNCLASSIFIED | — |
 | armadillo | 252b2 | INFRASTRUCTURE | 0/6 runs hit the host timeout, 3 had an incomplete trace, 3 were TRACE_LOSS/CRASH -- the recording never reached a usable end state (retryable) |
 | obsidium | 1.5.2.11 | INFRASTRUCTURE | 1/6 runs hit the host timeout, 1 had an incomplete trace, 1 were TRACE_LOSS/CRASH -- the recording never reached a usable end state (retryable) |
-| telock | 0.98 | METHODOLOGY_LIMIT | all execution came from mapped sections (mapped/exec=1.000) despite 252017 writes -- consistent with view/section-mapped loading or pre-entry decryption, which a write->execute ... |
 
 ## Reproducing
 
