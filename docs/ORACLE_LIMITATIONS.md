@@ -28,7 +28,9 @@ The recurring lesson: an `UNRESOLVED_NO_UNPACKING_OBSERVED` verdict marked
 | 10 | Duplicate samples in the STALE LOCAL cache | **RESOLVED upstream** | only runs before 2026-09-09 |
 | 11 | Two runs traced with an uncertified plugin | recorded | yes — those two reps only |
 | 12 | Document counted the NAS index, not the corpus | **RESOLVED** | reporting only, no label affected |
-| 13 | armadillo's NAS output is not packed | **OPEN** | **YES — armadillo cannot be typed** |
+| 13 | armadillo's NAS output is not packed | **RESOLVED upstream** | fixed at source; armadillo now types TYPE_IV |
+| 14 | `NtReadFile` Length read as 64-bit | **OPEN** | blocks full cross-process certification |
+| 15 | hollowed child's execution not observed | **OPEN** | **YES — hxor cannot type even if certified** |
 
 Clearing (1) requires re-running affected conditions with `LABEL_HOST_IDLE` raised;
 it is not a re-analysis, because the recordings were truncated at capture time.
@@ -247,3 +249,50 @@ backend proved `remote_write_proved`, `shared_alias_proved` and
 armadillo therefore cannot be typed until the protection tool actually produces
 protected output. That is upstream of the tracer; no oracle or backend change
 addresses it.
+
+## 14. `NtReadFile`'s Length is read as 64-bit and then rejected for being too large
+
+`NtReadFile`'s seventh parameter is `ULONG Length` — 32 bits. The hook declares
+`uint64_t length` (`paper_trace.c:1546`) and captures it with
+`read_u64(rsp + 0x38, &length)` (`:1595`), so the upper half of the eight-byte
+stack slot — unrelated data, not part of the parameter — becomes part of the
+value. The result then fails `length > UINT32_MAX` (`:1614`) and the read is
+rejected.
+
+That is the whole of `file_io_pointer_failures: 6`, and why `disk_drop()`'s
+required `file_read` event is missing, and therefore why full cross-process
+certification fails. `read_u32` already exists at `:486`.
+
+Found by adversarial review, which also traced the fixture's control flow through
+the successful read branch into the `WriteFile` block and confirmed the four
+recorded writes total 258,859 bytes — exactly the fixture executable's size. So the
+reads *happen*; only their capture fails.
+
+Fixing it needs a plugin rebuild and a fourth re-certification. Note the counter
+still merges two branches (bad pointers, oversized length) and emits neither the
+rejected values nor any register state, so even now the summary cannot prove which
+fired. Confirm with a diagnostic run on the unchanged plugin — it is unstripped and
+carries debug info — before rebuilding. Two fixes here have already been aimed at
+conditions that never fired.
+
+## 15. The hollowed child's payload execution is never observed
+
+This is the reason hxor_packer cannot be typed, and it is NOT the certification
+gate.
+
+Its retained classification is `layers: 1`, `forward_transitions: 0`,
+`backward_transitions: 0`, `cross_process_activity: true`. `classifier.py:117`
+returns `UNRESOLVED_NO_UNPACKING` whenever `layers == 1`, *regardless of
+certification*. Clearing the cross-process gate therefore moves hxor from
+`UNRESOLVED_UNCERTIFIED_CROSS_PROCESS` to `UNRESOLVED_NO_UNPACKING` — a different
+unresolved verdict, not a Type.
+
+The trace contains the remote image write to child PID 3264 at `0x400000`, size
+`0x4000`. It contains **zero child exec events in that range**: all descendant
+execution is tagged `role: system`, which `paper.py:281` skips. So the write is
+observed and the execution of the written bytes is not, and write-then-execute
+needs both.
+
+This corrects a claim made earlier in this work — that tiering the certification
+would unblock hxor. It would not. hxor needs an observed write-to-payload-execution
+chain in the child; certification is a separate and lesser obstacle.
