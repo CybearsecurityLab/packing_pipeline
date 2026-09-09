@@ -48,10 +48,10 @@
       "KiUserExceptionDispatcher": 1,
       "processor_exception": 1
     },
-    "remote_write_proved": false,
+    "remote_write_proved": true,
     "kernel_write_observed": false,
-    "shared_alias_proved": false,
-    "file_to_execution_proved": false,
+    "shared_alias_proved": true,
+    "file_to_execution_proved": true,
     "system_execution_proved": true,
     "invalidation_ram_identity": {
       "free": true,
@@ -139,8 +139,18 @@
       "kernel_profile_guid_age": "89284d0ca6acc8274b9a44bd5af9290b5",
       "saw_stop": true,
       "stop_detail": 0
+    },
+    "certified_tiers": [
+      "cross_process_memory"
+    ],
+    "tier_gaps": {
+      "cross_process_memory": [],
+      "synchronous_disk_io": [
+        "file_read"
+      ]
     }
   },
   "errors": [],
-  "tracing_parameters_pinned_note": "Back-filled from empirical_results/qemu_runtime/recert_full/fixture.meta.json, which records icount_shift 2 and icount_sleep on for the run that produced this stamp; cpu_model qemu64 and -smp 2 are run_trace.py's defaults, which that run used. Before this the identity pinned only binaries, so a run at a different icount shift could claim this certification -- which matters because hxor_packer only unpacks at shift=0."
+  "tracing_parameters_pinned_note": "Back-filled from empirical_results/qemu_runtime/recert_full/fixture.meta.json, which records icount_shift 2 and icount_sleep on for the run that produced this stamp; cpu_model qemu64 and -smp 2 are run_trace.py's defaults, which that run used. Before this the identity pinned only binaries, so a run at a different icount shift could claim this certification -- which matters because hxor_packer only unpacks at shift=0.",
+  "tier_certification_note": "validated/certification_mode come from the SINGLE-PROCESS run that passed all gates. certified_tiers records that a separate FULL-mode run on the same plugin (3ec908ff) proved the cross_process_memory channels with no gaps; that run did NOT pass overall (missing file_read, file_io_failures=6 from the NtReadFile ULONG width bug), so its validated=False must not replace this one."
 }
