@@ -280,6 +280,8 @@ static uint64_t descendant_read_failures;
 static uint64_t descendant_job_mismatch;
 static uint64_t descendant_createtime_reject;
 static uint64_t descendant_enrolled;
+static uint64_t descendant_parent_enrolled;
+static bool descendant_by_parent;
 static uint64_t unmonitored_block_rejects;
 /* F5 diagnostic-only (no behavior effect): count user-mode #PF (14) and #NM (7)
  * discontinuities that occur while a monitored thread is current, and how many
@@ -1967,9 +1969,21 @@ static void update_monitored_descendant(const ThreadContext *context)
                 job == root_job ? "true" : "false",
                 create_time > descendant_create_cutoff ? "true" : "false");
     }
+    /* Default: a descendant must share the root's job object.  That is the
+     * conservative rule -- it keeps unrelated system processes out of the trace.
+     * Armadillo and telock defeat it: 100% of enrollment attempts (223458 and
+     * 96917 respectively) were rejected here with zero enrolled, so their child
+     * processes were never traced and the classifier saw layers==1 / no unpacking
+     * even though millions of writes were occurring.  `descendant=parent` enrolls
+     * on parent-PID descendancy from the root instead, which follows a debugger
+     * pair that deliberately breaks the job relationship. */
     if (job != root_job) {
-        descendant_job_mismatch++;
-        return;
+        if (!descendant_by_parent ||
+            process_parent(context->source_eprocess) != root_pid) {
+            descendant_job_mismatch++;
+            return;
+        }
+        descendant_parent_enrolled++;
     }
     if (create_time <= descendant_create_cutoff) {
         descendant_createtime_reject++;
@@ -2967,6 +2981,7 @@ static void plugin_exit(void *userdata)
                 ",\"descendant_job_mismatch\":%" PRIu64
                 ",\"descendant_createtime_reject\":%" PRIu64
                 ",\"descendant_enrolled\":%" PRIu64
+                ",\"descendant_parent_enrolled\":%" PRIu64
                 ",\"unmonitored_block_rejects\":%" PRIu64
                 ",\"context_immutable_reuse\":%" PRIu64
                 ",\"monitored_user_pagefaults\":%" PRIu64
@@ -3011,6 +3026,7 @@ static void plugin_exit(void *userdata)
                 descendant_job_mismatch,
                 descendant_createtime_reject,
                 descendant_enrolled,
+                descendant_parent_enrolled,
                 unmonitored_block_rejects,
                 context_immutable_reuse,
                 monitored_user_pagefaults,
@@ -3052,6 +3068,8 @@ QEMU_PLUGIN_EXPORT int qemu_plugin_install(qemu_plugin_id_t id,
             output = argv[index] + strlen("out=");
         } else if (g_strcmp0(argv[index], "pf_loop=on") == 0) {
             pagefault_loop_events = true;
+        } else if (g_strcmp0(argv[index], "descendant=parent") == 0) {
+            descendant_by_parent = true;
         } else {
             fprintf(stderr, "paper_trace: unknown option %s\n", argv[index]);
             return -1;

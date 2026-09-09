@@ -19,7 +19,7 @@ conditions:
 - packer_family: armadillo
   packer_version: 252b2
   configuration_id: gui-5e53b17290d5
-  test_case_id: .
+  test_case_id: null
   condition_source: yaml_test_case
   nas_status: planned
   available_nas_samples: 2

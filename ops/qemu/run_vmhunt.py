@@ -85,7 +85,7 @@ def qemu_command(work: Path, plugin_arg: str, monitor: Path) -> list[str]:
         str(QEMU), "-name", "vmhunt",
         "-machine", "pc-i440fx-5.2", "-accel", "tcg,thread=single",
         "-cpu", (CPU_MODEL + ",-hypervisor") if TRANSPARENT else CPU_MODEL,
-        "-m", "4G", "-smp", "2",
+        "-m", "4G", "-smp", os.environ.get("VMHUNT_SMP", "2"),
         "-icount", "shift=2,sleep=on", "-rtc", "base=localtime,clock=vm",
         "-display", "none", "-monitor", f"unix:{monitor.resolve()},server=on,wait=off",
         "-serial", "none", "-parallel", "none", "-net", "none", "-no-reboot",

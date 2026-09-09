@@ -300,3 +300,4 @@ AkavacheSqliteLinkerOverride.cs
 NuGetBuild
 WiX.Toolset.DummyFile.txt
 GitHubVS.sln.DotSettings
+ops/qemu/*.so.*

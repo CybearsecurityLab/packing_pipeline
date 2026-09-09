@@ -70,8 +70,13 @@ def fetch_two(nas_dir: str, testcase: str, tag: str) -> list[tuple[str, str]]:
 
 
 def stage(sample: str, image: str) -> None:
-    p = subprocess.run(["sudo", "-S", "ops/qemu/stage_sample.sh", sample, image, "300"],
-                       cwd=str(REPO), input=SUDO_PW + "\n", text=True,
+    # -E + STAGE_OVERLAY: without it stage_sample.sh does a real copy of the 11.3 GB
+    # base per image, which fills the 250 GB root filesystem well before a sweep of
+    # any size completes.
+    env = {**os.environ, "STAGE_OVERLAY": os.environ.get("STAGE_OVERLAY", "1")}
+    p = subprocess.run(["sudo", "-S", "-E", "ops/qemu/stage_sample.sh",
+                        sample, image, "300"],
+                       cwd=str(REPO), input=SUDO_PW + "\n", text=True, env=env,
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     if p.returncode != 0:
         raise SystemExit(f"staging failed for {sample}")

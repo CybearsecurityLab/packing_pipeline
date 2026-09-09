@@ -19,7 +19,7 @@ conditions:
 - packer_family: telock
   packer_version: '0.98'
   configuration_id: gui-0ad5214af185
-  test_case_id: .
+  test_case_id: null
   condition_source: yaml_test_case
   nas_status: planned
   available_nas_samples: 2
