@@ -23,7 +23,11 @@ cd "$(dirname "$0")/../.."
 
 RT=empirical_results/qemu_runtime
 LIVE=ops/qemu/backend_validation.json
-OUT=$RT/recert_xproc
+# Per-attempt directory.  A shared one destroys its own evidence: a full-mode run
+# followed by a single-process fallback overwrote fixture.trace.jsonl and
+# fixture.meta.json, so the full-mode failure that a plugin change was about to be
+# justified by no longer existed on disk.  Never reuse a path across attempts.
+OUT=$RT/recert_xproc/$(date +%Y%m%d_%H%M%S)_full
 CAND=$OUT/backend_validation.candidate.json
 TIMEOUT=${RECERT_TIMEOUT:-2700}
 : "${MALWARE_SUDO_PW:?set MALWARE_SUDO_PW}"

@@ -138,6 +138,17 @@ def validate(trace: Path, single_process: bool = False) -> tuple[dict, list[str]
         "exception_recovered": 1,
         "summary": 1,
     }
+    # Cross-process certification used to be all-or-nothing: full mode demanded
+    # file_read AND file_write alongside the memory channels, so a backend that
+    # proved every cross-process MEMORY channel was still refused because a
+    # synchronous disk read failed.  That is coarser than the threat model.  A
+    # process-hollowing packer (CreateProcess suspended -> NtUnmapViewOfSection ->
+    # VirtualAllocEx RWX -> WriteProcessMemory -> SetThreadContext -> ResumeThread)
+    # performs no disk read at all, so refusing its Type over a disk-read failure
+    # withholds certification for a channel it never touches.
+    #
+    # Channels are therefore certified as independent TIERS.  Each is reported and
+    # each stands or falls on its own evidence; nothing is waived.
     if not single_process:
         required_counts["file_write"] = 1
         required_counts["file_read"] = 1
@@ -238,7 +249,34 @@ def validate(trace: Path, single_process: bool = False) -> tuple[dict, list[str]
         if int(summary.get("pending_exceptions", -1)) != 0:
             errors.append("fixture ended with a pending exception")
 
+    # Tier membership is computed from the SAME evidence as the flat flags; this
+    # reorganises how certification is reported, it does not lower any bar.
+    memory_tier_missing = [
+        name for name, proved in (
+            ("remote_write", remote_write),
+            ("shared_alias", shared_alias),
+            ("file_to_execution", file_to_execution),
+        ) if not proved
+    ]
+    if not (summary or {}).get("virtual_memory_write_events"):
+        memory_tier_missing.append("virtual_memory_write_events")
+    disk_tier_missing = [
+        name for name, count in (
+            ("file_write", event_counts["file_write"]),
+            ("file_read", event_counts["file_read"]),
+        ) if count < 1
+    ]
+    tiers = {
+        "single_process": not errors or all(
+            not e.startswith(("missing required file_", )) for e in errors),
+        "cross_process_memory": not memory_tier_missing,
+        "synchronous_disk_io": not disk_tier_missing,
+    }
+
     evidence = {
+        "certified_tiers": [name for name, ok in tiers.items() if ok],
+        "tier_gaps": {"cross_process_memory": memory_tier_missing,
+                      "synchronous_disk_io": disk_tier_missing},
         "event_counts": dict(sorted(event_counts.items())),
         "marker_actions": dict(sorted(actions.items())),
         "process_reasons": dict(sorted(process_reasons.items())),

@@ -825,6 +825,14 @@ def main() -> int:
         "implemented_channels": implemented_channels,
         "trace_integrity": trace_integrity,
         "backend_validation_complete": backend_validation_complete,
+        # Tiers travel with the run so the classifier can grant cross-process
+        # certification from the memory channels alone; without this it falls back
+        # to the coarse certification_mode.
+        "certified_tiers": (
+            (backend_validation.get("evidence") or {}).get("certified_tiers")
+            if isinstance(backend_validation, dict) and backend_validation_complete
+            else None
+        ),
         "certification_mode": (
             backend_validation.get("certification_mode")
             if isinstance(backend_validation, dict)

@@ -242,11 +242,26 @@ def main(argv: list[str] | None = None) -> int:
             if getattr(args, "accept_bounded", False) and metadata.get(
                     "paper_termination_reason") == "maximum_timeout_host":
                 evidence.bounded_observation = True
-        if metadata.get("certification_mode") == "single_process":
+        # Cross-process certification is granted by the CROSS_PROCESS_MEMORY tier,
+        # not by the coarse certification_mode.  A process-hollowing packer's
+        # unpacking happens in the child via remote writes, so that is the evidence
+        # its Type depends on; the synchronous disk-I/O tier is a different channel
+        # it never exercises, and failing that must not withhold a Type it has no
+        # bearing on.  Absent tier information (a stamp predating tiers) falls back
+        # to the old, stricter rule rather than assuming certification.
+        tiers = metadata.get("certified_tiers")
+        if tiers is None:
+            certified = metadata.get("certification_mode") != "single_process"
+            reason = ("backend certified for single-process channels only"
+                      if not certified else None)
+        else:
+            certified = "cross_process_memory" in tiers
+            reason = (None if certified else
+                      "backend has not certified the cross-process memory channels "
+                      f"(certified tiers: {', '.join(tiers) or 'none'})")
+        if not certified:
             evidence.cross_process_certified = False
-            evidence.notes.append(
-                "backend certified for single-process channels only"
-            )
+            evidence.notes.append(reason)
         result = classify(evidence)
         rendered = json.dumps(result.to_dict(), indent=2) + "\n"
         if args.output:
