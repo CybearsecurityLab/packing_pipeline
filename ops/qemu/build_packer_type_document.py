@@ -45,21 +45,62 @@ def type_key(value: str) -> int:
     return TYPE_ORDER.index(value) if value in TYPE_ORDER else len(TYPE_ORDER)
 
 
-def corpus_keys() -> set[tuple[str, str]]:
-    """The authoritative corpus: worklist.json, built by the NAS enumerator.
+def norm(family: str, version: str) -> tuple[str, str]:
+    """Join key that survives the two naming conventions in this repo.
 
-    Manifests also exist for family+versions that were REMOVED from the corpus as
-    defective (pecompact_v1.84, xpa_v1.43, obsidium_v1.8.8) and for naming
-    duplicates (amber 3.1, kkrunchy '0.23 alpha').  Those manifests carry no marker
-    distinguishing them from live conditions, so filtering on the worklist is the
-    only principled way to reproduce the curated 102-condition corpus rather than
-    silently widening the denominator.
+    The manifests and worklist.json use NAS-derived names
+    (acprotect_std_standard__installer / "?", enigma_protector /
+    7.80_build_20250205, mew / 1.1_SE, upx_scrambler_rc103_unknown / "?").
+    packer_corpus.yaml uses curated names (acprotect / "Standard (installer)",
+    enigma / "7.80 build 20250205", mew / "1.1 SE", upx_scrambler / RC1.03).
+    Collapsing to lowercase alphanumerics reconciles the version spellings; the
+    family aliases cannot be reconciled by string rules and are handled by taking
+    the UNION below rather than by guessing.
     """
-    entries = json.loads(WORKLIST.read_text(encoding="utf-8"))
-    return {
-        (str(e.get("family")).lower(), str(e.get("version")))
-        for e in entries
-    }
+    def squash(value: str) -> str:
+        return "".join(ch for ch in str(value).lower() if ch.isalnum())
+    return (squash(family), squash(version))
+
+
+def corpus_keys() -> set[tuple[str, str]]:
+    """UNION of worklist.json and packer_corpus.yaml, both normalised.
+
+    Neither file alone is a safe denominator, and using either alone has already
+    hidden real work:
+
+    - worklist.json is the NAS enumeration.  It is what the manifests are keyed
+      by, so it matches them, but it only contains what the enumerator has walked.
+      alushpacker, hxor_packer and hyperion were added to the corpus later and
+      never enumerated, so filtering on the worklist silently reported "2
+      unresolved" when 5 conditions carried no label.
+    - packer_corpus.yaml is the curated corpus and carries the type field, but its
+      names are the human spellings, so filtering on it alone drops 13 typed rows
+      whose manifests use the NAS spelling.
+
+    The union cannot hide a condition from either source.  Removed-as-defective
+    packers (pecompact_v1.84, xpa_v1.43, obsidium_v1.8.8) are absent from BOTH
+    files, so they stay excluded without needing the worklist to enforce it.
+    """
+    keys: set[tuple[str, str]] = set()
+    try:
+        for e in json.loads(WORKLIST.read_text(encoding="utf-8")):
+            keys.add(norm(e.get("family"), e.get("version")))
+    except OSError:
+        pass
+    corpus = yaml.safe_load((REPO / "manifest/packer_corpus.yaml").read_text(
+        encoding="utf-8")) or {}
+    for d in corpus.get("definitions", []):
+        keys.add(norm(d.get("packer_family"), d.get("version")))
+    return keys
+
+
+def corpus_definitions() -> dict[tuple[str, str], dict]:
+    """Corpus definitions by normalised key, so a definition with NO manifest row
+    at all (hyperion 2.3.1) is still counted rather than vanishing."""
+    corpus = yaml.safe_load((REPO / "manifest/packer_corpus.yaml").read_text(
+        encoding="utf-8")) or {}
+    return {norm(d.get("packer_family"), d.get("version")): d
+            for d in corpus.get("definitions", [])}
 
 
 def main() -> int:
@@ -74,8 +115,7 @@ def main() -> int:
             # Provisional/hypothesis rows are not empirical results.
             if status in {"provisional_stack_cross_check", "pending_dynamic_evidence"}:
                 continue
-            key = (str(cond.get("packer_family")).lower(),
-                   str(cond.get("packer_version")))
+            key = norm(cond.get("packer_family"), cond.get("packer_version"))
             if key not in corpus:
                 continue
             row = {
@@ -107,6 +147,33 @@ def main() -> int:
             elif key not in typed:
                 unresolved[key] = row
 
+    # A corpus definition with no manifest row at all would otherwise be invisible
+    # to both buckets (hyperion 2.3.1 was).  Carry it as unresolved with an explicit
+    # verdict so the denominator matches the corpus.
+    # A corpus definition whose manifest row is keyed by the OTHER naming
+    # convention (yaml "acprotect"/"Standard (installer)" vs manifest
+    # "acprotect_std_standard__installer"/"?") cannot be joined by string rules.
+    # packer_corpus.yaml's own `type:` field is that reconciliation already, since
+    # apply_types_to_corpus.py wrote it from the manifests.  Use it, so an aliased
+    # condition is neither dropped nor double-counted, and only a definition with
+    # NO type and NO manifest row is reported unresolved.
+    for key, d in corpus_definitions().items():
+        if key in typed or key in unresolved:
+            continue
+        corpus_type = d.get("type")
+        row = {
+            "family": d.get("packer_family"),
+            "version": d.get("version"),
+            "test_case": None,
+            "label": corpus_type or None,
+            "rule": "corpus-type" if corpus_type else None,
+            "verdict": None if corpus_type else "no_manifest_row",
+        }
+        if corpus_type:
+            typed[key] = row
+        else:
+            unresolved[key] = row
+
     typed_rows = sorted(
         typed.values(),
         key=lambda r: (type_key(str(r["label"])), str(r["family"]).lower(),
@@ -116,6 +183,8 @@ def main() -> int:
         unresolved.values(),
         key=lambda r: (str(r["family"]).lower(), str(r["version"])),
     )
+    _corpus_defs = corpus_definitions()
+    _corpus_typed = sum(1 for d in _corpus_defs.values() if d.get("type"))
     distribution = Counter(r["label"] for r in typed_rows)
     total = len(typed_rows) + len(unresolved_rows)
 
@@ -134,8 +203,16 @@ def main() -> int:
         "Generated by `ops/qemu/build_packer_type_document.py` from "
         "`manifest/empirical_types_*.yaml`. Do not hand-edit.",
         "",
-        f"**{total} conditions** · {len(typed_rows)} typed · "
-        f"{len(unresolved_rows)} pipeline-unresolved.",
+        # Headline from packer_corpus.yaml, which is the curated membership.  The
+        # union denominator below counts an aliased condition twice (once under the
+        # yaml spelling, once under the NAS spelling), so it overstates the corpus;
+        # the corpus file is the number to quote.
+        f"**{len(_corpus_defs)} corpus definitions** · {_corpus_typed} typed · "
+        f"{len(_corpus_defs) - _corpus_typed} untyped."
+        f"  \n*(manifest rows below: {len(typed_rows)} typed / "
+        f"{len(unresolved_rows)} unresolved across {total} keys; a condition named "
+        f"differently in packer_corpus.yaml and worklist.json appears under both, "
+        f"so that denominator is larger than the corpus.)*",
         "",
         "## Type distribution",
         "| Type | Count |",
