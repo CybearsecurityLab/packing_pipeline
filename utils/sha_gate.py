@@ -105,9 +105,11 @@ class ShaGate:
         pipeline: str,
         audit_dir: str | Path | None = None,
         log_debug: bool = False,
+        hash_workers: int = 8,
     ) -> None:
         self._packed_root = Path(packed_root).resolve()
         self._pipeline = pipeline
+        self._hash_workers = max(int(hash_workers), 1)
         self._audit_dir = (
             Path(audit_dir).resolve()
             if audit_dir is not None
@@ -513,7 +515,7 @@ class ShaGate:
         # result writes to its own key in `fresh` and is merged below.
         fresh: dict[str, tuple[str, str, int, int]] = {}
         if to_hash:
-            with ThreadPoolExecutor(max_workers=8) as pool:
+            with ThreadPoolExecutor(max_workers=self._hash_workers) as pool:
                 futs = {
                     pool.submit(_reconcile_one, path, size, mtime_ns, self._packed_root): path
                     for path, size, mtime_ns in to_hash

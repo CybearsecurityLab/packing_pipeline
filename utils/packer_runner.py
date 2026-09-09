@@ -1472,7 +1472,9 @@ if __name__ == "__main__":
     # 'all' run. The constructor reconciles the on-disk cache so re-runs
     # do not re-hash the existing ~30k corpus.
     sha_gate = (
-        ShaGate(PACKED_OUTPUT_DIR, pipeline="cli") if args.sha_gate else None
+        ShaGate(PACKED_OUTPUT_DIR, pipeline="cli", hash_workers=args.workers)
+        if args.sha_gate
+        else None
     )
     if sha_gate is not None:
         print("[*] SHA gate: ENABLED  (use --no-sha-gate to disable)")
