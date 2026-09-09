@@ -1,0 +1,19 @@
+{
+  "tag": "themida_v3.2.4.34_3.2.4.34",
+  "scoping": "marker_self",
+  "verdict": "no_vm_detected",
+  "vcpus": [
+    {
+      "vcpu_file": "vm.trace.0",
+      "insns": 96220172,
+      "vmextract_stdout": "76974353 4aec32 pop edi\n77017575 4aec32 pop edi\n77020658 4aec32 pop edi\n77039155 47f532 pop edi\n77041900 4aec32 pop edi\n77044691 4aec32 pop edi\n77051161 4aec32 pop edi\n77053888 4aec32 pop edi\n77060477",
+      "vm_regions": 0
+    },
+    {
+      "vcpu_file": "vm.trace.1",
+      "insns": 62007779,
+      "vmextract_stdout": "",
+      "vm_regions": 0
+    }
+  ]
+}

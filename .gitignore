@@ -19,6 +19,9 @@ empirical_results/*
 !empirical_results/qemu_runtime/
 empirical_results/qemu_runtime/*
 !empirical_results/qemu_runtime/worklist.json
+!empirical_results/vmhunt/
+empirical_results/vmhunt/*
+!empirical_results/vmhunt/*.json
 ops/qemu/*.so
 ops/qemu/build/
 ops/panda/build/

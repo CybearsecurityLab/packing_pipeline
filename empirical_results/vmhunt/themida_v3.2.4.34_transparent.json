@@ -1,0 +1,19 @@
+{
+  "tag": "themida_v3.2.4.34_3.2.4.34",
+  "scoping": "marker_self",
+  "verdict": "no_vm_detected",
+  "vcpus": [
+    {
+      "vcpu_file": "vm.trace.0",
+      "insns": 217009425,
+      "vmextract_stdout": "54578037 4b0401 pop edi\n55707436 4b0401 pop edi\n58488219 4b0401 pop edi\n60352022 4b0401 pop edi\n61042762 4b0401 pop edi\n61187766 4b0401 pop edi\n61595090 4b0401 pop edi\n62307436 4b0401 pop edi\n62689961",
+      "vm_regions": 0
+    },
+    {
+      "vcpu_file": "vm.trace.1",
+      "insns": 143483802,
+      "vmextract_stdout": "52881115 4aec32 pop edi\n52924337 4aec32 pop edi\n52927420 4aec32 pop edi\n52945917 47f532 pop edi\n52948662 4aec32 pop edi\n52951453 4aec32 pop edi\n52957923 4aec32 pop edi\n52960650 4aec32 pop edi\n52967239",
+      "vm_regions": 0
+    }
+  ]
+}

@@ -7,13 +7,13 @@ Unlike [EMPIRICAL_TYPE_LABELS.md](EMPIRICAL_TYPE_LABELS.md), which lists only su
 ## Summary
 
 - Corpus: **102** packer family+versions
-- Empirically typed: **98**
-- Unresolved: **4**
+- Empirically typed: **99**
+- Unresolved: **3**
 
 | Type | Conditions |
 |---|---|
 | **TYPE_0** | 1 |
-| **TYPE_I** | 70 |
+| **TYPE_I** | 71 |
 | **TYPE_II** | 7 |
 | **TYPE_III** | 5 |
 | **TYPE_IV** | 10 |
@@ -26,7 +26,6 @@ Unlike [EMPIRICAL_TYPE_LABELS.md](EMPIRICAL_TYPE_LABELS.md), which lists only su
 |---|---|---|
 | INFRASTRUCTURE | 2 | infrastructure — trace truncated/timed out (retryable) |
 | METHODOLOGY_LIMIT | 1 | methodology limit — unpacking invisible to write→execute |
-| UNKNOWN | 1 | insufficient evidence — needs re-run |
 
 A `SAMPLE_NOT_PACKED` verdict is a **corpus** problem, not a classifier one: the payload runs as an ordinary unpacked binary, so there is no unpacking to observe. `INFRASTRUCTURE` is retryable and says nothing about the packer. Only `METHODOLOGY_LIMIT` reflects a genuine boundary of the runtime write→execute model.
 
@@ -66,6 +65,7 @@ A `SAMPLE_NOT_PACKED` verdict is a **corpus** problem, not a classifier one: the
 | pezor | 3.3.0 | PEZOR_001_DEFAULT_32 | **TYPE_I** | 6 | exact |
 | rlpack | 1.21_Basic | . | **TYPE_I** | 6 | exact |
 | shrinker | 3.4_Demo | . | **TYPE_III** | 6 | exact |
+| themida | 3.2.4.34 | . | **TYPE_I** | 6 | max-observed |
 | upack | 0.399__Brute | UPACK_001_DEFAULT | **TYPE_IV** | 6 | exact |
 | upx | 0.60 | UPX_V060_001_DEFAULT | **TYPE_I** | 6 | exact |
 | upx | 0.61 | UPX_V061_001_DEFAULT | **TYPE_I** | 6 | exact |
@@ -140,7 +140,6 @@ A `SAMPLE_NOT_PACKED` verdict is a **corpus** problem, not a classifier one: the
 | armadillo | 252b2 | INFRASTRUCTURE | 0/6 runs hit the host timeout, 3 had an incomplete trace, 3 were TRACE_LOSS/CRASH -- the recording never reached a usable end state (retryable) |
 | obsidium | 1.5.2.11 | INFRASTRUCTURE | 1/6 runs hit the host timeout, 1 had an incomplete trace, 1 were TRACE_LOSS/CRASH -- the recording never reached a usable end state (retryable) |
 | telock | 0.98 | METHODOLOGY_LIMIT | all execution came from mapped sections (mapped/exec=1.000) despite 252017 writes -- consistent with view/section-mapped loading or pre-entry decryption, which a write->execute ... |
-| themida | 3.2.4.34 | UNKNOWN | no surviving per-run evidence |
 
 ## Reproducing
 
