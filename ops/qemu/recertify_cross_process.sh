@@ -58,13 +58,19 @@ echo "[xproc] building the fixture"
 bash ops/qemu/build_validation_fixture.sh
 
 echo "[xproc] staging WITHOUT the single_process flag (full cross-process mode)"
+# stage_fixture_launcher.sh takes no output argument: it always writes
+# $RT/windows10-qemu-fixture.qcow2, copied fresh from the base.  Passing a path
+# here is silently ignored, which previously left run_trace.py pointed at a file
+# that never existed.
 echo "$MALWARE_SUDO_PW" | sudo -S -E env SINGLE_PROCESS=0 \
-    bash ops/qemu/stage_fixture_launcher.sh "$OUT/fixture.qcow2" 2>&1 | tail -4
+    bash ops/qemu/stage_fixture_launcher.sh 2>&1 | tail -4
+FIXTURE_IMG=$RT/windows10-qemu-fixture.qcow2
+[ -f "$FIXTURE_IMG" ] || { echo "staging did not produce $FIXTURE_IMG" >&2; exit 1; }
 
 echo "[xproc] tracing the fixture (host-idle disabled; the cross-process steps pause)"
 rm -f "$OUT/fixture.trace.jsonl" "$OUT/monitor.sock"
 uv run python ops/qemu/run_trace.py \
-    "$OUT/fixture.qcow2" "$OUT/fixture.work.qcow2" "$OUT/fixture.trace.jsonl" \
+    "$FIXTURE_IMG" "$OUT/fixture.work.qcow2" "$OUT/fixture.trace.jsonl" \
     --meta "$OUT/fixture.meta.json" --log "$OUT/fixture.qemu.log" \
     --monitor "$OUT/monitor.sock" --host-timeout "$TIMEOUT" \
     --host-idle-seconds 0 --guest-memory 4G \
