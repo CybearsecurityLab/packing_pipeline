@@ -68,7 +68,7 @@ definitions:
     notes: "Open-source reflective PE packer written in C. Features manual loading, LZAV compression, XTEA encryption, and full TLS/SEH support."
     size_kb: "52.50"
     output_behavior: "input_dir_suffix"
-    type: ""
+    type: "TYPE_I"
     known_issues:
       - "Heuristics: High entropy in the newly created '.packed' section can trigger static AV/EDR detections (though this can be mitigated by moving the packed data into a header payload)."
       - "Usability: The project currently requires you to compile the CLI builder from source before use."
@@ -804,7 +804,7 @@ definitions:
     notes: "tElock v0.98 (2000-2001) by tE! A PE compressor and protector with anti-debugging and encryption features. Widely used in malware. GUI-only; launches a window even when given a file path argument."
     size_kb: "54"
     output_behavior: "in_place"
-    type: ""
+    type: "TYPE_V-F"
     known_issues:
       - "Automation: GUI-only; cannot be scripted via CLI."
 
