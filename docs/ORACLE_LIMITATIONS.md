@@ -25,9 +25,10 @@ The recurring lesson: an `UNRESOLVED_NO_UNPACKING_OBSERVED` verdict marked
 | 7 | Guest missing VC++ redistributable | **RESOLVED** | only alushpacker; re-run pending |
 | 8 | `guest_exit_code` without an observed exit | **RESOLVED** | no — no label consumed it |
 | 9 | W→X cross-check false positives | **RESOLVED** | no — cross-check only, not a label source |
-| 10 | Duplicate sample filed under two families | **OPEN** | **YES — corpus integrity** |
+| 10 | Duplicate samples in the STALE LOCAL cache | **RESOLVED upstream** | only runs before 2026-09-09 |
 | 11 | Two runs traced with an uncertified plugin | recorded | yes — those two reps only |
 | 12 | Document counted the NAS index, not the corpus | **RESOLVED** | reporting only, no label affected |
+| 13 | armadillo's NAS output is not packed | **OPEN** | **YES — armadillo cannot be typed** |
 
 Clearing (1) requires re-running affected conditions with `LABEL_HOST_IDLE` raised;
 it is not a re-analysis, because the recordings were truncated at capture time.
@@ -176,21 +177,33 @@ narrower gaps are alias writes and unmaps, which produce an extra frame with no
 layer change — which is what armadillo A2's 43 frames at `layers=1` are, and they
 are therefore not evidence of Type V/VI.
 
-## 10. One binary is filed under two packer families
+## 10. Duplicate samples — in the stale local cache, not the live NAS
 
-`obsidium` payload A and `telock` payload B are byte-identical: 5,089,758 bytes,
-sha256 `67454e77d5b9e0d4a9d5765cf0c6e227e4860161323cfee45341486e74706131`. Found by
-adversarial review and confirmed against the recorded `packed_sha256` in both
-conditions' `sample.json`.
+A scan of `empirical_results/qemu_runtime/*_s[12]/sample.exe` found 11 sample
+hashes appearing under more than one packer family across ~15 directories
+(`91b639a4` and `d8e336ca` under all six upx_scrambler variants; `67454e77` under
+obsidium, telock and two yoda_protector versions; `bbd79d49` under alienyze,
+armadillo and pecompact).
 
-One of the two family assignments is wrong, and it explains what looked like a
-striking coincidence — obsidium-A and telock-B stalling at the same ~1.118M
-executed blocks. Same executable; never independent cross-packer evidence.
+**This is a stale-cache problem, not a live corpus problem.** Those staged copies
+date from 2026-08-11/12. A sha-distinctness gate has since been added to the
+production pipeline, and re-fetching from the NAS returns correct samples: the
+current telock payloads are two distinct binaries with entry points in an unnamed
+section, `.text` entropy 7.98, every section writable and `.idata` entropy 7.82 —
+i.e. genuinely packed. The same file is 921,646 bytes in armadillo's NAS directory
+and 154,624 in telock's, exactly as a compressor should behave.
 
-telock's TYPE_VI-B label is **not** affected: it was finalised from payload A
-(sha `61d4d99e…`), a different binary. But a two-payload "consensus" over a
-duplicated input is one observation reported as two, so payload distinctness must
-be checked by hash, never by filename or directory.
+Consequences that stand:
+
+- Any result produced from a staged copy older than 2026-09-09 must be re-run from
+  a fresh fetch, not merely re-analysed. telock's TYPE_VI-B was retracted on this
+  basis: it had been measured on `61d4d99e`, a stock NSIS installer
+  (`.text/.rdata/.data/.ndata/.rsrc`, linker 6.0, ordinary entry point) that was
+  also filed as yoda_protector. The 4 layers and 444/437 transitions were NSIS's
+  own self-extraction — a real measurement of the wrong program.
+- Payload distinctness must be checked by **hash**, never by filename or
+  directory. A two-payload "consensus" over a duplicated input is one observation
+  reported as two.
 
 ## 11. Two obsidium reps were traced with an uncertified plugin
 
@@ -207,3 +220,30 @@ definitions never enumerated into it (alushpacker, hxor_packer, hyperion 1.2 and
 2.3.1) were dropped before counting, and it reported "2 unresolved" while six
 definitions carried no type. Fixed by taking the union of the worklist and
 `packer_corpus.yaml`, with the corpus `type:` field resolving family aliases.
+
+## 13. armadillo's NAS output is not packed
+
+Re-fetched from the NAS after the sha gate, both armadillo payloads are still
+ordinary unpacked binaries: entry point in `.text`, `.text` entropy 6.59 and 6.70
+(normal compiled code, not compressed), `.data` entropy 1.82 and 1.50, standard
+`-X`/`W-` section flags, stock MSVC section layout with no Armadillo stub sections
+and no CopyMem-II entry signature.
+
+Compare telock's fresh output from the same pipeline: entry point in an unnamed
+section, `.text` entropy 7.98, every section writable.
+
+This explains the observation that never fitted the CopyMem-II story — no child
+process, and no NtCreateUserProcess, NtDebugActiveProcess or NtWriteVirtualMemory
+anywhere in the trace. The root never tried to create or debug a child because
+there is no protector in the binary.
+
+It also retires the theory that our backend is structurally blind to CopyMem-II.
+It is not: `paper_trace.c` hooks NtWriteVirtualMemory at syscall entry and return,
+emits a `write` carrying `target_pid` and target-directory physical spans, and
+auto-monitors the target. A cross-process certification attempt on the current
+backend proved `remote_write_proved`, `shared_alias_proved` and
+`file_to_execution_proved` all true.
+
+armadillo therefore cannot be typed until the protection tool actually produces
+protected output. That is upstream of the tracer; no oracle or backend change
+addresses it.
