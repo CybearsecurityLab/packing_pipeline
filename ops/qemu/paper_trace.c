@@ -134,6 +134,13 @@ typedef struct {
 typedef struct {
     bool used;
     bool write;
+    /* Allocation order, so an exhausted table can evict its OLDEST entry instead
+     * of failing.  Entries are matched on completion by (pid, tid, return_address)
+     * and freed there; a thread that never returns through that path -- killed,
+     * exited, or unwound past it -- leaks its entry permanently.  Before eviction
+     * existed the table filled monotonically with run length and every subsequent
+     * file I/O counted as a failure, which disqualified long runs. */
+    uint64_t alloc_seq;
     uint64_t return_address;
     uint64_t pid;
     uint64_t tid;
@@ -260,6 +267,13 @@ static PendingFileIo pending_file_io[MAX_PENDING_FILE_IO];
 static PendingVirtualWrite pending_virtual_writes[MAX_PENDING_VIRTUAL_WRITES];
 static uint64_t file_io_events;
 static uint64_t file_io_failures;
+static uint64_t file_io_evictions;
+static uint64_t file_io_alloc_seq;
+static uint64_t file_io_register_failures;
+static uint64_t file_io_handle_failures;
+static uint64_t file_io_disk_failures;
+static uint64_t file_io_argument_failures;
+static uint64_t file_io_status_failures;
 static uint64_t asynchronous_file_io;
 static uint64_t mapped_file_exec_events;
 static uint64_t mapped_file_failures;
@@ -1464,13 +1478,28 @@ static void invalidation_return(unsigned int vcpu_index, uint64_t pc,
 
 static PendingFileIo *allocate_file_io(void)
 {
+    size_t oldest = 0;
+    uint64_t oldest_seq = UINT64_MAX;
+
     for (size_t index = 0; index < G_N_ELEMENTS(pending_file_io); index++) {
         if (!pending_file_io[index].used) {
             pending_file_io[index].used = true;
+            pending_file_io[index].alloc_seq = ++file_io_alloc_seq;
             return &pending_file_io[index];
         }
+        if (pending_file_io[index].alloc_seq < oldest_seq) {
+            oldest_seq = pending_file_io[index].alloc_seq;
+            oldest = index;
+        }
     }
-    return NULL;
+    /* Table full: every entry belongs to a call we never saw return.  Reclaim the
+     * oldest rather than dropping this observation.  Losing the stalest pending
+     * completion is strictly better than losing every subsequent file I/O, and it
+     * is counted separately so it can never be mistaken for a channel failure. */
+    file_io_evictions++;
+    pending_file_io[oldest].used = true;
+    pending_file_io[oldest].alloc_seq = ++file_io_alloc_seq;
+    return &pending_file_io[oldest];
 }
 
 static bool capture_file_offset(uint64_t file_object, uint64_t pointer,
@@ -1521,11 +1550,13 @@ static void file_io_entry(unsigned int vcpu_index, uint64_t pc,
         return;
     }
     if (!regs->has_rcx || !regs->has_rsp) {
+        file_io_register_failures++;
         file_io_failures++;
         return;
     }
     handle = read_register_value(regs->rcx, &ok);
     if (!ok || !resolve_handle_object(context, handle, &file_object)) {
+        file_io_handle_failures++;
         file_io_failures++;
         return;
     }
@@ -1534,6 +1565,7 @@ static void file_io_entry(unsigned int vcpu_index, uint64_t pc,
         return;
     }
     if (disk_result == DISK_FILE_ERROR) {
+        file_io_disk_failures++;
         file_io_failures++;
         return;
     }
@@ -1546,11 +1578,14 @@ static void file_io_entry(unsigned int vcpu_index, uint64_t pc,
         !canonical_kernel_pointer(return_address) || !io_status_block ||
         !buffer || !length || length > UINT32_MAX ||
         !capture_file_offset(file_object, byte_offset, &offset)) {
+        file_io_argument_failures++;
         file_io_failures++;
         return;
     }
     pending = allocate_file_io();
     if (!pending) {
+        /* Unreachable: allocate_file_io() now evicts rather than returning NULL.
+         * Kept so a future change cannot silently reintroduce a null deref. */
         file_io_failures++;
         return;
     }
@@ -1591,6 +1626,7 @@ static void file_io_return(unsigned int vcpu_index, uint64_t pc,
             ok = false;
         }
         if (!ok) {
+            file_io_register_failures++;
             file_io_failures++;
         } else if (status == UINT32_C(0x103)) {
             /* STATUS_PENDING: exact completion requires a later IRP hook. */
@@ -1599,6 +1635,7 @@ static void file_io_return(unsigned int vcpu_index, uint64_t pc,
             if (!read_u64(pending->io_status_block + IO_STATUS_INFORMATION,
                           &completed) ||
                 completed > pending->requested) {
+                file_io_status_failures++;
                 file_io_failures++;
             } else if (completed) {
                 fprintf(trace_file,
@@ -2963,6 +3000,12 @@ static void plugin_exit(void *userdata)
                 ",\"prestart_unmapped_exec_events\":%" PRIu64
                 ",\"file_io_events\":%" PRIu64
                 ",\"file_io_failures\":%" PRIu64
+                ",\"file_io_evictions\":%" PRIu64
+                ",\"file_io_register_failures\":%" PRIu64
+                ",\"file_io_handle_failures\":%" PRIu64
+                ",\"file_io_disk_failures\":%" PRIu64
+                ",\"file_io_argument_failures\":%" PRIu64
+                ",\"file_io_status_failures\":%" PRIu64
                 ",\"asynchronous_file_io\":%" PRIu64
                 ",\"mapped_file_exec_events\":%" PRIu64
                 ",\"mapped_file_failures\":%" PRIu64
@@ -3011,7 +3054,11 @@ static void plugin_exit(void *userdata)
                 marker_query_failures, marker_query_initializing,
                 marker_query_ready, prestart_root_exec_events,
                 prestart_system_exec_events, prestart_unmapped_exec_events,
-                file_io_events, file_io_failures, asynchronous_file_io,
+                file_io_events, file_io_failures,
+                file_io_evictions, file_io_register_failures,
+                file_io_handle_failures, file_io_disk_failures,
+                file_io_argument_failures, file_io_status_failures,
+                asynchronous_file_io,
                 mapped_file_exec_events, mapped_file_failures,
                 system_role_failures, exception_dispatch_events,
                 exception_recovery_events, process_snapshot_failures,
