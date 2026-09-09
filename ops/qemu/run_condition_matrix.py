@@ -69,6 +69,14 @@ ICOUNT_SHIFT = str(_cfg.get("icount_shift") if _cfg.get("icount_shift") is not N
                    else os.environ.get("LABEL_ICOUNT_SHIFT", "2"))
 ICOUNT_SLEEP = str(_cfg.get("icount_sleep")
                    or os.environ.get("LABEL_ICOUNT_SLEEP", "on"))
+# Host-observed idle boundary.  The default 120s closes the recording whenever the
+# monitored process makes no progress for two HOST minutes -- which a guest sleep or
+# a protector's timed pause can exceed purely because the plugin slows the guest.
+# telock pauses deterministically at ~1.29M blocks and was cut off there in every
+# certified rep; the one run that got through the pause reached 13.7M blocks and
+# unpacked.  Raise this for protectors that stall before unpacking.
+HOST_IDLE = str(int(_cfg.get("host_idle_seconds")
+                    or os.environ.get("LABEL_HOST_IDLE", "120")))
 PLUGIN_ARGS = [a for a in (os.environ.get("LABEL_PLUGIN_ARGS", "").split(","))
                if a.strip()]
 CLASSIFY_SEM = threading.Semaphore(
@@ -97,6 +105,7 @@ def run_one(image: Path, sha: str, name: str, rep: int) -> str:
         "--write-settled-seconds", WRITE_SETTLED,
         "--guest-memory", "4G", "--qemu", str(QEMU), "--plugin", str(PLUGIN),
         "--icount-shift", ICOUNT_SHIFT, "--icount-sleep", ICOUNT_SLEEP,
+        "--host-idle-seconds", HOST_IDLE,
     ]
     for plugin_arg in PLUGIN_ARGS:
         command += ["--plugin-arg", plugin_arg]
