@@ -78,6 +78,17 @@ uv run python ops/qemu/run_trace.py \
     --plugin ops/qemu/paper_trace.so 2>&1 | tail -4
 
 echo "[xproc] validating into a CANDIDATE stamp (live stamp untouched)"
+# The trace must exist and be substantial before we seed the candidate.  Seeding
+# it from $LIVE and then letting validation fail leaves a stale copy that still
+# reads validated:true, which the diff below would report as "no regression" and
+# recommend promoting -- re-promoting the OLD stamp while presenting it as a fresh
+# certification.  That happened once; the tell was a summary with no
+# file_io_evictions field, i.e. one that predates the current plugin.
+if [ ! -s "$OUT/fixture.trace.jsonl" ] || \
+   [ "$(stat -c%s "$OUT/fixture.trace.jsonl")" -lt 100000 ]; then
+    echo "no usable fixture trace -- certification did not run; refusing to emit a candidate" >&2
+    exit 1
+fi
 cp "$LIVE" "$CAND"
 uv run python ops/qemu/validate_fixture_trace.py \
     "$OUT/fixture.trace.jsonl" "$CAND" \
@@ -89,6 +100,19 @@ uv run python ops/qemu/validate_fixture_trace.py \
     --profile-header ops/qemu/win10_profile.h || true
 
 echo
+# Prove the candidate describes the CURRENT backend before comparing anything.
+python3 - "$CAND" <<'PYFRESH'
+import hashlib, json, sys
+d = json.load(open(sys.argv[1]))
+cur = hashlib.sha256(open("ops/qemu/paper_trace.so", "rb").read()).hexdigest()
+stamped = (d.get("backend_identity") or {}).get("plugin_sha256")
+if stamped != cur:
+    print(f"candidate stamps plugin {str(stamped)[:16]} but the installed plugin is "
+          f"{cur[:16]}: the validator did not write this file.", file=sys.stderr)
+    raise SystemExit(1)
+PYFRESH
+[ $? -eq 0 ] || { echo "[xproc] stale candidate, not comparing" >&2; exit 1; }
+
 echo "[xproc] candidate vs live:"
 python3 - "$LIVE" "$CAND" <<'PY'
 import json,sys
