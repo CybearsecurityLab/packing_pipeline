@@ -36,6 +36,7 @@ import json,sys,collections
 CAND=set(int(x,16)>>12 for x in sys.argv[2:]) if len(sys.argv)>2 else None
 first_w={}; first_x={}; last_w={}; seq=0
 skipped=collections.Counter()
+sysrole=0
 A=set(); B={}; epochs=collections.Counter()
 written_bytes=collections.defaultdict(set)   # page -> set of written offsets
 Cpages={}; Cdetail=collections.Counter()
@@ -45,6 +46,14 @@ for line in open(sys.argv[1]):
     t=e.get("event")
     if t not in ("write","exec"): continue
     seq+=1
+    # System-role execution is ntdll/kernel32 running its own mapped-file code.
+    # The classifier separates it out; counting it here manufactures hits that
+    # have nothing to do with the packer.  alushpackerA_rep1's only candidate was
+    # exactly this: a write from pc 0x775a2562 and an exec at va 0x775c7b2b with
+    # role=system, both inside system DLLs.
+    if t=="exec" and e.get("role")=="system":
+        sysrole+=1
+        continue
     if not e.get("physical_spans"):
         # No physical provenance: invisible to every predicate below.  Counted so
         # a "0" is always reported alongside how much of the trace it covers.
@@ -73,6 +82,7 @@ for line in open(sys.argv[1]):
                     Cdetail[p]+=1
 nw_tot=skipped["write"]; nx_tot=skipped["exec"]
 print(f"trace: {sys.argv[1].split('/')[-2]}  seq={seq}")
+if sysrole: print(f"  (excluded {sysrole} system-role exec events: not packer code)")
 if nw_tot or nx_tot:
     print(f"  !! EXCLUDED for lack of physical provenance: {nw_tot} writes, {nx_tot} execs")
     print(f"     a 0 below means 'none among the events that HAD physical spans'")
