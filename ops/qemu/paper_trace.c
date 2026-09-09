@@ -277,6 +277,7 @@ static uint64_t file_io_status_failures;
 static uint64_t file_io_stack_read_failures;
 static uint64_t file_io_pointer_failures;
 static uint64_t file_io_offset_failures;
+static uint64_t file_io_oversize_length;
 static uint64_t file_io_zero_length_skips;
 static uint64_t asynchronous_file_io;
 static uint64_t mapped_file_exec_events;
@@ -1544,6 +1545,14 @@ static void file_io_entry(unsigned int vcpu_index, uint64_t pc,
     uint64_t io_status_block;
     uint64_t buffer;
     uint64_t length;
+    /* NtReadFile/NtWriteFile take `ULONG Length` -- 32 bits.  The x64 convention
+     * gives it an eight-byte stack slot, but only the low four bytes are the
+     * parameter; the rest is whatever the caller left there.  Reading the slot with
+     * read_u64 folded that adjacent data into the value, which then failed the
+     * `length > UINT32_MAX` guard below and rejected the call.  That was the whole
+     * of file_io_pointer_failures, and therefore of the missing file_read event
+     * that blocked full cross-process certification. */
+    uint32_t length32;
     uint64_t byte_offset;
     uint64_t offset;
     bool ok;
@@ -1592,13 +1601,14 @@ static void file_io_entry(unsigned int vcpu_index, uint64_t pc,
     if (!read_u64(rsp, &return_address) ||
         !read_u64(rsp + UINT64_C(0x28), &io_status_block) ||
         !read_u64(rsp + UINT64_C(0x30), &buffer) ||
-        !read_u64(rsp + UINT64_C(0x38), &length) ||
+        !read_u32(rsp + UINT64_C(0x38), &length32) ||
         !read_u64(rsp + UINT64_C(0x40), &byte_offset)) {
         file_io_stack_read_failures++;
         file_io_argument_failures++;
         file_io_failures++;
         return;
     }
+    length = length32;
     if (!canonical_kernel_pointer(return_address) || !io_status_block ||
         !buffer) {
         file_io_pointer_failures++;
@@ -1612,7 +1622,11 @@ static void file_io_entry(unsigned int vcpu_index, uint64_t pc,
         return;
     }
     if (length > UINT32_MAX) {
-        file_io_pointer_failures++;
+        /* Unreachable now that Length is read at its true width.  Kept as a guard,
+         * with its own counter: merged into file_io_pointer_failures it was
+         * indistinguishable from a genuinely bad pointer, which is why six
+         * failures named no cause. */
+        file_io_oversize_length++;
         file_io_argument_failures++;
         file_io_failures++;
         return;
@@ -3050,6 +3064,7 @@ static void plugin_exit(void *userdata)
                 ",\"file_io_stack_read_failures\":%" PRIu64
                 ",\"file_io_pointer_failures\":%" PRIu64
                 ",\"file_io_offset_failures\":%" PRIu64
+                ",\"file_io_oversize_length\":%" PRIu64
                 ",\"file_io_zero_length_skips\":%" PRIu64
                 ",\"asynchronous_file_io\":%" PRIu64
                 ",\"mapped_file_exec_events\":%" PRIu64
@@ -3104,7 +3119,8 @@ static void plugin_exit(void *userdata)
                 file_io_handle_failures, file_io_disk_failures,
                 file_io_argument_failures, file_io_status_failures,
                 file_io_stack_read_failures, file_io_pointer_failures,
-                file_io_offset_failures, file_io_zero_length_skips,
+                file_io_offset_failures, file_io_oversize_length,
+                file_io_zero_length_skips,
                 asynchronous_file_io,
                 mapped_file_exec_events, mapped_file_failures,
                 system_role_failures, exception_dispatch_events,
