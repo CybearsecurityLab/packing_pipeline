@@ -30,16 +30,26 @@ declared and printed but never incremented, so its zero measures nothing.
 Usage: recount_wx.py <trace.jsonl> [candidate_page_hex ...]
 """
 import json,sys,collections
-CAND=set(int(x,16) for x in sys.argv[2:]) if len(sys.argv)>2 else None
+# candidates are given as full physical page ADDRESSES (0xe3fa0000) but are
+# compared against page NUMBERS (addr>>12); converting here.  Getting this
+# wrong silently empties written_bytes and makes predicate C always report 0.
+CAND=set(int(x,16)>>12 for x in sys.argv[2:]) if len(sys.argv)>2 else None
 first_w={}; first_x={}; last_w={}; seq=0
+skipped=collections.Counter()
 A=set(); B={}; epochs=collections.Counter()
 written_bytes=collections.defaultdict(set)   # page -> set of written offsets
 Cpages={}; Cdetail=collections.Counter()
 for line in open(sys.argv[1]):
-    if '"physical_spans"' not in line: continue
     try: e=json.loads(line)
     except ValueError: continue
-    t=e.get("event"); seq+=1
+    t=e.get("event")
+    if t not in ("write","exec"): continue
+    seq+=1
+    if not e.get("physical_spans"):
+        # No physical provenance: invisible to every predicate below.  Counted so
+        # a "0" is always reported alongside how much of the trace it covers.
+        skipped[t]+=1
+        continue
     spans=e.get("physical_spans") or []
     if t=="write":
         for s in spans:
@@ -61,7 +71,11 @@ for line in open(sys.argv[1]):
                 if hit:
                     Cpages.setdefault(p,(off,n,len(hit)))
                     Cdetail[p]+=1
+nw_tot=skipped["write"]; nx_tot=skipped["exec"]
 print(f"trace: {sys.argv[1].split('/')[-2]}  seq={seq}")
+if nw_tot or nx_tot:
+    print(f"  !! EXCLUDED for lack of physical provenance: {nw_tot} writes, {nx_tot} execs")
+    print(f"     a 0 below means 'none among the events that HAD physical spans'")
 print(f"  A) old predicate  (first_write<first_exec) : {len(A)} pages")
 print(f"  B) corrected      (exec after write)       : {len(B)} pages")
 print(f"  C) BYTE-level     (executed a written byte): {len(Cpages)} pages")
