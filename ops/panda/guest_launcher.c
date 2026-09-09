@@ -350,6 +350,8 @@ static int run_sample(int argc, char **argv) {
         ULONGLONG last_execution = started;
         uint64_t last_execution_events = 0;
         int sample_started = 0;
+        int root_exited = 0;
+        ULONGLONG root_exit_at = 0;
 
         for (;;) {
             PACKER_STATUS packer_status;
@@ -363,11 +365,42 @@ static int run_sample(int argc, char **argv) {
              * completion boundary.  For the cross-process fixture the root exits
              * only after WaitForSingleObject on its children returns, so this is
              * the all-work-done boundary in both modes. */
-            DWORD current_wait = WaitForSingleObject(process.hProcess, 1000u);
+            /* Once the root has exited its handle is closed, so stop waiting on
+             * it; from then on completion is driven by execution idleness below. */
+            DWORD current_wait = WAIT_TIMEOUT;
+            if (root_exited) {
+                Sleep(1000u);
+            } else {
+                current_wait = WaitForSingleObject(process.hProcess, 1000u);
+            }
 
             if (current_wait == WAIT_OBJECT_0) {
-                wait_result = WAIT_OBJECT_0;
-                break;
+                /* The ROOT exited.  That is NOT necessarily all-work-done: a
+                 * process-hollowing packer resumes its payload in a child and
+                 * returns immediately, so the root is gone while the payload has
+                 * not run a single instruction yet.  hxor_packer does exactly
+                 * this -- LoadEXE calls ResumeThread and returns, and main
+                 * returns 0 without waiting.  Breaking here emitted the stop
+                 * marker, which sets active=false in the plugin and stops
+                 * tracing, and then closing the job terminated the surviving
+                 * child under KILL_ON_JOB_CLOSE.  We were killing the payload
+                 * before it executed and recording "no unpacking observed".
+                 *
+                 * So root exit only ARMS the completion: keep watching until the
+                 * plugin reports no monitored execution for the idle window, or
+                 * the timeout fires.  When the root really was the last worker
+                 * -- the ordinary case, and the cross-process fixture, which
+                 * waits on its children before exiting -- execution is already
+                 * quiet and this adds one idle window, not a stall. */
+                if (!root_exited) {
+                    root_exited = 1;
+                    root_exit_at = GetTickCount64();
+                    /* Release the root handle so its EPROCESS stops lingering on
+                     * PsActiveProcessHead and the plugin's active-process count
+                     * becomes meaningful for the descendants. */
+                    CloseHandle(process.hProcess);
+                    process.hProcess = NULL;
+                }
             } else if (current_wait != WAIT_TIMEOUT) {
                 wait_result = current_wait;
                 break;
@@ -411,6 +444,21 @@ static int run_sample(int argc, char **argv) {
                 stop_detail = PACKER_STOP_IDLE_FLAG | WAIT_TIMEOUT;
                 break;
             }
+            /* Root gone AND nothing executing: now it is genuinely finished.
+             * Reported as a clean exit, matching the previous meaning of the
+             * root-handle signal. */
+            if (root_exited &&
+                now - last_execution >= idle_milliseconds) {
+                wait_result = WAIT_OBJECT_0;
+                break;
+            }
+            /* Root gone and the payload never started within a full idle window:
+             * nothing is coming.  Do not hold the guest for the whole timeout. */
+            if (root_exited && !sample_started &&
+                now - root_exit_at >= idle_milliseconds) {
+                wait_result = WAIT_OBJECT_0;
+                break;
+            }
         }
     } else {
         wait_result = WaitForSingleObject(job, timeout_seconds * 1000u);
@@ -438,7 +486,9 @@ static int run_sample(int argc, char **argv) {
                      process.dwProcessId);
         result = 3;
     } else if (wait_result == WAIT_OBJECT_0) {
-        GetExitCodeProcess(process.hProcess, &child_exit_code);
+        if (process.hProcess != NULL) {
+            GetExitCodeProcess(process.hProcess, &child_exit_code);
+        }
         write_status(argv[4], "complete", child_exit_code, process.dwProcessId);
         result = 0;
     } else {
@@ -468,7 +518,9 @@ static int run_sample(int argc, char **argv) {
 
 process_cleanup:
     CloseHandle(process.hThread);
-    CloseHandle(process.hProcess);
+    if (process.hProcess != NULL) {
+        CloseHandle(process.hProcess);
+    }
 cleanup:
     if (job != NULL) {
         CloseHandle(job);
