@@ -380,6 +380,19 @@ def main() -> int:
         "to real time and reproduces the starvation).  <0 disables icount.",
     )
     parser.add_argument(
+        "--icount-sleep",
+        choices=("on", "off"),
+        default="on",
+        help="icount sleep policy.  With sleep=on (the certified default) virtual "
+        "time advances at REAL speed while every vCPU is idle, so a guest Sleep(500) "
+        "takes as long as the loaded host needs to service the wakeup.  Packers that "
+        "time a fixed sleep (hxor's runtimeDelay allows 550ms for a 500ms Sleep) then "
+        "detect analysis whenever the host is busy.  sleep=off warps virtual time "
+        "straight to the next timer deadline, so a guest sleep costs its nominal "
+        "virtual duration regardless of host load.  sleep=off is a DIFFERENT backend "
+        "identity and must not be mixed with certified sleep=on results.",
+    )
+    parser.add_argument(
         "--guest-memory",
         default="3G",
         help="fixed guest RAM allocation, e.g. 2G/2560M/3G (default 3G). On this "
@@ -544,7 +557,7 @@ def main() -> int:
         # thread=single (icount forbids MTTCG); rr splits the budget across vCPUs.
         # clock=vm ties the CMOS/RTC to virtual time to match.
         *(
-            ["-icount", f"shift={args.icount_shift},sleep=on"]
+            ["-icount", f"shift={args.icount_shift},sleep={args.icount_sleep}"]
             if args.icount_shift >= 0
             else []
         ),
@@ -708,6 +721,7 @@ def main() -> int:
                 for key, value in current_identity.items())
     )
     stop_detail = int(summary.get("stop_detail", 0)) if summary else 0
+    saw_stop = bool(summary and summary.get("saw_stop"))
     guest_timed_out = bool(stop_detail & 0x80000000)
     guest_idle = bool(stop_detail & 0x40000000)
     guest_query_failed = bool(stop_detail & 0x20000000)
@@ -733,6 +747,7 @@ def main() -> int:
         "guest_vcpus": 2,
         "tcg_threads": "single",
         "icount_shift": args.icount_shift if args.icount_shift >= 0 else None,
+        "icount_sleep": args.icount_sleep if args.icount_shift >= 0 else None,
         "global_event_order": True,
         "host_timeout_seconds": args.host_timeout,
         "monitor_socket": str(monitor.resolve()),
@@ -746,7 +761,8 @@ def main() -> int:
         "guest_unrecovered_exception": guest_unrecovered_exception,
         "guest_exit_code": (
             None
-            if guest_timed_out
+            if not saw_stop
+            or guest_timed_out
             or guest_idle
             or guest_query_failed
             or guest_unrecovered_exception

@@ -65,6 +65,12 @@ ACCEPT_BOUNDED = bool(_cfg.get("accept_bounded") or
 DELETE_TRACE = bool(_cfg.get("delete_trace") or
                     os.environ.get("LABEL_DELETE_TRACE", "").lower()
                     in {"1", "true", "yes"})
+ICOUNT_SHIFT = str(_cfg.get("icount_shift") if _cfg.get("icount_shift") is not None
+                   else os.environ.get("LABEL_ICOUNT_SHIFT", "2"))
+ICOUNT_SLEEP = str(_cfg.get("icount_sleep")
+                   or os.environ.get("LABEL_ICOUNT_SLEEP", "on"))
+PLUGIN_ARGS = [a for a in (os.environ.get("LABEL_PLUGIN_ARGS", "").split(","))
+               if a.strip()]
 CLASSIFY_SEM = threading.Semaphore(
     max(1, int(os.environ.get("LABEL_CLASSIFY_JOBS", "4"))))
 
@@ -90,7 +96,10 @@ def run_one(image: Path, sha: str, name: str, rep: int) -> str:
         "--monitor", str(mon), "--host-timeout", HOST_TIMEOUT,
         "--write-settled-seconds", WRITE_SETTLED,
         "--guest-memory", "4G", "--qemu", str(QEMU), "--plugin", str(PLUGIN),
+        "--icount-shift", ICOUNT_SHIFT, "--icount-sleep", ICOUNT_SLEEP,
     ]
+    for plugin_arg in PLUGIN_ARGS:
+        command += ["--plugin-arg", plugin_arg]
     if TRANSPARENT:
         command.append("--transparent")
     if CPU_MODEL:
