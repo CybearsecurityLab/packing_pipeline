@@ -2,11 +2,11 @@
   "metadata": {
     "version": "0.1.0",
     "maintainer": "AKOrojo, Abanisenioluwa Kolawole Orojo, Abanisenioluwa_Oroj1, Banny Orojo, GitLab CI Bot, resbears",
-    "last_updated": "2026-07-23"
+    "last_updated": "2026-09-09"
   },
   "basic_counts": {
-    "total_packers": 108,
-    "total_test_cases": 222
+    "total_packers": 107,
+    "total_test_cases": 221
   },
   "interface_types": {
     "gui": {
@@ -14,8 +14,8 @@
       "tests": 0
     },
     "cli": {
-      "packers": 78,
-      "tests": 222
+      "packers": 77,
+      "tests": 221
     }
   },
   "tag_distribution": {
@@ -24,7 +24,7 @@
     "Anti-Debug": 8,
     "Crypter": 4,
     "Commercial": 7,
-    "CLI": 78,
+    "CLI": 77,
     "Reflective": 4,
     "Open Source": 2,
     "Security": 4,
@@ -36,7 +36,7 @@
     "Demoscene": 1,
     "Virtualizer": 4,
     "Demo": 3,
-    "Compressor": 12,
+    "Compressor": 11,
     "Multi-Stage": 1,
     "Header-Stripper": 1,
     "Encrypter": 1,
@@ -44,7 +44,6 @@
     "WSL": 1,
     "Shellcode": 1,
     "Evasion": 1,
-    "Educational": 1,
     "Scrambler": 6,
     "Multi-Platform": 50,
     "Frontend": 1,
@@ -53,19 +52,19 @@
     "Polymorphism": 2
   },
   "architecture_distribution": {
-    "x86": 51,
+    "x86": 50,
     "x86/x64": 2,
     "x64": 54,
     "x32": 1
   },
   "supported_input_architectures": {
-    "PE32": 108,
+    "PE32": 107,
     "PE64": 1,
     "PE32+": 56,
     ".NET": 1
   },
   "output_behavior_distribution": {
-    "explicit": 89,
+    "explicit": 88,
     "input_dir_suffix": 3,
     "in_place": 14,
     "suffix_packed": 1,
@@ -76,7 +75,7 @@
     "Commercial": 2,
     "MIT": 10,
     "Commercial (discontinued)": 2,
-    "Freeware": 35,
+    "Freeware": 34,
     "Commercial (Demo)": 2,
     "Shareware": 3,
     "Commercial (free for personal use)": 1,
