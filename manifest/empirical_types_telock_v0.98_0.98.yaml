@@ -1,7 +1,7 @@
 schema_version: 1
 taxonomy: Ugarte et al. Type I-VI
-warning: Only empirical_exact_trace_consensus is an exact paper-faithful measurement;
-  conditions without it remain explicitly unresolved.
+warning: Only empirical_exact_trace_consensus is an exact paper-faithful measurement; conditions without
+  it remain explicitly unresolved.
 minimum_repetitions_per_sample: 3
 minimum_distinct_samples: 2
 condition_count: 1
@@ -40,11 +40,22 @@ conditions:
   exact_trace_distribution:
     TYPE_VI-B: 3
   dynamic_failure_reasons: {}
-  label: TYPE_VI-B
-  label_status: empirical_max_observed_complexity
+  label: null
+  label_status: null
   confidence: 1.0
   paper_evidence_level: null
   max_observed_evidence:
     TYPE_VI-B: 3
-  label_rule: 'Ugarte SoK Sec V-C: highest complexity observed; no-observation reps
-    abstain'
+  label_rule: 'Ugarte SoK Sec V-C: highest complexity observed; no-observation reps abstain'
+  pipeline_verdict: invalid_sample_not_packed
+  pipeline_evidence: 'RETRACTED. The TYPE_VI-B label finalised from this condition was measured on a mis-filed
+    sample. Payload A (sha256 61d4d99e43406442d5faf6a1...) is byte-identical to yoda_protector_v1.01.2_1.01.2_s2,
+    and payload B (67454e77d5b9e0d4...) is byte-identical to obsidium_v1.5.2_1.5.2.11_s1 and two yoda_protector
+    conditions. Payload A is a stock NSIS installer -- sections .text/.rdata/.data/.ndata/.rsrc, linker
+    6.0, ordinary entry point, no packer stub -- so the 4 layers and 444/437 transitions recorded were
+    NSIS''s own self-extraction, not telock''s unpacking. A single binary cannot be both telock-packed
+    and yoda-packed. Corpus-wide scan: 11 sample hashes appear under more than one packer family across
+    ~15 family directories (upx_scrambler x6, obsidium/telock/yoda x4, alienyze/armadillo/pecompact x3).
+    Suspected origin is the protection wrapper reporting success without verifying the output differs
+    from its input, shipping the pristine input to the NAS as benign_packed. Re-stage from a verified
+    telock-protected binary before re-running.'
