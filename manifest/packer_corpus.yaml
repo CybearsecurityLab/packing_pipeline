@@ -153,7 +153,7 @@ definitions:
     notes: "Armadillo by Silicon Realms Toolworks (predecessor to Software Passport). A widely studied PE protector from the 2000s with nanomite protection, code splitting, and debugger detection. Discontinued. BINARY NOT ACQUIRED — locate from RE community archives."
     size_kb: ""
     output_behavior: "explicit"
-    type: ""
+    type: "TYPE_IV"
     known_issues:
 
   - &asm_guard_v294
@@ -583,7 +583,7 @@ definitions:
     notes: "Obsidium v1.5.2 build 11 by Obsidium Software. Older version with a valid license (Obsidium_License.txt). Automated via CLI: Obsidium.exe drives protection headless when given a project file (.opf)."
     size_kb: "7810"
     output_behavior: "explicit"
-    type: ""
+    type: "TYPE_VI-F"
     known_issues:
       - "Requires a project file (.opf); loading input/output alone no-ops to a pass-through. Different .opf profiles give different protection levels."
 
