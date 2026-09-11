@@ -236,6 +236,8 @@ static bool armed;
 static bool active;
 static bool saw_stop;
 static uint64_t stop_detail;
+static uint32_t file_io_payload_bytes;
+static size_t memory_buffer_entries = 1u << 20;
 static uint64_t exec_events;
 static uint64_t write_events;
 static uint64_t filtered_kernel_write_events;
@@ -1708,6 +1710,23 @@ static void file_io_return(unsigned int vcpu_index, uint64_t pc,
                     fprintf(trace_file, ",\"address\":%" PRIu64,
                             pending->buffer);
                 }
+                if (file_io_payload_bytes && pending->buffer) {
+                    uint64_t wanted = completed < file_io_payload_bytes
+                                          ? completed
+                                          : file_io_payload_bytes;
+                    g_autoptr(GByteArray) payload = g_byte_array_new();
+                    if (qemu_plugin_read_memory_vaddr(pending->buffer, payload,
+                                                      (size_t)wanted) &&
+                        payload->len == wanted) {
+                        fputs(",\"payload_hex\":\"", trace_file);
+                        for (uint64_t offset = 0; offset < wanted; offset++) {
+                            fprintf(trace_file, "%02x", payload->data[offset]);
+                        }
+                        fputc('"', trace_file);
+                    } else {
+                        fputs(",\"payload_hex\":null", trace_file);
+                    }
+                }
                 fputs("}\n", trace_file);
                 file_io_events++;
             }
@@ -3178,6 +3197,18 @@ QEMU_PLUGIN_EXPORT int qemu_plugin_install(qemu_plugin_id_t id,
             output = argv[index] + strlen("out=");
         } else if (g_strcmp0(argv[index], "pf_loop=on") == 0) {
             pagefault_loop_events = true;
+        } else if (g_str_has_prefix(argv[index], "mem_buffer=")) {
+            uint64_t entries = g_ascii_strtoull(
+                argv[index] + strlen("mem_buffer="), NULL, 10);
+            if (entries >= 65536 && entries <= (1u << 24)) {
+                memory_buffer_entries = (size_t)entries;
+            }
+        } else if (g_str_has_prefix(argv[index], "file_io_payload=")) {
+            file_io_payload_bytes = (uint32_t)g_ascii_strtoull(
+                argv[index] + strlen("file_io_payload="), NULL, 10);
+            if (file_io_payload_bytes > 4096) {
+                file_io_payload_bytes = 4096;
+            }
         } else if (g_strcmp0(argv[index], "descendant=parent") == 0) {
             descendant_by_parent = true;
         } else {
@@ -3209,7 +3240,7 @@ QEMU_PLUGIN_EXPORT int qemu_plugin_install(qemu_plugin_id_t id,
     memory_trace_scoreboard = qemu_plugin_scoreboard_new(sizeof(uint64_t));
     memory_trace_enabled =
         qemu_plugin_scoreboard_u64(memory_trace_scoreboard);
-    memory_event_buffer = qemu_plugin_mem_buffer_new(65536);
+    memory_event_buffer = qemu_plugin_mem_buffer_new(memory_buffer_entries);
     if (!memory_event_buffer) {
         fprintf(stderr, "paper_trace: cannot allocate memory-event buffer\n");
         return -1;

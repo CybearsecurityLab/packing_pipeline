@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+
 #define RECCTRL_MAGIC 0x666u
 #define RECCTRL_TOGGLE ((uint32_t)-100)
 #define RECCTRL_RET_START 1u
@@ -92,21 +93,27 @@ static void write_status(const char *path, const char *state, DWORD detail,
  * cooperating children and blocks in WaitForSingleObject, and under exact
  * instrumentation a child's CreateProcess+bring-up can exceed 2 guest-minutes.
  * Only the fixture setup provides C:\Panda\idle_ms.txt, so real-sample runs keep
- * the 2-minute boundary while the fixture gets a longer, validation-only window.
- * The value is clamped to [2 min, 30 min] and never exceeds the 30-minute max. */
+ * the 2-minute boundary while the fixture gets a validation-only window that may
+ * be either shorter or longer.  Shorter matters because the window is measured in
+ * GUEST time: under -icount shift=2 a guest second costs ~250M retired
+ * instructions, so 2 guest-minutes of idle is hours of host time and no host
+ * timeout ever reaches the fixture's stop marker.  The fixture's completion is
+ * deterministic (its root waits on its children), so it needs no long tail.
+ * The value is clamped to [1 s, 30 min]. */
 static uint64_t read_idle_milliseconds(void) {
     uint64_t idle = PACKER_IDLE_MILLISECONDS;
     FILE *override_file = fopen("C:\\Panda\\idle_ms.txt", "r");
     if (override_file != NULL) {
         unsigned long long value = 0;
         if (fscanf(override_file, "%llu", &value) == 1 &&
-            value >= PACKER_IDLE_MILLISECONDS && value <= UINT64_C(1800000)) {
+            value >= UINT64_C(1000) && value <= UINT64_C(1800000)) {
             idle = (uint64_t)value;
         }
         fclose(override_file);
     }
     return idle;
 }
+
 
 
 /* Snapshot-resume support.
@@ -560,6 +567,8 @@ static void WINAPI service_main(DWORD argc, char **argv) {
     status.dwServiceSpecificExitCode = (DWORD)result;
     SetServiceStatus(service_status_handle, &status);
 }
+
+
 
 int main(int argc, char **argv) {
     SERVICE_TABLE_ENTRYA service_table[] = {

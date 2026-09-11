@@ -319,3 +319,69 @@ leave the resumed thread in the loader exactly as observed. Under review.
 
 Until that is settled, hxor should not be recorded as a methodology limit: the
 evidence currently favours the payload genuinely not executing.
+
+
+## Defects found 2026-09-10/11
+
+### RESOLVED — `NtWriteFile` Length read as 64-bit (ULONG bug)
+`file_io_return` read the `Length` argument with `read_u64` into a `uint64_t`,
+pulling adjacent stack data into the high dword. Fixed to `read_u32` then widen.
+Verified against the fixture: 9 file_io events, 0 failures, and a 23-byte `printf`
+recorded byte-exactly. **Implicates any prior run whose disk-channel evidence
+mattered**; single-process and cross-process evidence is unaffected.
+
+### RESOLVED — the traced sample had no standard handles
+`CreateProcessA` was called with `bInheritHandles=FALSE` and no
+`STARTF_USESTDHANDLES`, so every sample ran with no stdin/stdout/stderr. A sample
+that prints a diagnostic and exits looked identical to one that crashed. Now the
+sample inherits a handle to `C:\Panda\sample_stdout.txt`.
+
+### RESOLVED — root exit ended observation and killed surviving children
+The launcher treated root exit as all-work-done. A hollowing packer calls
+`ResumeThread` and returns immediately, so the stop marker was emitted (tracing
+off) and `KILL_ON_JOB_CLOSE` then killed the payload. Root exit now only ARMS
+completion; the idle window decides.
+
+### RESOLVED — idle-window override could only LENGTHEN
+`read_idle_milliseconds()` clamped the validation-only override to
+`>= PACKER_IDLE_MILLISECONDS`, so it could not be shortened. Under icount a
+120 guest-second window costs 6-10 h of host time and no host timeout ever
+reached the fixture's stop marker. Clamp is now `[1 s, 30 min]`.
+
+### RESOLVED — memory-callback ring overflow silently dropped writes
+`qemu_plugin_mem_buffer_new(65536)` overflowed 3 times on a `shift=0` fixture run,
+dropping memory-write batches. **A W→X oracle that loses writes under-reports
+layers.** The fixture validator already demanded
+`memory_buffer_overflows == 0` and caught it; the buffer is now 1,048,576 entries
+with a `mem_buffer=N` plugin argument. Certifications before this fix were at
+`shift=2`, where the counter read 0.
+
+### RESOLVED — validator attested binaries but not tracing parameters
+`validate_fixture_trace.py` emitted only binary hashes, so `icount_shift` was
+absent from the stamp and the promotion gate rejected every otherwise-valid
+certification. It now takes `--meta` and attests the run's tracing parameters.
+
+### RESOLVED — non-default profiles were checked against the default stamp
+`run_condition_matrix.py` passed no `--validation-stamp`, so profile runs failed
+on `backend_identity_mismatches`. It now resolves
+`profiles/<profile>.validation.json`.
+
+### NEW CAPABILITY — file I/O payload logging
+`paper_trace.c` records `payload_hex` on `file_read`/`file_write` when started with
+`file_io_payload=N` (capped 4096, default off). The oracle previously recorded that
+a program wrote N bytes but never what, so a sample's own diagnostics were
+invisible. This is what recovered hxor's `offset: 532` measurement. Off by default,
+so traces are unchanged unless requested.
+
+### RESOLVED — certifications burned the full host timeout
+The guest's `shutdown.exe` never completes under instrumentation, so every
+certification waited out its host timeout (1.5-2.5 h) after the trace was already
+complete at the stop marker. `run_trace.py` now quits 180 s after the stop marker
+is seen and the trace goes quiet. A `shift=0` full certification fell from ~5 h
+(timing out) to 4,915 s with `host_timed_out: False`.
+
+### KNOWN — an instrument that perturbed what it measured
+A timing probe added to `guest_launcher.c` ran its own `Sleep(500)` before every
+sample. It produced nothing, because the launcher is not a monitored process and
+its writes never reach the trace. Removed. Lesson: a probe belongs in a monitored
+process, or it is pure perturbation.

@@ -74,3 +74,37 @@ bound how long we watch, not how the guest behaves, and truncation is already
 reported through `paper_termination_reason` and `bounded_observation`.
 `icount_shift`, `icount_sleep`, `cpu_model` and `guest_smp` ARE pinned — they change
 what the guest experiences, and hxor is the proof.
+
+
+## Backend profiles (certified tracing parameters)
+
+A profile in `ops/qemu/profiles/<name>.json` supplies the tracing parameters AND
+names the stamp that attests to them. `run_condition_matrix.py` resolves
+`profiles/<name>.validation.json` and passes it as `--validation-stamp`, so a
+non-default profile is checked against its OWN certification instead of the
+default one. Without that, every non-default run fails on
+`backend_identity_mismatches` — which is exactly why the first six `hxor_packer`
+reps at `icount_shift=0` came back ineligible.
+
+| profile | icount_shift | icount_sleep | smp | certified | used by |
+|---|---|---|---|---|---|
+| `default` | 2 | on | 2 | full | everything else |
+| `slow-timer` | 0 | off | 2 | full | `hxor_packer 0.1` |
+
+`slow-timer` exists because `hxor_packer 0.1` measures `GetTickCount()` around
+`Sleep(500)` and refuses to unpack if the delta exceeds 550 ms. Measured deltas:
+578/672/734 at shift=2, 593 at shift=1, and 515-656 at shift=0/sleep=off, which
+clears the threshold in roughly one rep in four. See `docs/HXOR_TIMING_RESEARCH.md`.
+
+**`slow-timer` requires `LABEL_HOST_IDLE >= 1800`** (we use 2700). At `shift=0` a
+guest `Sleep(500)` needs ~500M retired instructions and emits no monitored
+execution, so a shorter idle window terminates the run inside the sleep.
+
+### Tracing parameters are part of the backend identity
+
+`icount_shift`, `icount_sleep`, `cpu_model` and `guest_smp` are pinned in the
+stamp alongside the qemu/plugin/launcher/fixture/ntdll/profile hashes.
+`validate_fixture_trace.py --meta <run meta.json>` attests them from the run that
+actually produced the fixture trace, cross-checking that run's binary hashes
+against the binaries being certified so parameters cannot be attested from a
+different run.

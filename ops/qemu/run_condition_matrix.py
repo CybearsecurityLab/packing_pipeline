@@ -78,6 +78,15 @@ if _profile_path.exists():
 elif PROFILE != "default":
     raise SystemExit(f"unknown backend profile: {PROFILE} ({_profile_path} missing)")
 
+# The stamp that attests to THIS profile's tracing parameters.  Without it every
+# non-default profile run is compared against the default stamp and rejected on
+# backend_identity_mismatches, which is what made the first six hxor reps
+# ineligible at icount_shift=0.
+VALIDATION_STAMP = (os.environ.get("LABEL_VALIDATION_STAMP")
+                    or _cfg.get("validation_stamp")
+                    or (REPO / "ops/qemu/profiles" / f"{PROFILE}.validation.json"
+                        if PROFILE != "default" else ""))
+
 ICOUNT_SHIFT = str(_cfg.get("icount_shift")
                    if _cfg.get("icount_shift") is not None
                    else os.environ.get("LABEL_ICOUNT_SHIFT",
@@ -123,6 +132,8 @@ def run_one(image: Path, sha: str, name: str, rep: int) -> str:
         "--icount-shift", ICOUNT_SHIFT, "--icount-sleep", ICOUNT_SLEEP,
         "--host-idle-seconds", HOST_IDLE,
     ]
+    if VALIDATION_STAMP:
+        command += ["--validation-stamp", str(VALIDATION_STAMP)]
     for plugin_arg in PLUGIN_ARGS:
         command += ["--plugin-arg", plugin_arg]
     if TRANSPARENT:

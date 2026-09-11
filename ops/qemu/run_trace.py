@@ -59,8 +59,8 @@ _ACTIVITY_MARKERS = (b'"event":"exec"', b'"event":"write"')
 _READ_OVERLAP = 64
 
 
-def _activity_and_started(trace: Path, offset: int) -> tuple[int, int, int, bool]:
-    """Return (new_activity_events, new_writes, new_offset, saw_sample_start).
+def _activity_and_started(trace: Path, offset: int) -> tuple[int, int, int, bool, bool]:
+    """Return (new_activity, new_writes, new_offset, saw_sample_start, saw_stop).
 
     Reads from _READ_OVERLAP bytes before `offset` so a marker split across two
     polls by a partial stdio flush is still matched; counts are taken only in the
@@ -80,7 +80,8 @@ def _activity_and_started(trace: Path, offset: int) -> tuple[int, int, int, bool
     activity = sum(fresh.count(marker) for marker in _ACTIVITY_MARKERS)
     writes = fresh.count(b'"event":"write"')
     started = b'"event":"sample_start"' in chunk
-    return activity, writes, new_offset, started
+    stopped = b'"action":3' in chunk
+    return activity, writes, new_offset, started, stopped
 
 
 def _graceful_quit(monitor: Path | None, runas: str | None) -> bool:
@@ -125,6 +126,7 @@ def wait_or_host_idle(
     process, trace: Path, host_timeout: int, host_idle_seconds: int = HOST_IDLE_SECONDS,
     no_start_seconds: int = NO_START_SECONDS, write_settled_seconds: int = 0,
     monitor_path: Path | None = None, runas_user: str | None = None,
+    stop_grace_seconds: int = 180,
 ) -> tuple[int | None, bool, bool, bool, bool]:
     """Wait for qemu, terminating early on the host-observed idle boundary.
 
@@ -149,6 +151,7 @@ def wait_or_host_idle(
     sample_started = False
     last_activity_at = started_at
     last_write_at = started_at
+    stop_seen_at: float | None = None
     poll = 5.0
     while True:
         try:
@@ -157,13 +160,34 @@ def wait_or_host_idle(
         except subprocess.TimeoutExpired:
             pass
         now = time.monotonic()
-        activity, writes, offset, saw_start = _activity_and_started(trace, offset)
+        activity, writes, offset, saw_start, saw_stop = _activity_and_started(
+            trace, offset)
         if saw_start:
             sample_started = True
+        if saw_stop and stop_seen_at is None:
+            stop_seen_at = now
         if activity > 0:
             last_activity_at = now
         if writes > 0:
             last_write_at = now
+        # The guest emitted the launcher's stop marker: the trace is COMPLETE.
+        # Windows' own shutdown never finishes under this instrumentation, so
+        # waiting for the power-off burns the whole host timeout (1.5-2.5 h per
+        # certification) for no additional evidence.  Quit once the marker has been
+        # seen and the trace has been quiet for the grace window.
+        if (
+            stop_grace_seconds > 0
+            and stop_seen_at is not None
+            and now - stop_seen_at >= stop_grace_seconds
+            and now - last_activity_at >= stop_grace_seconds
+        ):
+            _graceful_quit(monitor_path, runas_user)
+            process.terminate()
+            try:
+                return process.wait(timeout=60), False, False, False, False
+            except subprocess.TimeoutExpired:
+                process.kill()
+                return process.wait(), False, False, False, False
         if now - started_at >= host_timeout:
             _graceful_quit(monitor_path, runas_user)
             process.terminate()
@@ -444,6 +468,7 @@ def main() -> int:
         "The plugin rejects unknown options, so a typo fails loudly.",
     )
     parser.add_argument("--validation-stamp", type=Path)
+    parser.add_argument("--guest-smp", default=GUEST_SMP)
     parser.add_argument(
         "--sandbox",
         action="store_true",
@@ -560,7 +585,7 @@ def main() -> int:
         "-m",
         args.guest_memory,
         "-smp",
-        GUEST_SMP,
+        str(args.guest_smp),
         # icount: fixed-shift instruction-counted virtual clock so the guest
         # scheduler tick fires at a sane instructions-per-tick ratio despite the
         # plugin slowdown (ends the boot-lottery thread starvation).  Keeps
@@ -734,7 +759,7 @@ def main() -> int:
         "icount_sleep": args.icount_sleep if args.icount_shift >= 0 else None,
         "cpu_model": (args.cpu_model + ",-hypervisor"
                       if args.transparent else args.cpu_model),
-        "guest_smp": GUEST_SMP,
+        "guest_smp": str(args.guest_smp),
     }
     stamped_identity = (
         backend_validation.get("backend_identity", {})

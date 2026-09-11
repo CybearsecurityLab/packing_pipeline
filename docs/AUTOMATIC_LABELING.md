@@ -249,3 +249,39 @@ Deferred audit items (do not affect the labels produced so far): compute the V/V
 `multi_frame` ratio from the candidate code's own frames rather than per-layer
 frames; and emit an Evidence note when the topology `tail` refinement alone changed
 the outcome. Full audit is in the session record.
+
+
+## Backend profiles and the validation stamp
+
+A condition may need tracing parameters the default certification does not cover.
+`LABEL_PROFILE=<name>` reads `ops/qemu/profiles/<name>.json` for the parameters and
+passes `ops/qemu/profiles/<name>.validation.json` to `run_trace.py` as
+`--validation-stamp`, so the run is checked against the certification for THOSE
+parameters. `icount_shift`, `icount_sleep`, `cpu_model` and `guest_smp` are part of
+the pinned backend identity, so a run at non-default parameters is ineligible
+unless a stamp attests them.
+
+Certified profiles: `default` (shift=2, sleep=on) and `slow-timer` (shift=0,
+sleep=off, for `hxor_packer 0.1`). See `docs/PACKER_RUN_PARAMETERS.md`.
+
+## Labels from mixed reps: Ugarte Sec V-C
+
+`finalize` first seeks **exact consensus** across `n = 3 x >= 2 payloads`. When reps
+disagree it falls back to **maximum observed complexity**: reps that observed no
+unpacking ABSTAIN — they are failed measurements, not competing labels — and the
+highest complexity actually observed becomes the label, with status
+`empirical_max_observed_complexity` and the full rep distribution recorded in
+`max_observed_evidence`.
+
+This matters for samples that gate unpacking on an anti-analysis check they only
+sometimes fail. `hxor_packer 0.1` clears its own 550 ms timing check in roughly one
+rep in four; the one rep that unpacked produced `TYPE_I`, the five that refused
+abstained, and `max_observed_evidence` records
+`{UNRESOLVED_NO_UNPACKING_OBSERVED: 5, TYPE_I: 1}`.
+
+## Reading a sample's own diagnostics
+
+Starting the plugin with `--plugin-arg file_io_payload=N` records `payload_hex` on
+`file_read`/`file_write` events. A packer that prints why it refused to run then
+becomes readable directly from the trace, without depending on the guest flushing
+NTFS. Off by default.

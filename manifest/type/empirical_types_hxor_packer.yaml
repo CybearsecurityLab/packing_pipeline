@@ -6,9 +6,9 @@ minimum_repetitions_per_sample: 3
 minimum_distinct_samples: 2
 condition_count: 1
 label_status_distribution:
-  null: 1
+  empirical_max_observed_complexity: 1
 label_distribution:
-  null: 1
+  TYPE_I: 1
 nas_status_distribution:
   planned: 1
 dynamic_gate_complete_conditions: 0
@@ -18,8 +18,8 @@ alternate_payload_run_count: 0
 conditions:
 - packer_family: hxor_packer
   packer_version: '0.1'
-  configuration_id: hxor_003_encryption-8783d40729f2
-  test_case_id: HXOR_003_ENCRYPTION
+  configuration_id: hxor_001_default-14ec28b1bc56
+  test_case_id: HXOR_001_DEFAULT
   condition_source: yaml_test_case
   nas_status: planned
   available_nas_samples: 2
@@ -36,10 +36,16 @@ conditions:
   validated_target_events: 0
   target_event_totals: {}
   original_mapped_distinct_samples: 0
-  exact_trace_resolved_runs: 0
-  exact_trace_distribution: {}
+  exact_trace_resolved_runs: 1
+  exact_trace_distribution:
+    TYPE_I: 1
   dynamic_failure_reasons: {}
-  label: null
-  label_status: null
-  confidence: 0.0
+  label: TYPE_I
+  label_status: empirical_max_observed_complexity
+  confidence: 0.167
   paper_evidence_level: null
+  max_observed_evidence:
+    UNRESOLVED_NO_UNPACKING_OBSERVED: 5
+    TYPE_I: 1
+  label_rule: 'Ugarte SoK Sec V-C: highest complexity observed; no-observation reps
+    abstain'

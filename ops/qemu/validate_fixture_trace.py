@@ -302,6 +302,7 @@ def main() -> int:
     parser.add_argument("--fixture", type=Path, required=True)
     parser.add_argument("--ntdll", type=Path, required=True)
     parser.add_argument("--profile-header", type=Path, required=True)
+    parser.add_argument("--meta", type=Path, default=None)
     parser.add_argument(
         "--single-process",
         action="store_true",
@@ -333,6 +334,25 @@ def main() -> int:
         "profile_header_sha256": sha256(args.profile_header),
         "kernel_profile_guid_age": match.group(1) if match else None,
     }
+    if args.meta is not None:
+        run_identity = json.loads(args.meta.read_text(encoding="utf-8")).get(
+            "backend_identity"
+        )
+        if not isinstance(run_identity, dict):
+            errors.append("run meta carries no backend_identity to attest")
+        else:
+            for key in ("qemu_sha256", "plugin_sha256", "ntdll_sha256",
+                        "profile_header_sha256"):
+                if run_identity.get(key) != identity[key]:
+                    errors.append(
+                        f"run meta {key} differs from the validated binary"
+                    )
+            for key in ("icount_shift", "icount_sleep", "cpu_model",
+                        "guest_smp"):
+                if key not in run_identity:
+                    errors.append(f"run meta carries no {key}")
+                else:
+                    identity[key] = run_identity[key]
     summary = evidence.get("summary")
     if not isinstance(summary, dict) or summary.get("ntdll_sha256") != identity[
         "ntdll_sha256"
