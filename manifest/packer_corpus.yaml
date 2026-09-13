@@ -1,6 +1,6 @@
 version: "0.1.0"
 maintainer: "AKOrojo, Abanisenioluwa Kolawole Orojo, Abanisenioluwa_Oroj1, Banny Orojo, GitLab CI Bot, resbears"
-last_updated: "2026-09-09"
+last_updated: "2026-09-13"
 
 # ==========================================
 # SECTION 1: PACKER DEFINITIONS (The Source of Truth)
@@ -339,7 +339,7 @@ definitions:
     notes: "hXOR Packer by Afif (2012). Features basic compression and XOR-based encryption requiring a numeric key."
     size_kb: "193"
     output_behavior: "explicit_absolute"
-    type: ""
+    type: "TYPE_I"
     known_issues:
       - "Pathing: The help menu explicitly requests 'Absolute Path' for inputs and outputs"
 
@@ -359,7 +359,7 @@ definitions:
     notes: "Runtime Encrypter for 32-bit PE. Older v1.2 compiled release."
     size_kb: "134"
     output_behavior: "explicit"
-    type: ""
+    type: "TYPE_I"
     known_issues:
       - "File Size Limit: Fails on large files 'error: out of memory' or 'illegal instruction' because FASM cannot compile the massive source file generated."
 
@@ -379,7 +379,7 @@ definitions:
     notes: "Runtime Encrypter for 32-bit PE."
     size_kb: "111"
     output_behavior: "explicit"
-    type: ""
+    type: "TYPE_I"
     known_issues:
       - "File Size Limit: Fails on large files 'error: out of memory' or 'illegal instruction' because FASM cannot compile the massive source file generated."
 

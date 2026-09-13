@@ -108,3 +108,27 @@ stamp alongside the qemu/plugin/launcher/fixture/ntdll/profile hashes.
 actually produced the fixture trace, cross-checking that run's binary hashes
 against the binaries being certified so parameters cannot be attested from a
 different run.
+
+
+## Conditions typed on maximum observed complexity
+
+These three cleared their labels only after the parameter work above, and none
+reached exact consensus. The rep distribution is part of the evidence and should
+be read with the label.
+
+| condition | label | reps observing | note |
+|---|---|---|---|
+| `hxor_packer 0.1` | TYPE_I | 1 of 6 | clears its own 550 ms timing gate ~25% of runs |
+| `hyperion 2.3.1` | TYPE_I | 5 of 6 | exec counts agree to a few hundred events per payload |
+| `hyperion 1.2` | TYPE_I | 2 of 6 | **payload A only** — payload B ran ~21k blocks in all 3 reps |
+
+`hyperion 1.2` is the weakest of the three. Payload B's ~21k exec events against
+payload A's 102M is the signature of a sample exiting immediately, not of the
+packer behaving differently, so payload B needs rerunning with
+`LABEL_DELETE_TRACE=0` and `LABEL_PLUGIN_ARGS=file_io_payload=256` to read what it
+prints before that label is relied on.
+
+One `hyperion 1.2` payload-A rep ran correctly (102,393,198 exec, eligible, clean
+termination) but produced no classification, and `run_condition_matrix.py` deleted
+its trace anyway — the classifier is invoked with `check=False`, so a failure on a
+very large trace is silent and unrecoverable. It abstained.

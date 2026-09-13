@@ -6,8 +6,11 @@ from static heuristics or hypotheses. It runs the packed sample inside an
 instrumented Windows guest, records every executed basic block and every memory
 store, reconstructs the paper's write→execute **layer-production topology**, and
 classifies the Type from that topology. No approximations: a label is emitted only
-when the exact channels are present and, per condition, only on **exact consensus**
-across the paper's `n = 3 executions × ≥2 distinct payloads`.
+when the exact channels are present, and per condition only on **exact consensus**
+across the paper's `n = 3 executions × ≥2 distinct payloads` — or, when reps
+disagree, on the paper's **maximum observed complexity** rule (Sec V-C), where reps
+that observed no unpacking abstain as failed measurements rather than voting. See
+"Labels from mixed reps" below.
 
 - **Backend**: an upstream **QEMU 11 TCG plugin** (`ops/qemu/paper_trace.c`) traces
   the guest; it is gated by a purpose-built certification fixture and refuses to
@@ -39,7 +42,7 @@ trace.jsonl  (exec / write / free / unmap / exception / marker events, one
    │  packer-types classify-paper-trace   (empirical_types/paper.py + classifier.py)
    ▼
 classification.json  (complexity_type = TYPE_I..VI, layers, tail, linear, ...)
-   │  packer-types finalize   (exact consensus across reps × payloads)
+   │  packer-types finalize   (exact consensus, else Sec V-C max observed)
    ▼
 manifest/type/empirical_types_*.yaml  +  doc/EMPIRICAL_TYPE_LABELS.md
 ```
