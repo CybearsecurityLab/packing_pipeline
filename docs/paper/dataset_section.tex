@@ -1,0 +1,188 @@
+% ===========================================================================
+% Dataset section -- regenerated 2026-09-14 from the deduplicated corpus.
+% Placeholders marked \TODO{} are values the dynamic typing campaign has not
+% produced yet.  Every other number is measured; see docs/paper/NUMBERS.md for
+% provenance.
+% ===========================================================================
+
+We began with a benign sample dataset to establish our baseline and conduct a
+preliminary study. This dataset included samples from WinGet (Windows Package
+Manager)~\cite{winget} and was packed with \textbf{41} off-the-shelf packer
+families comprising \textbf{107} variants, all targeting 32-bit Intel i386 PE32
+executables; see \Cref{tab:packer_families}.
+
+\begin{table}[t]
+\centering
+\caption{Packer families and variant counts in the corpus. The corpus
+comprises \textbf{107} packer variants across \textbf{41} distinct
+families.}
+\label{tab:packer_families}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}lr@{\hspace{1.6em}}lr@{}}
+\toprule
+Family & \#V & Family & \#V \\
+\midrule
+UPX                 & 50 & hxor\_packer     & 1 \\
+UPX\_Scrambler      & 6  & jdpack           & 1 \\
+yoda\_protector     & 5  & mew              & 1 \\
+amber               & 3  & molebox          & 1 \\
+petite              & 3  & npack            & 1 \\
+hyperion            & 2  & nspack           & 1 \\
+kkrunchy            & 2  & obsidium         & 1 \\
+mpress              & 2  & packman          & 1 \\
+yoda\_crypter       & 2  & pe\_diminisher   & 1 \\
+acprotect           & 1  & pelock           & 1 \\
+alienyze\_protector & 1  & pepacker         & 1 \\
+alushpacker         & 1  & pezor            & 1 \\
+armadillo           & 1  & rlpack           & 1 \\
+asm\_guard          & 1  & shrinker         & 1 \\
+astral\_pe          & 1  & telock           & 1 \\
+beroexepacker       & 1  & hackupx          & 1 \\
+enigma              & 1  & upack            & 1 \\
+eronona             & 1  & zprotect         & 1 \\
+exe32pack           & 1  & xcomp            & 1 \\
+fsg                 & 1  &                  &   \\
+\midrule
+\multicolumn{4}{@{}l}{\textbf{Total: 41 families, 107 variants}} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+For replication of real-world packed malware for studying purposes, we curated a
+dataset featuring the popular malware tool VirusTotal and its Folder of Malware
+Samples for Academic Researchers~\cite{virustotal}, low-entropy malware
+from~\cite{mantovani2020prevalence}, and DikeDataset~\cite{dikedataset}. After
+removing \textbf{610} exact-duplicate binaries identified by SHA-256 over the
+extracted samples, the dataset totals \textbf{44,740} distinct samples. Then, to
+distinguish packed samples from unpacked malware samples, we verified packedness
+using packer identification software, including DIE, PEID, CAPA, YARA, and
+Shannon Entropy Score~\cite{yara,die,manalyze,capa,pefile,lyda2007entropy,peid}.
+Although the software may have disagreed on the packer type, an executable was
+added to our dataset if all the tools recognized the sample as packed. For the
+residual samples that these faster detectors did not flag, we additionally
+performed dynamic analysis based on the run-time unpacking
+behaviors~\cite{ugartepedrero2015sok}, tracing written-then-executed memory
+regions; this resulted in a total \textbf{72.9\%} of samples being flagged as
+packed.
+
+We determined each sample's format by parsing PE and ELF headers statically,
+without execution: PE32 with an \texttt{i386} machine field is Win32, PE32+ with
+x86-64 is Win64, and any PE carrying a CLR data directory is managed (.NET).
+\Cref{tab:filetypes} gives the distribution. \textbf{This study is scoped to the
+42,656 Win32 (PE32/i386) samples, of which 31,211 are packed.} Managed assemblies
+do not unpack through the native write-then-execute mechanism our oracle observes,
+and the remaining formats cannot execute in the i386 guest.
+
+\begin{table}[t]
+\centering
+\caption{File-format distribution of the deduplicated malware corpus
+(\textbf{44,740} distinct samples), determined by static header parsing.
+``Packed'' is the subset flagged by the detector ensemble described above.}
+\label{tab:filetypes}
+\footnotesize
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+Format & Samples & Share & Packed \\
+\midrule
+Win32 (PE32, i386)      & 42,656 & 95.3\% & 31,211 \\
+Win64 (PE32+, x86-64)   &  1,114 &  2.5\% &    761 \\
+.NET (CLR)              &    909 &  2.0\% &    735 \\
+MS-DOS (MZ, no PE)      &     55 &  0.1\% &      3 \\
+PE32 (non-i386, ARM)    &      4 &  0.0\% &      3 \\
+Unclassified            &      2 &  0.0\% &      1 \\
+\midrule
+\textbf{Total}          & \textbf{44,740} & \textbf{100\%} & \textbf{32,714} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\Cref{tab:typedist} reports the Ugarte Type distribution. Every benign condition
+is typed from its own dynamic trace. A malware sample inherits a Type only when
+its static packer label exactly matches a corpus family typed dynamically;
+otherwise it requires its own trace. Of \textbf{8,224} Win32 packed samples typed
+so far, \textbf{830} are dynamic and \textbf{7,394} inherited. The campaign over
+the remaining \textbf{22,987} is ongoing; those entries are blank.
+
+\begin{table}[t]
+\centering
+\caption{Ugarte Type distribution. Benign counts are packer \emph{conditions},
+each typed from its own dynamic trace. Malware counts are Win32 packed
+\emph{samples}. Blank entries await the ongoing dynamic typing campaign.}
+\label{tab:typedist}
+\footnotesize
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+ & \multicolumn{1}{c}{Benign} & \multicolumn{3}{c}{Malware (Win32 packed)} \\
+\cmidrule(lr){2-2}\cmidrule(lr){3-5}
+Type & Conditions & Dynamic & Inherited & Total \\
+\midrule
+TYPE\_0     &   1 & \TODO{} & \TODO{} & \TODO{} \\
+TYPE\_I     &  76 & \TODO{} & \TODO{} &  1,634 \\
+TYPE\_II    &   7 & \TODO{} & \TODO{} &    129 \\
+TYPE\_III   &   5 & \TODO{} & \TODO{} &    218 \\
+TYPE\_IV    &  11 & \TODO{} & \TODO{} &  5,840 \\
+TYPE\_V-F   &   2 & \TODO{} & \TODO{} &    121 \\
+TYPE\_VI-F  &   5 & \TODO{} & \TODO{} &    282 \\
+\midrule
+Typed       & \textbf{112} & \textbf{830} & \textbf{7,394} & \textbf{8,224} \\
+Untyped     &   0 & \multicolumn{3}{r}{\textbf{22,987}} \\
+\midrule
+\textbf{Total} & \textbf{112} & \multicolumn{3}{r}{\textbf{31,211}} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{A held-out test set from EMBER2024}
+
+We adopt the Win32 portion of EMBER2024~\cite{ember2024} as a held-out test set.
+It publishes features and labels, but not binaries, for files first submitted to
+VirusTotal between 2023-09-24 and 2024-12-14, with packer labels assigned by
+ClarAVy~\cite{claravy}. Two properties make it suitable: an independently produced
+packer label to evaluate against, and disjointness from our corpus ---
+cross-referencing all \textbf{44,738} corpus SHA-256 digests against the
+\textbf{1,919,994} EMBER Win32 digests yields \textbf{zero} intersection.
+
+Two defects in the published release affect any reuse. First, the Win32 archives
+contain every record twice --- 3,120,000 train and 720,000 test lines for
+1,560,000 and 359,994 distinct digests, differing only in \texttt{caps},
+\texttt{ttps}, and \texttt{mbc} --- so the reference loader double-counts; we
+deduplicate by SHA-256, recovering EMBER's documented totals. Second, the packer
+distribution is not stationary across the split: \texttt{themida} rises from
+11.8\% to 34.6\% of labels while \texttt{upx} falls from 47.0\% to 29.7\%. We
+therefore report per-family rather than aggregate results.
+
+Of the 1,919,994 EMBER Win32 samples, \textbf{71,173} (3.7\%) carry a packer
+label, giving \textbf{71,779} occurrences across \textbf{49} packer names.
+\textbf{18} names match a corpus family typed dynamically, covering
+\textbf{46,336} occurrences (\textbf{64.6\%}); the largest unmatched are
+\texttt{vmprotect} (10,582) and \texttt{nsis} (10,344), together 29.1\%. We apply
+the same dynamic analysis to the \TODO{} EMBER samples obtainable as binaries.
+\Cref{tab:ember} reports both distributions.
+
+\begin{table}[t]
+\centering
+\caption{EMBER2024 Win32 held-out test set. ``Inherited'' counts label
+occurrences whose packer name matches a corpus family with a dynamically
+established Type. ``Dynamic'' counts samples we obtained as binaries and typed
+with the same oracle; blank entries await that campaign.}
+\label{tab:ember}
+\footnotesize
+\begin{tabular}{@{}lrr@{}}
+\toprule
+Type & Inherited occurrences & Dynamically typed \\
+\midrule
+TYPE\_I     & 43,132 & \TODO{} \\
+TYPE\_II    &    601 & \TODO{} \\
+TYPE\_III   &  1,382 & \TODO{} \\
+TYPE\_IV    &    827 & \TODO{} \\
+TYPE\_V-F   &      7 & \TODO{} \\
+TYPE\_VI-F  &    387 & \TODO{} \\
+\midrule
+Matched to a corpus family & \textbf{46,336} & \TODO{} \\
+Unmatched packer names     & \textbf{25,443} & --- \\
+\midrule
+\textbf{Total labelled}    & \textbf{71,779} & \TODO{} \\
+\bottomrule
+\end{tabular}
+\end{table}
