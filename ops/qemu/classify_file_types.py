@@ -38,6 +38,11 @@ MANIFEST = REPO / "empirical_results/malware/manifest.csv"
 CACHE = REPO / "empirical_results/malware/file_types.jsonl"
 OUT = REPO / "empirical_results/malware/manifest_with_filetypes.csv"
 NAS_DIR = "//10.100.99.29/samples/flat_zip_malware"
+# A local mirror of the same archives (ops/qemu/mirror_malware_local.py).  Reading
+# from disk instead of SMB turns a ~3 h pass into minutes and stops competing with
+# the typing campaign for the NAS link.  Falls back to the NAS per-file when a
+# mirrored copy is absent, so a partial mirror is still usable.
+LOCAL_MIRROR = pathlib.Path("/data/malware_zips")
 ZIP_PASSWORD = b"infected"
 MAX_MEMBER_BYTES = 128 * 1024 * 1024      # zip-bomb guard
 
@@ -128,7 +133,15 @@ def inspect(row: dict) -> dict:
     # know it is a transient fetch failure so it is NOT cached as a verdict.
     blob = None
     last = ""
+    local = LOCAL_MIRROR / row["zip_file"]
+    try:
+        if local.is_file():
+            blob = local.read_bytes()
+    except Exception:
+        blob = None
     for attempt in range(4):
+        if blob is not None:
+            break
         try:
             s = smb()
             with s.open_file(f"{NAS_DIR}/{row['zip_file']}", mode="rb") as fh:
