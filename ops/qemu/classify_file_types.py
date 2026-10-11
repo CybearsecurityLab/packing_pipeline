@@ -31,7 +31,8 @@ import time
 import zipfile
 
 import pyzipper
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import (ProcessPoolExecutor, ThreadPoolExecutor,
+                                as_completed)
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
 MANIFEST = REPO / "empirical_results/malware/manifest.csv"
@@ -104,8 +105,10 @@ def classify(data: bytes) -> tuple[str, str]:
         if data[pe_off:pe_off + 4] != b"PE\0\0":
             return "MZ_dos", ""
         machine, _sections = struct.unpack_from("<HH", data, pe_off + 4)
+        characteristics = struct.unpack_from("<H", data, pe_off + 22)[0]
         opt_off = pe_off + 24
         magic = struct.unpack_from("<H", data, opt_off)[0]
+        subsystem = struct.unpack_from("<H", data, opt_off + 68)[0]
         bits = {0x10b: "PE32", 0x20b: "PE32+", 0x107: "ROM"}.get(magic, "PE?")
         arch = MACHINE.get(machine, hex(machine))
         # data directory 14 = CLR runtime header -> managed (.NET)
@@ -116,8 +119,16 @@ def classify(data: bytes) -> tuple[str, str]:
             if rva and size:
                 return "DOTNET", arch
         if bits == "PE32" and arch == "x86":
+            if characteristics & 0x2000:
+                return "Win32_DLL", arch
+            if subsystem == 1:
+                return "Win32_DRIVER", arch
             return "Win32", arch
         if bits == "PE32+" and arch in {"x64", "arm64", "ia64"}:
+            if characteristics & 0x2000:
+                return "Win64_DLL", arch
+            if subsystem == 1:
+                return "Win64_DRIVER", arch
             return "Win64", arch
         return bits, arch
     except Exception as exc:
@@ -206,10 +217,17 @@ def main() -> int:
           flush=True)
 
     CACHE.parent.mkdir(parents=True, exist_ok=True)
-    smb()                       # register once, before any worker starts
+    all_local = all((LOCAL_MIRROR / r["zip_file"]).is_file() for r in todo)
+    if all_local:
+        pool = ProcessPoolExecutor
+        print(f"[ft] all archives local; using {args.jobs} processes", flush=True)
+    else:
+        pool = ThreadPoolExecutor
+        smb()                   # register once, before any worker starts
+        print("[ft] some archives not mirrored; threads + SMB fallback", flush=True)
     lock = threading.Lock()
     n = 0
-    with CACHE.open("a") as out, ThreadPoolExecutor(max_workers=args.jobs) as ex:
+    with CACHE.open("a") as out, pool(max_workers=args.jobs) as ex:
         futs = {ex.submit(inspect, r): r for r in todo}
         for fut in as_completed(futs):
             rec = fut.result()

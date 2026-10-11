@@ -156,33 +156,59 @@ Of the 1,919,994 EMBER Win32 samples, \textbf{71,173} (3.7\%) carry a packer
 label, giving \textbf{71,779} occurrences across \textbf{49} packer names.
 \textbf{18} names match a corpus family typed dynamically, covering
 \textbf{46,336} occurrences (\textbf{64.6\%}); the largest unmatched are
-\texttt{vmprotect} (10,582) and \texttt{nsis} (10,344), together 29.1\%. We apply
-the same dynamic analysis to the \TODO{} EMBER samples obtainable as binaries.
-\Cref{tab:ember} reports both distributions.
+\texttt{vmprotect} (10,582) and \texttt{nsis} (10,344), together 29.1\%.
+
+EMBER2024 does not distribute binaries, so we recovered them by SHA-256 from
+MalwareBazaar~\cite{malwarebazaar}. Querying all 71,173 packer-labelled samples
+found \textbf{5,141} (\textbf{7.2\%}) present, 3,170 from the test split and
+1,971 from train. Availability is strongly skewed by packer: \texttt{themida}
+accounts for 3,363 of the recoverable samples and \texttt{nsis} 1,238, while
+\texttt{upx} --- 43\% of EMBER's packer labels --- yields only 99. MalwareBazaar
+is community-submitted, so commercially protected current threats are
+over-represented relative to a VirusTotal-derived population. We apply the same
+dynamic analysis to the recovered samples that are launchable. Of these 5,141
+archives, \textbf{5,080} are Win32 executables; 47 DLLs and 14 .NET
+assemblies are excluded because they cannot start via \texttt{CreateProcess}. No
+Type is inherited from the static packer name, so the result is independent of
+ClarAVy's labels. \Cref{tab:ember} reports both distributions.
+
+The oracle assigns a Type to \textbf{3,281} of the 5,080 samples (\textbf{64.6\%}).
+The other 1,799 are 1,741 unresolved (no repetition produced a Type, through trace
+loss or because no unpacking was observed), 30 that did not launch, 17 whose
+trace could not be classified, and 11 that never started. The typed distribution
+is dominated by TYPE\_V-F (2,738; 83.4\%), almost all of it
+\texttt{themida}-labelled (2,736 of 3,359 \texttt{themida} samples), whereas our
+corpus types its \texttt{themida} family as TYPE\_I; only 65 of the 3,359
+\texttt{themida} samples receive TYPE\_I. We report this disagreement as measured
+and do not reconcile it here. \texttt{nsis}, an installer, is almost never typed
+(1,234 of 1,237 untyped).
 
 \begin{table}[t]
 \centering
 \caption{EMBER2024 Win32 held-out test set. ``Inherited'' counts label
 occurrences whose packer name matches a corpus family with a dynamically
 established Type. ``Dynamic'' counts samples we obtained as binaries and typed
-with the same oracle; blank entries await that campaign.}
+with the same oracle, over the 5,080 launchable Win32 executables.}
 \label{tab:ember}
 \footnotesize
 \begin{tabular}{@{}lrr@{}}
 \toprule
 Type & Inherited occurrences & Dynamically typed \\
 \midrule
-TYPE\_I     & 43,132 & \TODO{} \\
-TYPE\_II    &    601 & \TODO{} \\
-TYPE\_III   &  1,382 & \TODO{} \\
-TYPE\_IV    &    827 & \TODO{} \\
-TYPE\_V-F   &      7 & \TODO{} \\
-TYPE\_VI-F  &    387 & \TODO{} \\
+TYPE\_I     & 43,132 & 83 \\
+TYPE\_II    &    601 & 21 \\
+TYPE\_III   &  1,382 & 3 \\
+TYPE\_IV    &    827 & 278 \\
+TYPE\_V-B   &      0 & 1 \\
+TYPE\_V-F   &      7 & 2,738 \\
+TYPE\_VI-B  &      0 & 5 \\
+TYPE\_VI-F  &    387 & 152 \\
 \midrule
-Matched to a corpus family & \textbf{46,336} & \TODO{} \\
+Typed (matched to a corpus family) & \textbf{46,336} & \textbf{3,281} \\
+Unresolved, failed, or not launched & --- & 1,799 \\
 Unmatched packer names     & \textbf{25,443} & --- \\
 \midrule
-\textbf{Total labelled}    & \textbf{71,779} & \TODO{} \\
+\textbf{Total labelled / traced}    & \textbf{71,779} & \textbf{5,080} \\
 \bottomrule
 \end{tabular}
 \end{table}
