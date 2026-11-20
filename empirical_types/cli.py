@@ -239,8 +239,13 @@ def main(argv: list[str] | None = None) -> int:
             # ONLY a host-timeout cut counts as a bounded observation. A launch
             # failure, crash, or missing channel is genuinely absent evidence and
             # must remain trace_loss.
-            if getattr(args, "accept_bounded", False) and metadata.get(
-                    "paper_termination_reason") == "maximum_timeout_host":
+            channels_clean = all(
+                v for k, v in (metadata.get("trace_integrity") or {}).items()
+                if k != "stop_marker") and bool(metadata.get("trace_integrity"))
+            if (getattr(args, "accept_bounded", False)
+                    and metadata.get("paper_termination_reason") == "maximum_timeout_host"
+                    and metadata.get("backend_validation_complete") is True
+                    and channels_clean):
                 evidence.bounded_observation = True
         # Cross-process certification is granted by the CROSS_PROCESS_MEMORY tier,
         # not by the coarse certification_mode.  A process-hollowing packer's
