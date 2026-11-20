@@ -33,6 +33,25 @@ class PaperFaithfulTraceTests(unittest.TestCase):
         self.assertFalse(evidence.original_match_available)
         self.assertEqual(classify(evidence).complexity_type, "TYPE_I")
 
+    def test_reexecuting_dropped_file_code_is_one_frame(self):
+        drop = [execute(0x1000), {"event": "file_write", "pid": 1, "tid": 1,
+                                  "file_id": "f", "file_offset": 0, "size": 1}]
+        mapped = {**execute(0x50000), "file_id": "f", "file_offset": 0}
+        evidence = self.analyze(drop + [mapped, execute(0x1000)] * 5)
+        written = [execute(0x1000), write(0x50000)] + [execute(0x50000), execute(0x1000)] * 5
+        reference = self.analyze(written)
+        self.assertEqual(len(evidence.frame_sizes), len(reference.frame_sizes))
+        self.assertEqual(classify(evidence).complexity_type,
+                         classify(reference).complexity_type)
+
+    def test_rewritten_dropped_file_starts_a_new_frame(self):
+        drop = {"event": "file_write", "pid": 1, "tid": 1,
+                "file_id": "f", "file_offset": 0, "size": 1}
+        mapped = {**execute(0x50000), "file_id": "f", "file_offset": 0}
+        once = self.analyze([execute(0x1000), drop, mapped, execute(0x1000), mapped])
+        twice = self.analyze([execute(0x1000), drop, mapped, execute(0x1000), drop, mapped])
+        self.assertGreater(len(twice.frame_sizes), len(once.frame_sizes))
+
     def test_empty_paper_trace_is_unresolved(self):
         evidence = self.analyze([])
         self.assertEqual(
@@ -266,6 +285,22 @@ class PaperFaithfulTraceTests(unittest.TestCase):
             classify(self.analyze(function_sized)).complexity_type,
             "TYPE_V-F",
         )
+
+    def test_stack_writes_do_not_hide_page_granularity(self):
+        events = []
+        for page in (0x20000, 0x21000, 0x22000):
+            events += [execute(0x1000), write(0x7FF000, size=8),
+                       write(page, size=4096), execute(page)]
+        events.append(execute(0x1000))
+        self.assertEqual(classify(self.analyze(events)).complexity_type, "TYPE_V-P")
+
+    def test_packer_only_frames_do_not_make_application_multiframe(self):
+        app = [execute(0x20000 + i * 16, size=16) for i in range(64)]
+        stub = [write(0x200000, size=32), execute(0x200000, size=32)]
+        events = ([execute(0x1000), write(0x20000, size=1024)] + app + [execute(0x1000)]
+                  + stub + [execute(0x1000)] + app + [execute(0x1000)] + stub
+                  + [execute(0x1000)])
+        self.assertEqual(classify(self.analyze(events)).complexity_type, "TYPE_IV")
 
     def test_ten_page_separation_and_type_iii_fallback(self):
         evidence = self.analyze(

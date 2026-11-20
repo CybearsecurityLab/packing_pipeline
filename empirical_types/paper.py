@@ -222,6 +222,8 @@ def analyze_paper_jsonl(path: Path, sample_id: str) -> Evidence:
             truncated_tail = True
 
     with contextlib.nullcontext():
+        file_version: dict[tuple[str, int], int] = {}
+        mapped_applied: dict[tuple[int, int], tuple] = {}
         events = enumerate(raw_lines, 1)
         for line_no, line in events:
             if not line.strip():
@@ -296,6 +298,7 @@ def analyze_paper_jsonl(path: Path, sample_id: str) -> Evidence:
                         file_writer_layer.get(key, -1), source.layer
                     )
                     file_writers[key].add(source.key)
+                    file_version[key] = file_version.get(key, 0) + 1
                 continue
 
             address = number(event["address"])
@@ -366,7 +369,10 @@ def analyze_paper_jsonl(path: Path, sample_id: str) -> Evidence:
                 for offset in range(size):
                     file_key = (file_id, file_offset + offset)
                     source_keys = file_writers.get(file_key, set())
-                    if source_keys:
+                    applied = (file_key, file_version.get(file_key, 0))
+                    if source_keys and mapped_applied.get(
+                            (pid, address + offset)) != applied:
+                        mapped_applied[(pid, address + offset)] = applied
                         record_written_byte(
                             pid,
                             address + offset,
@@ -542,19 +548,39 @@ def analyze_paper_jsonl(path: Path, sample_id: str) -> Evidence:
     tail = (packer_to_app == 1 and app_to_packer == 0) or topology_tail
     interleaved = not tail and not all_code_packer
 
-    multiframe_layers = {
-        layer_key for layer_key, frames in frame_number.items() if frames > 1
-    }
-    candidate_multiframe = sum(
-        len(value) for key, value in candidate_bytes.items() if key in multiframe_layers
-    )
+    byte_frames: dict[tuple[int, int, int], set[int]] = defaultdict(set)
+    for (frame_pid, frame_layer, frame), written in frame_written.items():
+        layer_candidates = candidate_bytes.get((frame_pid, frame_layer))
+        if layer_candidates:
+            for byte in written & layer_candidates:
+                byte_frames[(frame_pid, frame_layer, byte)].add(frame)
+    candidate_multiframe = 0
+    for (layer_pid, layer), addresses in candidate_bytes.items():
+        region: list[int] = []
+        region_frames: set[int] = set()
+        for byte in sorted(addresses) + [None]:
+            if byte is None or (region and byte - region[-1] > 10 * 4096):
+                if len(region_frames) > 1:
+                    candidate_multiframe += len(region)
+                region, region_frames = [], set()
+            if byte is not None:
+                region.append(byte)
+                region_frames |= byte_frames.get((layer_pid, layer, byte), set())
     ratio = candidate_multiframe / total_candidate if total_candidate else None
 
     candidate_frames: set[tuple[int, int, int]] = set()
     for block in relevant_blocks:
         if block.key in candidate_blocks:
             candidate_frames.add((block.pid, block.layer, block.frame))
-    sizes = [len(frame_written[key]) for key in sorted(candidate_frames)]
+    executed_pages: dict[tuple[int, int], set[int]] = defaultdict(set)
+    for block in blocks:
+        for page in range(block.address >> 12, ((block.address + block.size - 1) >> 12) + 1):
+            executed_pages[(block.pid, block.layer)].add(page)
+    sizes = [
+        sum(1 for byte in frame_written[key]
+            if byte >> 12 in executed_pages[(key[0], key[1])])
+        for key in sorted(candidate_frames)
+    ]
     basic_blocks = [frame_blocks[key] for key in sorted(candidate_frames)]
     repacked_candidate = {
         key
