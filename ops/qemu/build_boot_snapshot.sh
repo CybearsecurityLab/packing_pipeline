@@ -19,8 +19,11 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 
 RUNTIME=${MALWARE_RUNTIME:-/data/malware_runtime}
-BASE="$RUNTIME/base.qcow2"
-SNAP="$RUNTIME/booted.qcow2"
+BASE=${SNAP_BASE:-$RUNTIME/base.qcow2}
+SNAP=${SNAP_OUT:-$RUNTIME/booted.qcow2}
+MIGSTATE=${SNAP_MIGSTATE:-$RUNTIME/booted.migstate}
+ICOUNT_SLEEP=${SNAP_ICOUNT_SLEEP:-on}
+GUEST_SMP=${SNAP_GUEST_SMP:-2}
 QEMU="$RUNTIME/qemu-system-x86_64"
 PLUGIN="$RUNTIME/paper_trace.so"
 BOOT_SECONDS=${SNAP_BOOT_SECONDS:-420}
@@ -53,7 +56,7 @@ rm -f "$SNAP"
 # STAGE_NO_SAMPLE: leave C:\Panda\sample.exe absent so the (rebuilt) launcher parks
 # in wait_for_sample() rather than executing anything. That is the state we want
 # frozen: fully booted, service running, waiting for work.
-echo "$MALWARE_SUDO_PW" | sudo -S env STAGE_NBD=/dev/nbd15 STAGE_BASE="$BASE" \
+echo "$MALWARE_SUDO_PW" | sudo -S env STAGE_NBD=/dev/nbd15 STAGE_BASE="$BASE" ${STAGE_LAUNCHER:+STAGE_LAUNCHER="$STAGE_LAUNCHER"} \
     STAGE_OVERLAY=1 STAGE_NO_SAMPLE=1 ops/qemu/stage_sample.sh "$PLACEHOLDER" "$SNAP" 1800 >/dev/null
 echo "$MALWARE_SUDO_PW" | sudo -S chmod a+rw "$SNAP"
 
@@ -74,11 +77,11 @@ MON=/tmp/snapbuild.sock
 rm -f "$MON"
 echo "[snap] booting for ${BOOT_SECONDS}s (single guest, no contention)"
 "$QEMU" -name snapbuild -machine pc-i440fx-5.2 -accel tcg,thread=single \
-  -cpu qemu64 -m 4G -smp 2 -icount shift=2,sleep=on -rtc base=localtime,clock=vm \
+  -cpu qemu64 -m 4G -smp "$GUEST_SMP" -icount shift=2,sleep="$ICOUNT_SLEEP" -rtc base=localtime,clock=vm \
   -display none -monitor "unix:$MON,server=on,wait=off" -serial none -parallel none \
   -net none -no-reboot \
   -drive "file=$SNAP,format=qcow2,if=ide,cache=writeback" \
-  -drive "file=$EMPTY_ISO,format=raw,if=ide,media=cdrom" &
+  -drive "file=$EMPTY_ISO,format=raw,if=ide,index=2,media=cdrom" &
 QPID=$!
 
 # Poll for the monitor socket and snapshot as soon as the guest is BOOTED AND STILL
@@ -106,7 +109,7 @@ echo "[snap] saving VM state 'booted'"
 # Drive the QEMU monitor directly. (An earlier version shelled out to socat with a
 # python heredoc fallback; the heredoc swallowed the socket path argument and the
 # savevm silently never ran -- the overlay grew but carried no snapshot.)
-python3 ops/qemu/qmp_savevm.py "$MON" booted --migrate "$RUNTIME/booted.migstate" \
+python3 ops/qemu/qmp_savevm.py "$MON" booted --migrate "$MIGSTATE" \
     || echo "[snap] savevm/migrate FAILED"
 
 wait "$QPID" 2>/dev/null || true

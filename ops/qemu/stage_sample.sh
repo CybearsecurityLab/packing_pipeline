@@ -8,7 +8,7 @@ runtime="$repo/empirical_results/qemu_runtime"
 # chain reaching into /home/resbears and /var/lib/drakrun, which an unprivileged
 # service account cannot traverse (bwrap: "Permission denied").
 base="${STAGE_BASE:-$runtime/windows10-qemu-repair.qcow2}"
-launcher="$repo/ops/panda/build/guest_launcher.exe"
+launcher="${STAGE_LAUNCHER:-$repo/ops/panda/build/guest_launcher.exe}"
 sample="${1:?usage: stage_sample.sh <sample.exe> <out_image.qcow2> [timeout]}"
 out="${2:?usage: stage_sample.sh <sample.exe> <out_image.qcow2> [timeout]}"
 timeout="${3:-300}"

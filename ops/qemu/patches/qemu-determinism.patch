@@ -1,0 +1,448 @@
+--- a/accel/tcg/icount-common.c
++++ b/accel/tcg/icount-common.c
+@@ -45,6 +45,12 @@
+  * is TCG-specific, and does not need to be built for other accels.
+  */
+ static bool icount_sleep = true;
++bool icount_deterministic;
++
++static bool icount_deterministic_timer_gate(void)
++{
++    return qemu_in_vcpu_thread() || all_cpu_threads_idle();
++}
+ /* Arbitrarily pick 1MIPS as the minimum allowable speed.  */
+ #define MAX_ICOUNT_SHIFT 10
+ 
+@@ -420,6 +426,7 @@
+     const char *option = qemu_opt_get(opts, "shift");
+     bool sleep = qemu_opt_get_bool(opts, "sleep", true);
+     bool align = qemu_opt_get_bool(opts, "align", false);
++    bool det = qemu_opt_get_bool(opts, "det", false);
+     long time_shift = -1;
+ 
+     if (!option) {
+@@ -449,6 +456,15 @@
+         return false;
+     }
+ 
++    if (det && (sleep || time_shift < 0)) {
++        error_setg(errp, "det=on requires a fixed shift and sleep=off");
++        return false;
++    }
++    icount_deterministic = det;
++    if (det) {
++        qemu_timer_virtual_gate = icount_deterministic_timer_gate;
++    }
++
+     icount_sleep = sleep;
+     if (icount_sleep) {
+         timers_state.icount_warp_timer = timer_new_ns(QEMU_CLOCK_VIRTUAL_RT,
+--- a/accel/tcg/tcg-accel-ops-icount.c
++++ b/accel/tcg/tcg-accel-ops-icount.c
+@@ -45,10 +45,11 @@
+          */
+         deadline = qemu_clock_deadline_ns_all(QEMU_CLOCK_VIRTUAL,
+                                               QEMU_TIMER_ATTR_ALL);
+-        /* Check realtime timers, because they help with input processing */
+-        deadline = qemu_soonest_timeout(deadline,
+-                qemu_clock_deadline_ns_all(QEMU_CLOCK_REALTIME,
+-                                           QEMU_TIMER_ATTR_ALL));
++        if (!icount_deterministic) {
++            deadline = qemu_soonest_timeout(deadline,
++                    qemu_clock_deadline_ns_all(QEMU_CLOCK_REALTIME,
++                                               QEMU_TIMER_ATTR_ALL));
++        }
+ 
+         /*
+          * Maintain prior (possibly buggy) behaviour where if no deadline
+--- a/accel/tcg/tcg-accel-ops-rr.c
++++ b/accel/tcg/tcg-accel-ops-rr.c
+@@ -140,6 +140,9 @@
+ 
+ static void rr_force_rcu(Notifier *notify, void *data)
+ {
++    if (icount_deterministic) {
++        return;
++    }
+     rr_kick_next_cpu();
+ }
+ 
+--- a/include/exec/icount.h
++++ b/include/exec/icount.h
+@@ -24,6 +24,7 @@
+ 
+ #ifdef CONFIG_TCG
+ extern ICountMode use_icount;
++extern bool icount_deterministic;
+ #define icount_enabled() (use_icount)
+ #else
+ #define icount_enabled() ICOUNT_DISABLED
+--- a/include/qemu/timer.h
++++ b/include/qemu/timer.h
+@@ -976,4 +976,6 @@
+ }
+ #endif
+ 
++extern bool (*qemu_timer_virtual_gate)(void);
++
+ #endif
+--- a/util/qemu-timer.c
++++ b/util/qemu-timer.c
+@@ -56,6 +56,7 @@
+ } QEMUClock;
+ 
+ QEMUTimerListGroup main_loop_tlg;
++bool (*qemu_timer_virtual_gate)(void);
+ static QEMUClock qemu_clocks[QEMU_CLOCK_MAX];
+ 
+ /* A QEMUTimerList is a list of timers attached to a clock. More
+@@ -537,6 +538,9 @@
+         break;
+     default:
+     case QEMU_CLOCK_VIRTUAL:
++        if (qemu_timer_virtual_gate && !qemu_timer_virtual_gate()) {
++            goto out;
++        }
+         break;
+     case QEMU_CLOCK_HOST:
+         if (!replay_checkpoint(CHECKPOINT_CLOCK_HOST)) {
+--- a/system/vl.c
++++ b/system/vl.c
+@@ -451,6 +451,9 @@
+             .name = "sleep",
+             .type = QEMU_OPT_BOOL,
+         }, {
++            .name = "det",
++            .type = QEMU_OPT_BOOL,
++        }, {
+             .name = "rr",
+             .type = QEMU_OPT_STRING,
+         }, {
+--- a/block/meson.build
++++ b/block/meson.build
+@@ -42,6 +42,7 @@
+ ), zstd, zlib)
+ 
+ system_ss.add(when: 'CONFIG_TCG', if_true: files('blkreplay.c'))
++system_ss.add(when: 'CONFIG_TCG', if_true: files('blkdet.c'))
+ system_ss.add(files('block-ram-registrar.c'))
+ 
+ if get_option('qcow1').allowed()
+--- a/block/blkdet.c
++++ b/block/blkdet.c
+@@ -0,0 +1,205 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++
++#include "qemu/osdep.h"
++#include "qemu/module.h"
++#include "qemu/timer.h"
++#include "qemu/main-loop.h"
++#include "qemu/coroutine.h"
++#include "qemu/queue.h"
++#include "qemu/aio.h"
++#include "block/block-io.h"
++#include "block/block_int.h"
++#include "block/blkdet.h"
++#include "qapi/error.h"
++#include "system/runstate.h"
++
++#define BLKDET_DELAY_NS 100000
++
++int blkdet_sync_depth;
++
++typedef struct DetRequest {
++    Coroutine *co;
++    QEMUTimer *timer;
++    bool io_done;
++    bool parked;
++    bool immediate;
++    QLIST_ENTRY(DetRequest) next;
++} DetRequest;
++
++typedef struct BDRVBlkdetState {
++    QLIST_HEAD(, DetRequest) requests;
++    int drained;
++} BDRVBlkdetState;
++
++static int blkdet_open(BlockDriverState *bs, QDict *options, int flags,
++                       Error **errp)
++{
++    BDRVBlkdetState *s = bs->opaque;
++    int ret = bdrv_open_file_child(NULL, options, "image", bs, errp);
++
++    if (ret < 0) {
++        return ret;
++    }
++    QLIST_INIT(&s->requests);
++    s->drained = 0;
++    bs->supported_write_flags = BDRV_REQ_WRITE_UNCHANGED;
++    bs->supported_zero_flags = BDRV_REQ_WRITE_UNCHANGED;
++    return 0;
++}
++
++static int64_t coroutine_fn GRAPH_RDLOCK
++blkdet_co_getlength(BlockDriverState *bs)
++{
++    return bdrv_co_getlength(bs->file->bs);
++}
++
++static void blkdet_release(DetRequest *req)
++{
++    if (req->parked) {
++        req->parked = false;
++        aio_co_enter(qemu_get_aio_context(), req->co);
++    }
++}
++
++static void blkdet_deliver(void *opaque)
++{
++    DetRequest *req = opaque;
++    AioContext *ctx = qemu_get_aio_context();
++
++    while (!req->io_done) {
++        aio_poll(ctx, true);
++    }
++    blkdet_release(req);
++}
++
++static void coroutine_fn blkdet_arm(BlockDriverState *bs, DetRequest *req)
++{
++    BDRVBlkdetState *s = bs->opaque;
++
++    req->co = qemu_coroutine_self();
++    req->io_done = false;
++    req->parked = false;
++    req->immediate = blkdet_sync_depth > 0 || s->drained > 0 ||
++                     !runstate_is_running();
++    req->timer = NULL;
++    QLIST_INSERT_HEAD(&s->requests, req, next);
++    if (!req->immediate) {
++        req->timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, blkdet_deliver, req);
++        timer_mod_ns(req->timer,
++                     qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) + BLKDET_DELAY_NS);
++    }
++}
++
++static int coroutine_fn blkdet_finish(DetRequest *req, int ret)
++{
++    req->io_done = true;
++    if (!req->immediate) {
++        req->parked = true;
++        qemu_coroutine_yield();
++    }
++    if (req->timer) {
++        timer_free(req->timer);
++        req->timer = NULL;
++    }
++    QLIST_REMOVE(req, next);
++    return ret;
++}
++
++static void blkdet_drain_begin(BlockDriverState *bs)
++{
++    BDRVBlkdetState *s = bs->opaque;
++    DetRequest *req;
++    DetRequest *tmp;
++
++    s->drained++;
++    QLIST_FOREACH_SAFE(req, &s->requests, next, tmp) {
++        req->immediate = true;
++        if (req->timer) {
++            timer_del(req->timer);
++        }
++        blkdet_release(req);
++    }
++}
++
++static void blkdet_drain_end(BlockDriverState *bs)
++{
++    BDRVBlkdetState *s = bs->opaque;
++
++    s->drained--;
++}
++
++static int coroutine_fn GRAPH_RDLOCK
++blkdet_co_preadv(BlockDriverState *bs, int64_t offset, int64_t bytes,
++                 QEMUIOVector *qiov, BdrvRequestFlags flags)
++{
++    DetRequest req;
++
++    blkdet_arm(bs, &req);
++    return blkdet_finish(&req, bdrv_co_preadv(bs->file, offset, bytes, qiov,
++                                              flags));
++}
++
++static int coroutine_fn GRAPH_RDLOCK
++blkdet_co_pwritev(BlockDriverState *bs, int64_t offset, int64_t bytes,
++                  QEMUIOVector *qiov, BdrvRequestFlags flags)
++{
++    DetRequest req;
++
++    blkdet_arm(bs, &req);
++    return blkdet_finish(&req, bdrv_co_pwritev(bs->file, offset, bytes, qiov,
++                                               flags));
++}
++
++static int coroutine_fn GRAPH_RDLOCK
++blkdet_co_pwrite_zeroes(BlockDriverState *bs, int64_t offset, int64_t bytes,
++                        BdrvRequestFlags flags)
++{
++    DetRequest req;
++
++    blkdet_arm(bs, &req);
++    return blkdet_finish(&req, bdrv_co_pwrite_zeroes(bs->file, offset, bytes,
++                                                     flags));
++}
++
++static int coroutine_fn GRAPH_RDLOCK
++blkdet_co_pdiscard(BlockDriverState *bs, int64_t offset, int64_t bytes)
++{
++    DetRequest req;
++
++    blkdet_arm(bs, &req);
++    return blkdet_finish(&req, bdrv_co_pdiscard(bs->file, offset, bytes));
++}
++
++static int coroutine_fn GRAPH_RDLOCK blkdet_co_flush(BlockDriverState *bs)
++{
++    DetRequest req;
++
++    blkdet_arm(bs, &req);
++    return blkdet_finish(&req, bdrv_co_flush(bs->file->bs));
++}
++
++static BlockDriver bdrv_blkdet = {
++    .format_name            = "blkdet",
++    .instance_size          = sizeof(BDRVBlkdetState),
++    .is_filter              = true,
++
++    .bdrv_open              = blkdet_open,
++    .bdrv_child_perm        = bdrv_default_perms,
++    .bdrv_co_getlength      = blkdet_co_getlength,
++
++    .bdrv_co_preadv         = blkdet_co_preadv,
++    .bdrv_co_pwritev        = blkdet_co_pwritev,
++    .bdrv_co_pwrite_zeroes  = blkdet_co_pwrite_zeroes,
++    .bdrv_co_pdiscard       = blkdet_co_pdiscard,
++    .bdrv_co_flush          = blkdet_co_flush,
++
++    .bdrv_drain_begin       = blkdet_drain_begin,
++    .bdrv_drain_end         = blkdet_drain_end,
++};
++
++static void bdrv_blkdet_init(void)
++{
++    bdrv_register(&bdrv_blkdet);
++}
++
++block_init(bdrv_blkdet_init);
+--- a/include/block/blkdet.h
++++ b/include/block/blkdet.h
+@@ -0,0 +1,8 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++
++#ifndef BLOCK_BLKDET_H
++#define BLOCK_BLKDET_H
++
++extern int blkdet_sync_depth;
++
++#endif
+--- a/hw/ide/atapi.c
++++ b/hw/ide/atapi.c
+@@ -24,6 +24,7 @@
+  */
+ 
+ #include "qemu/osdep.h"
++#include "block/blkdet.h"
+ #include "qemu/cutils.h"
+ #include "hw/scsi/scsi.h"
+ #include "system/block-backend.h"
+@@ -97,6 +98,7 @@
+ 
+     trace_cd_read_sector_sync(s->lba);
+ 
++    blkdet_sync_depth++;
+     switch (s->cd_sector_size) {
+     case 2048:
+         ret = blk_pread(s->blk, (int64_t)s->lba << ATAPI_SECTOR_BITS,
+@@ -110,9 +112,11 @@
+         }
+         break;
+     default:
++        blkdet_sync_depth--;
+         block_acct_invalid(blk_get_stats(s->blk), BLOCK_ACCT_READ);
+         return -EIO;
+     }
++    blkdet_sync_depth--;
+ 
+     if (ret < 0) {
+         block_acct_failed(blk_get_stats(s->blk), &s->acct);
+--- a/hw/ide/core.c
++++ b/hw/ide/core.c
+@@ -41,6 +41,7 @@
+ #include "qemu/cutils.h"
+ #include "system/replay.h"
+ #include "system/runstate.h"
++#include "exec/icount.h"
+ #include "ide-internal.h"
+ #include "trace.h"
+ 
+@@ -436,6 +437,36 @@
+     .cancel_async       = trim_aio_cancel,
+ };
+ 
++typedef struct IDEDetOneshot {
++    QEMUTimer *timer;
++    QEMUBHFunc *cb;
++    void *opaque;
++} IDEDetOneshot;
++
++static void ide_det_oneshot_fire(void *opaque)
++{
++    IDEDetOneshot *shot = opaque;
++
++    timer_free(shot->timer);
++    shot->cb(shot->opaque);
++    g_free(shot);
++}
++
++static bool ide_det_schedule(QEMUBHFunc *cb, void *opaque)
++{
++    IDEDetOneshot *shot;
++
++    if (!icount_deterministic || !runstate_is_running()) {
++        return false;
++    }
++    shot = g_new(IDEDetOneshot, 1);
++    shot->cb = cb;
++    shot->opaque = opaque;
++    shot->timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, ide_det_oneshot_fire, shot);
++    timer_mod_ns(shot->timer, qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL));
++    return true;
++}
++
+ static void ide_trim_bh_cb(void *opaque)
+ {
+     TrimAIOCB *iocb = opaque;
+@@ -505,7 +536,7 @@
+ 
+     iocb->ret = 0;
+ done:
+-    if (iocb->bh) {
++    if (iocb->bh && !ide_det_schedule(ide_trim_bh_cb, iocb)) {
+         replay_bh_schedule_event(iocb->bh);
+     }
+ }
+@@ -2358,8 +2389,10 @@
+             s = &bus->ifs[i];
+             s->status |= BUSY_STAT;
+         }
+-        replay_bh_schedule_oneshot_event(qemu_get_aio_context(),
+-                                         ide_bus_perform_srst, bus);
++        if (!ide_det_schedule(ide_bus_perform_srst, bus)) {
++            replay_bh_schedule_oneshot_event(qemu_get_aio_context(),
++                                             ide_bus_perform_srst, bus);
++        }
+     }
+ 
+     bus->cmd = val;

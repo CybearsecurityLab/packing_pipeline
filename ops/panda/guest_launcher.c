@@ -31,6 +31,7 @@
 #define PACKER_STOP_EXCEPTION_FLAG 0x10000000u
 #define PACKER_STATUS_MAGIC UINT64_C(0x5153544154555350)
 #define PACKER_IDLE_MILLISECONDS UINT64_C(120000)
+#define PACKER_DELIVERY_WAIT_SECONDS 0xFFFFFFF0u
 
 typedef struct {
     uint64_t magic;
@@ -254,7 +255,7 @@ static int run_sample(int argc, char **argv) {
      * secondary disk, so wait for it. Absent in cold-boot runs (file already
      * staged), which therefore behave exactly as before. */
     if (GetFileAttributesA(argv[1]) == INVALID_FILE_ATTRIBUTES) {
-        if (!wait_for_sample(argv[1], timeout_seconds, argv[4])) {
+        if (!wait_for_sample(argv[1], PACKER_DELIVERY_WAIT_SECONDS, argv[4])) {
             write_status(argv[4], "sample_never_arrived", timeout_seconds, 0);
             return 2;
         }
