@@ -58,10 +58,11 @@ _UNSET = object()
 NO_START_SECONDS = 600
 _ACTIVITY_MARKERS = (b'"event":"exec"', b'"event":"write"')
 _READ_OVERLAP = 64
+_SCAN_BUFFER = bytearray(8 * 1024 * 1024)
 
 
 def _activity_and_started(trace: Path, offset: int) -> tuple[int, int, int, bool, bool]:
-    """Return (new_activity, new_writes, new_offset, saw_sample_start, saw_stop).
+    """Return (any_new_activity, any_new_writes, new_offset, saw_sample_start, saw_stop).
 
     Reads from _READ_OVERLAP bytes before `offset` so a marker split across two
     polls by a partial stdio flush is still matched; counts are taken only in the
@@ -72,16 +73,31 @@ def _activity_and_started(trace: Path, offset: int) -> tuple[int, int, int, bool
     if not trace.exists():
         return 0, 0, offset, False, False
     seek_to = max(0, offset - _READ_OVERLAP)
-    with trace.open("rb") as handle:
+    activity = writes = 0
+    started = stopped = False
+    view = memoryview(_SCAN_BUFFER)
+    with trace.open("rb", buffering=0) as handle:
         handle.seek(seek_to)
-        chunk = handle.read()
-        new_offset = handle.tell()
-    overlap = offset - seek_to
-    fresh = chunk[overlap:]
-    activity = sum(fresh.count(marker) for marker in _ACTIVITY_MARKERS)
-    writes = fresh.count(b'"event":"write"')
-    started = b'"event":"sample_start"' in chunk
-    stopped = b'"action":3' in chunk
+        position = seek_to
+        carry = b""
+        while True:
+            count = handle.readinto(_SCAN_BUFFER)
+            if not count:
+                break
+            chunk = carry + bytes(view[:count])
+            chunk_start = position - len(carry)
+            position += count
+            fresh = chunk[max(0, offset - chunk_start):]
+            if not activity and any(marker in fresh for marker in _ACTIVITY_MARKERS):
+                activity = 1
+            if not writes and b'"event":"write"' in fresh:
+                writes = 1
+            if not started and b'"event":"sample_start"' in chunk:
+                started = True
+            if not stopped and b'"action":3' in chunk:
+                stopped = True
+            carry = chunk[-_READ_OVERLAP:]
+        new_offset = position
     return activity, writes, new_offset, started, stopped
 
 
@@ -153,7 +169,7 @@ def wait_or_host_idle(
     last_activity_at = started_at
     last_write_at = started_at
     stop_seen_at: float | None = None
-    poll = 5.0
+    poll = 1.0
     while True:
         try:
             return_code = process.wait(timeout=poll)
@@ -241,7 +257,8 @@ def wait_or_host_idle(
 
 
 def _monitor_command(monitor: Path, commands: list[str], runas: str | None,
-                     connect_timeout: float = 60.0) -> int:
+                     connect_timeout: float = 60.0,
+                     process: subprocess.Popen | None = None) -> int:
     """Send HMP commands to a running QEMU, as the account that owns the socket.
 
     Needed for the resume path. `-incoming` restores the guest but leaves it PAUSED,
@@ -254,26 +271,30 @@ def _monitor_command(monitor: Path, commands: list[str], runas: str | None,
     script = (
         "import socket, sys, time\n"
         "s = socket.socket(socket.AF_UNIX)\n"
-        "s.connect(sys.argv[1])\n"
+        "for attempt in range(100):\n"
+        "    try:\n"
+        "        s.connect(sys.argv[1])\n"
+        "        break\n"
+        "    except OSError:\n"
+        "        time.sleep(0.1)\n"
+        "else:\n"
+        "    sys.exit(4)\n"
         "s.settimeout(5)\n"
-        "time.sleep(1)\n"
-        "try:\n"
-        "    s.recv(65536)\n"
-        "except Exception:\n"
-        "    pass\n"
-        "def ask(cmd):\n"
-        "    s.sendall((cmd + '\\n').encode())\n"
-        "    time.sleep(1)\n"
+        "def prompt():\n"
         "    out = b''\n"
         "    try:\n"
-        "        while True:\n"
+        "        while b'(qemu)' not in out:\n"
         "            chunk = s.recv(65536)\n"
-        "            out += chunk\n"
-        "            if b'(qemu)' in chunk:\n"
+        "            if not chunk:\n"
         "                break\n"
+        "            out += chunk\n"
         "    except Exception:\n"
         "        pass\n"
         "    return out.decode(errors='replace')\n"
+        "prompt()\n"
+        "def ask(cmd):\n"
+        "    s.sendall((cmd + '\\n').encode())\n"
+        "    return prompt()\n"
         "end = time.monotonic() + 900\n"
         "def settled():\n"
         "    st = ask('info status')\n"
@@ -281,7 +302,7 @@ def _monitor_command(monitor: Path, commands: list[str], runas: str | None,
         "while not settled():\n"
         "    if time.monotonic() > end:\n"
         "        sys.exit(2)\n"
-        "    time.sleep(2)\n"
+        "    time.sleep(0.5)\n"
         "def done(cmd):\n"
         "    if cmd.startswith('change '):\n"
         "        path = cmd.split('\"filename\":\"')[-1].split('\"')[0] if 'json:' in cmd else cmd.split()[-1]\n"
@@ -302,10 +323,11 @@ def _monitor_command(monitor: Path, commands: list[str], runas: str | None,
     )
     deadline = time.monotonic() + connect_timeout
     while not monitor.exists():
+        if process is not None and process.poll() is not None:
+            return 5
         if time.monotonic() > deadline:
             return 1
-        time.sleep(1)
-    time.sleep(2)          # let QEMU finish binding before connecting
+        time.sleep(0.2)
     argv = ["python3", "-c", script, str(monitor.resolve()), *commands]
     if runas:
         argv = ["sudo", "-n", "-u", runas] + argv
@@ -758,8 +780,9 @@ def main() -> int:
                     post.append(f"change ide1-cd0 {args.delivery_disk.resolve()}")
             post.append("cont")
             resume_rc = _monitor_command(monitor, post, args.runas,
-                                         connect_timeout=300.0)
+                                         connect_timeout=300.0, process=process)
             if resume_rc != 0:
+                exited_early = process.poll()
                 _graceful_quit(monitor, args.runas)
                 process.terminate()
                 try:
@@ -770,6 +793,10 @@ def main() -> int:
                 meta.write_text(json.dumps({
                     "paper_termination_reason": "monitor_resume_failed",
                     "monitor_rc": resume_rc,
+                    "monitor_socket_seen": monitor.exists(),
+                    "qemu_exited_before_quit": exited_early,
+                    "qemu_return_code": process.returncode,
+                    "qemu_log_tail": log.read_bytes()[-4000:].decode(errors="replace"),
                     "elapsed_seconds": time.monotonic() - started,
                 }))
                 raise SystemExit(f"run_trace: monitor resume failed rc={resume_rc}")
@@ -779,7 +806,7 @@ def main() -> int:
                 args.no_start_seconds, args.write_settled_seconds,
                 monitor_path=monitor, runas_user=args.runas,
                 guest_completion=args.guest_completion,
-                stop_grace_seconds=10 if args.deterministic else 180,
+                stop_grace_seconds=2 if args.deterministic else 180,
             )
         )
     elapsed = time.monotonic() - started
