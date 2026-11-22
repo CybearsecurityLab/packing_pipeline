@@ -348,7 +348,7 @@ def main() -> int:
                         f"run meta {key} differs from the validated binary"
                     )
             for key in ("icount_shift", "icount_sleep", "cpu_model",
-                        "guest_smp"):
+                        "guest_smp", "deterministic"):
                 if key not in run_identity:
                     errors.append(f"run meta carries no {key}")
                 else:

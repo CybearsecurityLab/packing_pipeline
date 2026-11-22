@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import subprocess
 import time
@@ -69,7 +70,7 @@ def _activity_and_started(trace: Path, offset: int) -> tuple[int, int, int, bool
     executing, no longer writing) can be recognised as settled.
     """
     if not trace.exists():
-        return 0, 0, offset, False
+        return 0, 0, offset, False, False
     seek_to = max(0, offset - _READ_OVERLAP)
     with trace.open("rb") as handle:
         handle.seek(seek_to)
@@ -126,7 +127,7 @@ def wait_or_host_idle(
     process, trace: Path, host_timeout: int, host_idle_seconds: int = HOST_IDLE_SECONDS,
     no_start_seconds: int = NO_START_SECONDS, write_settled_seconds: int = 0,
     monitor_path: Path | None = None, runas_user: str | None = None,
-    stop_grace_seconds: int = 180,
+    stop_grace_seconds: int = 180, guest_completion: bool = False,
 ) -> tuple[int | None, bool, bool, bool, bool]:
     """Wait for qemu, terminating early on the host-observed idle boundary.
 
@@ -197,7 +198,7 @@ def wait_or_host_idle(
                 process.kill()
                 return process.wait(), True, False, False, False
         if (
-            host_idle_seconds > 0
+            (host_idle_seconds > 0 or guest_completion)
             and not sample_started
             and no_start_seconds > 0
             and now - started_at >= no_start_seconds
@@ -211,6 +212,7 @@ def wait_or_host_idle(
                 return process.wait(), False, False, True, False
         if (
             host_idle_seconds > 0
+            and not guest_completion
             and sample_started
             and now - last_activity_at >= host_idle_seconds
         ):
@@ -223,6 +225,7 @@ def wait_or_host_idle(
                 return process.wait(), False, True, False, False
         if (
             host_idle_seconds > 0
+            and not guest_completion
             and write_settled_seconds > 0
             and sample_started
             and now - last_write_at >= write_settled_seconds
@@ -238,7 +241,7 @@ def wait_or_host_idle(
 
 
 def _monitor_command(monitor: Path, commands: list[str], runas: str | None,
-                     connect_timeout: float = 60.0) -> bool:
+                     connect_timeout: float = 60.0) -> int:
     """Send HMP commands to a running QEMU, as the account that owns the socket.
 
     Needed for the resume path. `-incoming` restores the guest but leaves it PAUSED,
@@ -258,25 +261,56 @@ def _monitor_command(monitor: Path, commands: list[str], runas: str | None,
         "    s.recv(65536)\n"
         "except Exception:\n"
         "    pass\n"
-        "for cmd in sys.argv[2:]:\n"
+        "def ask(cmd):\n"
         "    s.sendall((cmd + '\\n').encode())\n"
-        "    time.sleep(2)\n"
+        "    time.sleep(1)\n"
+        "    out = b''\n"
         "    try:\n"
-        "        s.recv(65536)\n"
+        "        while True:\n"
+        "            chunk = s.recv(65536)\n"
+        "            out += chunk\n"
+        "            if b'(qemu)' in chunk:\n"
+        "                break\n"
         "    except Exception:\n"
         "        pass\n"
+        "    return out.decode(errors='replace')\n"
+        "end = time.monotonic() + 900\n"
+        "def settled():\n"
+        "    st = ask('info status')\n"
+        "    return 'VM status:' in st and 'inmigrate' not in st\n"
+        "while not settled():\n"
+        "    if time.monotonic() > end:\n"
+        "        sys.exit(2)\n"
+        "    time.sleep(2)\n"
+        "def done(cmd):\n"
+        "    if cmd.startswith('change '):\n"
+        "        path = cmd.split('\"filename\":\"')[-1].split('\"')[0] if 'json:' in cmd else cmd.split()[-1]\n"
+        "        return path.rsplit('/', 1)[-1] in ask('info block ide1-cd0')\n"
+        "    if cmd == 'cont':\n"
+        "        return 'VM status: running' in ask('info status')\n"
+        "    return None\n"
+        "for cmd in sys.argv[2:]:\n"
+        "    for attempt in range(30):\n"
+        "        if attempt and done(cmd):\n"
+        "            break\n"
+        "        ask(cmd)\n"
+        "        if done(cmd) is not False:\n"
+        "            break\n"
+        "        time.sleep(2)\n"
+        "    else:\n"
+        "        sys.exit(3)\n"
     )
     deadline = time.monotonic() + connect_timeout
     while not monitor.exists():
         if time.monotonic() > deadline:
-            return False
+            return 1
         time.sleep(1)
     time.sleep(2)          # let QEMU finish binding before connecting
     argv = ["python3", "-c", script, str(monitor.resolve()), *commands]
     if runas:
         argv = ["sudo", "-n", "-u", runas] + argv
     return subprocess.run(argv, stdout=subprocess.DEVNULL,
-                          stderr=subprocess.DEVNULL).returncode == 0
+                          stderr=subprocess.DEVNULL).returncode
 
 
 def _backing_chain(base: Path) -> list[Path]:
@@ -393,6 +427,35 @@ def main() -> int:
         "realistic model like Nehalem/Haswell hides the QEMU brand string.",
     )
     parser.add_argument(
+        "--guest-completion",
+        action="store_true",
+        help="end only on the guest's own boundary (launcher stop marker or the "
+        "plugin's instruction budget); host idle and write-settled cut-offs are "
+        "off, the no-start check stays, and the host timeout is a safety net.",
+    )
+    parser.add_argument(
+        "--insn-budget",
+        type=int,
+        default=0,
+        help="stop recording once the monitored processes retire this many "
+        "instructions (deterministic observation bound). 0 disables it.",
+    )
+    parser.add_argument(
+        "--guest-insn-budget",
+        type=int,
+        default=0,
+        help="stop recording once the whole guest retires this many instructions "
+        "after the sample starts (deterministic wall-time bound). 0 disables it.",
+    )
+    parser.add_argument(
+        "--deterministic",
+        action="store_true",
+        help="exact-reproducibility mode for a QEMU built with -icount det=on and "
+        "the blkdet filter: forces sleep=off, gates virtual timers to the vCPU "
+        "thread, drops the realtime deadline from the icount budget, and delivers "
+        "every disk and CD completion at a fixed virtual delay after submission.",
+    )
+    parser.add_argument(
         "--write-settled-seconds",
         type=int,
         default=0,
@@ -491,6 +554,8 @@ def main() -> int:
         "no network. Off by default; does not touch the certified qemu binary.",
     )
     args = parser.parse_args()
+    if args.deterministic:
+        args.icount_sleep = "off"
 
     repo = Path(__file__).resolve().parents[2]
     qemu = args.qemu or (
@@ -592,7 +657,8 @@ def main() -> int:
         # thread=single (icount forbids MTTCG); rr splits the budget across vCPUs.
         # clock=vm ties the CMOS/RTC to virtual time to match.
         *(
-            ["-icount", f"shift={args.icount_shift},sleep={args.icount_sleep}"]
+            ["-icount", f"shift={args.icount_shift},sleep={args.icount_sleep}"
+             + (",det=on" if args.deterministic else "")]
             if args.icount_shift >= 0
             else []
         ),
@@ -610,9 +676,16 @@ def main() -> int:
         "none",
         "-no-reboot",
         "-drive",
-        f"file={args.work},format=qcow2,if=ide,cache=writeback",
+        (f"driver=blkdet,image.driver=qcow2,image.file.filename={args.work},"
+         "if=ide,cache=writeback"
+         if args.deterministic
+         else f"file={args.work},format=qcow2,if=ide,cache=writeback"),
         "-plugin",
         ",".join([f"{plugin.resolve()},out={args.trace.resolve()}",
+                  *([f"insn_budget={args.insn_budget}"]
+                    if args.insn_budget > 0 else []),
+                  *([f"guest_insn_budget={args.guest_insn_budget}"]
+                    if args.guest_insn_budget > 0 else []),
                   *args.plugin_args]),
     ]
     if args.delivery_disk:
@@ -645,20 +718,26 @@ def main() -> int:
         # file) from disk state (cheap per-run overlay) satisfies both requirements:
         # every run resumes the same booted guest, and no run can touch the base.
         # The state was captured at -m 4G; resuming at any other size fails.
-        command += ["-incoming", f"exec:cat {Path(args.incoming).resolve()}"]
+        command += ["-S", "-incoming", f"exec:cat {Path(args.incoming).resolve()}"]
     elif args.loadvm:
         command += ["-loadvm", args.loadvm]
     if args.confine:
         rw_dirs = [p.parent for p in (args.work, args.trace, args.meta, args.log,
                                       args.monitor, args.delivery_disk)
                    if p is not None]
-        command = _bwrap_prefix(qemu, plugin, args.base, rw_dirs) + command
+        prefix = _bwrap_prefix(qemu, plugin, args.base, rw_dirs)
+        if args.incoming:
+            incoming = str(Path(args.incoming).resolve())
+            prefix[1:1] = ["--ro-bind", incoming, incoming]
+        command = prefix + command
     if args.runas:
         # Outermost wrapper: drop to the service account BEFORE bwrap, so the whole
         # confined subtree (bwrap included) runs unprivileged. Requires a sudoers
         # rule permitting this without a password; -n makes a missing rule fail
         # loudly rather than hang on a prompt.
-        command = ["sudo", "-n", "-u", args.runas] + command
+        command = ["sudo", "-n", "-u", args.runas] + (
+            ["env", f"DET_DEBUG_LOG={args.trace.parent.resolve() / 'detdebug.log'}"]
+            if os.environ.get("DET_DEBUG") == "1" else []) + command
     started = time.monotonic()
     with log.open("wb") as log_handle:
         process = subprocess.Popen(command, stdout=log_handle, stderr=log_handle)
@@ -667,14 +746,40 @@ def main() -> int:
             # launcher's very first poll after resume already sees the sample.
             post: list[str] = []
             if args.delivery_disk:
-                post.append(f"change ide1-cd0 {args.delivery_disk.resolve()}")
+                if args.deterministic:
+                    medium = json.dumps({
+                        "driver": "blkdet",
+                        "image": {"driver": "raw", "file": {
+                            "driver": "file",
+                            "filename": str(args.delivery_disk.resolve())}},
+                    }, separators=(",", ":"))
+                    post.append(f"change ide1-cd0 json:{medium}")
+                else:
+                    post.append(f"change ide1-cd0 {args.delivery_disk.resolve()}")
             post.append("cont")
-            _monitor_command(monitor, post, args.runas)
+            resume_rc = _monitor_command(monitor, post, args.runas,
+                                         connect_timeout=300.0)
+            if resume_rc != 0:
+                _graceful_quit(monitor, args.runas)
+                process.terminate()
+                try:
+                    process.wait(timeout=60)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait()
+                meta.write_text(json.dumps({
+                    "paper_termination_reason": "monitor_resume_failed",
+                    "monitor_rc": resume_rc,
+                    "elapsed_seconds": time.monotonic() - started,
+                }))
+                raise SystemExit(f"run_trace: monitor resume failed rc={resume_rc}")
         return_code, host_timed_out, host_observed_idle, never_started, write_settled = (
             wait_or_host_idle(
                 process, args.trace, args.host_timeout, args.host_idle_seconds,
                 args.no_start_seconds, args.write_settled_seconds,
                 monitor_path=monitor, runas_user=args.runas,
+                guest_completion=args.guest_completion,
+                stop_grace_seconds=10 if args.deterministic else 180,
             )
         )
     elapsed = time.monotonic() - started
@@ -760,6 +865,7 @@ def main() -> int:
         "cpu_model": (args.cpu_model + ",-hypervisor"
                       if args.transparent else args.cpu_model),
         "guest_smp": str(args.guest_smp),
+        "deterministic": bool(args.deterministic),
     }
     stamped_identity = (
         backend_validation.get("backend_identity", {})
@@ -784,6 +890,13 @@ def main() -> int:
     guest_idle = bool(stop_detail & 0x40000000)
     guest_query_failed = bool(stop_detail & 0x20000000)
     guest_unrecovered_exception = bool(stop_detail & 0x10000000)
+    instruction_budget_reached = bool(stop_detail & 0x08000000)
+    guest_budget_reached = bool(
+        instruction_budget_reached and args.guest_insn_budget > 0
+        and int(summary.get("guest_instructions", 0)) >= args.guest_insn_budget
+        and not (args.insn_budget > 0
+                 and int(summary.get("sample_instructions", 0)) >= args.insn_budget)
+    )
     # The host-observed idle boundary is the paper's two-minute no-execution rule
     # measured in host real time (see wait_or_host_idle).  It is a COMPLETE
     # recording of the unpacking — activity strictly ceased — so it is an eligible
@@ -802,14 +915,20 @@ def main() -> int:
         ),
         "machine": "pc-i440fx-5.2",
         "guest_memory": args.guest_memory,
-        "guest_vcpus": 2,
+        "guest_vcpus": int(args.guest_smp),
         "tcg_threads": "single",
         "icount_shift": args.icount_shift if args.icount_shift >= 0 else None,
         "icount_sleep": args.icount_sleep if args.icount_shift >= 0 else None,
+        "deterministic": args.deterministic,
         "global_event_order": True,
         "host_timeout_seconds": args.host_timeout,
         "monitor_socket": str(monitor.resolve()),
         "host_timed_out": host_timed_out,
+        "guest_completion": args.guest_completion,
+        "instruction_budget": args.insn_budget,
+        "instruction_budget_reached": instruction_budget_reached,
+        "guest_instruction_budget": args.guest_insn_budget,
+        "guest_instruction_budget_reached": guest_budget_reached,
         "host_observed_idle": host_observed_idle,
         # The reason string below still says "two_minutes" because other code and
         # the generated documents key on it, but the boundary is configurable now.
@@ -829,11 +948,15 @@ def main() -> int:
             or guest_idle
             or guest_query_failed
             or guest_unrecovered_exception
+            or instruction_budget_reached
             else stop_detail
         ),
         "paper_termination_reason": (
             "no_execution_launch_failed" if never_started
             else "maximum_timeout_host" if host_timed_out
+            else "backend_failure_no_summary" if not summary
+            else "guest_instruction_budget" if guest_budget_reached
+            else "instruction_budget" if instruction_budget_reached
             else "maximum_30_minute_timeout" if guest_timed_out
             else "unrecovered_exception_two_minutes"
             if guest_unrecovered_exception
