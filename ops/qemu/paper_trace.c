@@ -30,6 +30,7 @@ QEMU_PLUGIN_EXPORT int qemu_plugin_version = QEMU_PLUGIN_VERSION;
 #define MARK_TRACE_START UINT32_C(2)
 #define MARK_TRACE_STOP UINT32_C(3)
 #define MARK_STATUS_QUERY UINT32_C(4)
+#define STOP_BUDGET_FLAG UINT64_C(0x08000000)
 #define MARK_STATUS_MAGIC UINT64_C(0x5153544154555350)
 
 #define USER_LIMIT_32 UINT64_C(0x80000000)
@@ -134,6 +135,7 @@ typedef struct {
 typedef struct {
     bool used;
     bool write;
+    bool unresolved_handle;
     /* Allocation order, so an exhausted table can evict its OLDEST entry instead
      * of failing.  Entries are matched on completion by (pid, tid, return_address)
      * and freed there; a thread that never returns through that path -- killed,
@@ -239,6 +241,14 @@ static uint64_t stop_detail;
 static uint32_t file_io_payload_bytes;
 static size_t memory_buffer_entries = 1u << 20;
 static uint64_t exec_events;
+static uint64_t sample_instructions;
+static uint64_t observed_instructions;
+#define GUEST_NS_PER_INSTRUCTION UINT64_C(4)
+static uint64_t instruction_budget;
+static uint64_t guest_instruction_budget;
+static uint64_t guest_budget_origin;
+static uint64_t guest_instructions_at_stop;
+static bool budget_reached;
 static uint64_t write_events;
 static uint64_t filtered_kernel_write_events;
 static uint64_t context_failures;
@@ -267,12 +277,32 @@ static uint64_t prestart_unmapped_exec_events;
 static PendingInvalidation pending_invalidations[MAX_PENDING_INVALIDATIONS];
 static PendingFileIo pending_file_io[MAX_PENDING_FILE_IO];
 static PendingVirtualWrite pending_virtual_writes[MAX_PENDING_VIRTUAL_WRITES];
+static uint64_t pending_return_filter[1024];
+
+static inline uint32_t pending_return_slot(uint64_t address)
+{
+    return (uint32_t)((address ^ (address >> 16) ^ (address >> 32)) & 0xffffu);
+}
+
+static inline void note_pending_return(uint64_t address)
+{
+    uint32_t slot = pending_return_slot(address);
+    pending_return_filter[slot >> 6] |= UINT64_C(1) << (slot & 63u);
+}
+
+static inline bool maybe_pending_return(uint64_t address)
+{
+    uint32_t slot = pending_return_slot(address);
+    return (pending_return_filter[slot >> 6] >> (slot & 63u)) & 1u;
+}
 static uint64_t file_io_events;
 static uint64_t file_io_failures;
 static uint64_t file_io_evictions;
 static uint64_t file_io_alloc_seq;
 static uint64_t file_io_register_failures;
 static uint64_t file_io_handle_failures;
+static uint64_t file_io_rejected_unresolved_handles;
+static uint64_t file_io_unresolved_outstanding;
 static uint64_t file_io_disk_failures;
 static uint64_t file_io_argument_failures;
 static uint64_t file_io_status_failures;
@@ -720,6 +750,41 @@ static bool valid_eprocess(uint64_t eprocess, uint64_t *pid)
            canonical_kernel_pointer(link);
 }
 
+typedef struct {
+    const char *site;
+    uint64_t count;
+} IntegritySite;
+
+static IntegritySite integrity_sites[96];
+static size_t integrity_site_count;
+
+static void integrity_diag(const char *site, uint64_t a, uint64_t b,
+                           uint64_t c)
+{
+    IntegritySite *entry = NULL;
+
+    for (size_t index = 0; index < integrity_site_count; index++) {
+        if (integrity_sites[index].site == site) {
+            entry = &integrity_sites[index];
+            break;
+        }
+    }
+    if (!entry && integrity_site_count < G_N_ELEMENTS(integrity_sites)) {
+        entry = &integrity_sites[integrity_site_count++];
+        entry->site = site;
+    }
+    if (entry && entry->count++ >= 8) {
+        return;
+    }
+    if (trace_file) {
+        fprintf(trace_file,
+                "{\"event\":\"integrity_diag\",\"seq\":%" PRIu64
+                ",\"site\":\"%s\",\"a\":%" PRIu64 ",\"b\":%" PRIu64
+                ",\"c\":%" PRIu64 "}\n",
+                ++sequence_number, site, a, b, c);
+    }
+}
+
 static bool resolve_handle_object(const ThreadContext *context,
                                   uint64_t handle, uint64_t *object)
 {
@@ -981,6 +1046,14 @@ typedef enum {
     MAPPED_FILE_ERROR,
 } MappedFileResult;
 
+static MappedFileResult mapped_file_error(const char *site,
+                                          uint64_t eprocess,
+                                          uint64_t address)
+{
+    integrity_diag(site, eprocess, address, 0);
+    return MAPPED_FILE_ERROR;
+}
+
 static MappedFileResult mapped_file_location(uint64_t eprocess,
                                              uint64_t address,
                                              uint64_t *file_id,
@@ -1001,20 +1074,20 @@ static MappedFileResult mapped_file_location(uint64_t eprocess,
     uint32_t vad_flags;
 
     if (!vad_find(eprocess, address, &vad, &vad_base, &vad_size)) {
-        return MAPPED_FILE_ERROR;
+        return mapped_file_error("mapped_file_location_1", eprocess, address);
     }
     if (!read_u32(vad + VAD_FLAGS, &vad_flags)) {
-        return MAPPED_FILE_ERROR;
+        return mapped_file_error("mapped_file_location_2", eprocess, address);
     }
     if (vad_flags & UINT32_C(1 << 20)) {
         return MAPPED_FILE_NONE;
     }
     if (!read_u64(vad + MMVAD_FILE_OBJECT, &file_object)) {
-        return MAPPED_FILE_ERROR;
+        return mapped_file_error("mapped_file_location_3", eprocess, address);
     }
     if (!file_object) {
         if (!read_u64(vad + MMVAD_SUBSECTION, &subsection)) {
-            return MAPPED_FILE_ERROR;
+            return mapped_file_error("mapped_file_location_4", eprocess, address);
         }
         if (!subsection) {
             return MAPPED_FILE_NONE;
@@ -1023,7 +1096,7 @@ static MappedFileResult mapped_file_location(uint64_t eprocess,
             !canonical_kernel_pointer(control_area) ||
             !read_u64(control_area + CONTROL_AREA_FILE_POINTER,
                       &file_object)) {
-            return MAPPED_FILE_ERROR;
+            return mapped_file_error("mapped_file_location_5", eprocess, address);
         }
     }
     if (!file_object) {
@@ -1035,7 +1108,7 @@ static MappedFileResult mapped_file_location(uint64_t eprocess,
         !canonical_kernel_pointer(prototype) ||
         !read_u64(vad + MMVAD_SUBSECTION, &subsection) ||
         !canonical_kernel_pointer(subsection)) {
-        return MAPPED_FILE_ERROR;
+        return mapped_file_error("mapped_file_location_6", eprocess, address);
     }
     prototype += ((address - vad_base) >> 12) * PROTOTYPE_PTE_SIZE;
     for (unsigned int iteration = 0; iteration < 65536; iteration++) {
@@ -1043,7 +1116,7 @@ static MappedFileResult mapped_file_location(uint64_t eprocess,
             !canonical_kernel_pointer(subsection_base) ||
             !read_u32(subsection + SUBSECTION_PTES, &ptes) || !ptes ||
             !read_u32(subsection + SUBSECTION_STARTING_SECTOR, &sector)) {
-            return MAPPED_FILE_ERROR;
+            return mapped_file_error("mapped_file_location_7", eprocess, address);
         }
         if (prototype >= subsection_base &&
             prototype < subsection_base + (uint64_t)ptes * PROTOTYPE_PTE_SIZE) {
@@ -1055,17 +1128,17 @@ static MappedFileResult mapped_file_location(uint64_t eprocess,
             return MAPPED_FILE_FOUND;
         }
         if (!read_u64(subsection + SUBSECTION_NEXT, &next)) {
-            return MAPPED_FILE_ERROR;
+            return mapped_file_error("mapped_file_location_8", eprocess, address);
         }
         if (!next) {
-            return MAPPED_FILE_ERROR;
+            return mapped_file_error("mapped_file_location_9", eprocess, address);
         }
         if (!canonical_kernel_pointer(next)) {
-            return MAPPED_FILE_ERROR;
+            return mapped_file_error("mapped_file_location_10", eprocess, address);
         }
         subsection = next;
     }
-    return MAPPED_FILE_ERROR;
+    return mapped_file_error("mapped_file_location_11", eprocess, address);
 }
 
 static guint mapped_page_hash(gconstpointer pointer)
@@ -1114,6 +1187,8 @@ static MappedFileResult cached_mapped_file_location(uint64_t eprocess,
     if (result == MAPPED_FILE_FOUND) {
         if (!file_object_system_role(file_object, system)) {
             system_role_failures++;
+            integrity_diag("mapped_file_system_role", eprocess, address,
+                           file_object);
             result = MAPPED_FILE_ERROR;
             stored_value->result = result;
             g_hash_table_insert(mapped_page_cache, stored_key, stored_value);
@@ -1428,6 +1503,7 @@ static void invalidation_entry(unsigned int vcpu_index, uint64_t pc,
         .size = size,
         .event = event,
     };
+    note_pending_return(pending->return_address);
     if (!capture_invalidation_physical_spans(pending, directory_table)) {
         invalidation_failures++;
         if (pending->physical_spans) {
@@ -1504,6 +1580,11 @@ static PendingFileIo *allocate_file_io(void)
      * completion is strictly better than losing every subsequent file I/O, and it
      * is counted separately so it can never be mistaken for a channel failure. */
     file_io_evictions++;
+    if (pending_file_io[oldest].unresolved_handle) {
+        file_io_unresolved_outstanding--;
+        file_io_handle_failures++;
+        file_io_failures++;
+    }
     pending_file_io[oldest].used = true;
     pending_file_io[oldest].alloc_seq = ++file_io_alloc_seq;
     return &pending_file_io[oldest];
@@ -1571,8 +1652,28 @@ static void file_io_entry(unsigned int vcpu_index, uint64_t pc,
     }
     handle = read_register_value(regs->rcx, &ok);
     if (!ok || !resolve_handle_object(context, handle, &file_object)) {
-        file_io_handle_failures++;
-        file_io_failures++;
+        rsp = read_register_value(regs->rsp, &ok);
+        if (!ok || !read_u64(rsp, &return_address) ||
+            !canonical_kernel_pointer(return_address)) {
+            file_io_handle_failures++;
+            file_io_failures++;
+            integrity_diag("file_io_handle_no_return", handle,
+                           context->source_pid, context->attached_pid);
+            return;
+        }
+        integrity_diag("file_io_handle_unresolved", handle,
+                       context->source_pid, context->attached_pid);
+        pending = allocate_file_io();
+        *pending = (PendingFileIo){
+            .used = true,
+            .unresolved_handle = true,
+            .alloc_seq = pending->alloc_seq,
+            .return_address = return_address,
+            .pid = context->source_pid,
+            .tid = context->tid,
+        };
+        file_io_unresolved_outstanding++;
+        note_pending_return(return_address);
         return;
     }
     disk_result = disk_file_object_id(file_object, &file_id);
@@ -1659,6 +1760,7 @@ static void file_io_entry(unsigned int vcpu_index, uint64_t pc,
         .requested = length,
         .io_status_block = io_status_block,
     };
+    note_pending_return(pending->return_address);
 }
 
 static void file_io_return(unsigned int vcpu_index, uint64_t pc,
@@ -1682,7 +1784,17 @@ static void file_io_return(unsigned int vcpu_index, uint64_t pc,
         if (!regs->has_rax) {
             ok = false;
         }
-        if (!ok) {
+        if (pending->unresolved_handle) {
+            file_io_unresolved_outstanding--;
+            integrity_diag("file_io_handle_unresolved_return", status,
+                           pending->pid, ok);
+            if (ok && status >= UINT32_C(0xc0000000)) {
+                file_io_rejected_unresolved_handles++;
+            } else {
+                file_io_handle_failures++;
+                file_io_failures++;
+            }
+        } else if (!ok) {
             file_io_register_failures++;
             file_io_failures++;
         } else if (status == UINT32_C(0x103)) {
@@ -1771,6 +1883,7 @@ static void virtual_write_entry(unsigned int vcpu_index, uint64_t pc,
     if (!regs->has_rcx || !regs->has_rdx || !regs->has_r8 ||
         !regs->has_r9 || !regs->has_rsp) {
         virtual_memory_write_failures++;
+        integrity_diag("vm_write_entry_1", context->source_pid, pc, 0);
         return;
     }
     process_handle = read_register_value(regs->rcx, &ok);
@@ -1782,11 +1895,13 @@ static void virtual_write_entry(unsigned int vcpu_index, uint64_t pc,
     address = read_register_value(regs->rdx, &ok);
     if (!ok || !user_address(address)) {
         virtual_memory_write_failures++;
+        integrity_diag("vm_write_entry_2", context->source_pid, pc, 0);
         return;
     }
     (void)read_register_value(regs->r8, &ok);
     if (!ok) {
         virtual_memory_write_failures++;
+        integrity_diag("vm_write_entry_3", context->source_pid, pc, 0);
         return;
     }
     requested = read_register_value(regs->r9, &ok);
@@ -1796,6 +1911,7 @@ static void virtual_write_entry(unsigned int vcpu_index, uint64_t pc,
         !read_u64(rsp + UINT64_C(0x28), &completed_pointer) ||
         !canonical_kernel_pointer(return_address)) {
         virtual_memory_write_failures++;
+        integrity_diag("vm_write_entry_4", context->source_pid, pc, 0);
         return;
     }
     if ((!read_u64(target_eprocess + KPROCESS_USER_DIRECTORY_TABLE,
@@ -1803,16 +1919,19 @@ static void virtual_write_entry(unsigned int vcpu_index, uint64_t pc,
         !read_u64(target_eprocess + KPROCESS_DIRECTORY_TABLE,
                   &directory_table)) {
         virtual_memory_write_failures++;
+        integrity_diag("vm_write_entry_5", context->source_pid, pc, 0);
         return;
     }
     source_pc = cached_application_pc(context);
     if (!source_pc) {
         virtual_memory_write_failures++;
+        integrity_diag("vm_write_entry_6", context->source_pid, pc, 0);
         return;
     }
     pending = allocate_virtual_write();
     if (!pending) {
         virtual_memory_write_failures++;
+        integrity_diag("vm_write_entry_7", context->source_pid, pc, 0);
         return;
     }
     *pending = (PendingVirtualWrite){
@@ -1828,6 +1947,7 @@ static void virtual_write_entry(unsigned int vcpu_index, uint64_t pc,
         .requested = requested,
         .completed_pointer = completed_pointer,
     };
+    note_pending_return(pending->return_address);
 }
 
 static void virtual_write_return(unsigned int vcpu_index, uint64_t pc,
@@ -1855,11 +1975,13 @@ static void virtual_write_return(unsigned int vcpu_index, uint64_t pc,
         }
         if (!ok) {
             virtual_memory_write_failures++;
+            integrity_diag("vm_write_return_1", context->source_pid, pc, 0);
         } else if (status < UINT32_C(0x80000000)) {
             if (pending->completed_pointer) {
                 if (!read_u64(pending->completed_pointer, &completed) ||
                     completed > pending->requested) {
                     virtual_memory_write_failures++;
+                    integrity_diag("vm_write_return_2", context->source_pid, pc, 0);
                     pending->used = false;
                     return;
                 }
@@ -1871,6 +1993,7 @@ static void virtual_write_return(unsigned int vcpu_index, uint64_t pc,
                     pending->address, completed,
                     pending->target_directory_table, false, &spans)) {
                 virtual_memory_write_failures++;
+                integrity_diag("vm_write_return_3", context->source_pid, pc, 0);
             } else if (completed) {
                 if (pending->target_pid != pending->pid) {
                     bool already_monitored = process_monitored(
@@ -1942,6 +2065,9 @@ static bool kernel_pc_relevant(uint64_t pc)
         if (pc == kernel_base + entry_rvas[index]) {
             return true;
         }
+    }
+    if (!maybe_pending_return(pc)) {
+        return false;
     }
     for (size_t index = 0; index < G_N_ELEMENTS(pending_invalidations);
          index++) {
@@ -2202,7 +2328,7 @@ static void mark_exception_dispatch(uint64_t pid, uint64_t tid,
     exception_dispatch_events++;
     if (!started) {
         started = g_new(gint64, 1);
-        *started = g_get_monotonic_time();
+        *started = (gint64)observed_instructions;
         g_hash_table_insert(pending_exceptions, key, started);
     }
     fprintf(trace_file,
@@ -2238,7 +2364,7 @@ static void pending_exception_status(GHashTable *active_pids,
     GHashTableIter iterator;
     gpointer key;
     gpointer value;
-    gint64 now = g_get_monotonic_time();
+    gint64 now = (gint64)observed_instructions;
 
     g_hash_table_iter_init(&iterator, pending_exceptions);
     while (g_hash_table_iter_next(&iterator, &key, &value)) {
@@ -2251,7 +2377,8 @@ static void pending_exception_status(GHashTable *active_pids,
             g_hash_table_iter_remove(&iterator);
             continue;
         }
-        age_ms = now > started ? (uint64_t)(now - started) / 1000 : 0;
+        age_ms = now > started ?
+            (uint64_t)(now - started) * GUEST_NS_PER_INSTRUCTION / 1000000 : 0;
         status->pending_exceptions++;
         status->oldest_exception_age_ms =
             MAX(status->oldest_exception_age_ms, age_ms);
@@ -2505,6 +2632,10 @@ static void marker_exec(unsigned int vcpu_index, void *userdata)
     }
 
     g_mutex_lock(&trace_lock);
+    if (budget_reached && (uint32_t)action != MARK_STATUS_QUERY) {
+        g_mutex_unlock(&trace_lock);
+        return;
+    }
     if ((uint32_t)action == MARK_ROOT_PID) {
         root_pid = (uint32_t)pid;
         armed = true;
@@ -2525,13 +2656,31 @@ static void marker_exec(unsigned int vcpu_index, void *userdata)
         saw_stop = true;
         stop_detail = (uint32_t)detail;
     }
+    if (!budget_reached) {
+        fprintf(trace_file,
+                "{\"event\":\"marker\",\"seq\":%" PRIu64
+                ",\"pid\":%u,\"action\":%u,\"detail\":%u}\n",
+                ++sequence_number, (uint32_t)pid, (uint32_t)action,
+                (uint32_t)detail);
+        fflush(trace_file);
+    }
+    g_mutex_unlock(&trace_lock);
+}
+
+static void stop_for_budget(uint64_t pid, const char *reason)
+{
+    budget_reached = true;
+    active = false;
+    saw_stop = true;
+    stop_detail = STOP_BUDGET_FLAG;
+    guest_instructions_at_stop = observed_instructions - guest_budget_origin;
     fprintf(trace_file,
             "{\"event\":\"marker\",\"seq\":%" PRIu64
-            ",\"pid\":%u,\"action\":%u,\"detail\":%u}\n",
-            ++sequence_number, (uint32_t)pid, (uint32_t)action,
-            (uint32_t)detail);
+            ",\"pid\":%" PRIu64 ",\"action\":%u,\"detail\":%" PRIu64
+            ",\"reason\":\"%s\",\"guest_instructions\":%" PRIu64 "}\n",
+            ++sequence_number, pid, MARK_TRACE_STOP, stop_detail, reason,
+            guest_instructions_at_stop);
     fflush(trace_file);
-    g_mutex_unlock(&trace_lock);
 }
 
 static void block_exec(unsigned int vcpu_index, void *userdata)
@@ -2539,7 +2688,7 @@ static void block_exec(unsigned int vcpu_index, void *userdata)
     const BlockInfo *block = userdata;
     ThreadContext context;
     MappedFileResult mapped_result;
-    MappedFileResult mapped_end_result;
+    MappedFileResult mapped_end_result = MAPPED_FILE_NONE;
     uint64_t file_id = 0;
     uint64_t file_offset = 0;
     uint64_t end_file_id = 0;
@@ -2549,6 +2698,7 @@ static void block_exec(unsigned int vcpu_index, void *userdata)
     const char *exception_source = NULL;
     uint64_t asid;
 
+    observed_instructions += block->insns;
     if (vcpu_index < G_N_ELEMENTS(block_write_eligible_by_vcpu)) {
         block_write_eligible_by_vcpu[vcpu_index] = false;
         qemu_plugin_u64_set(memory_trace_enabled, vcpu_index, 0);
@@ -2567,7 +2717,16 @@ static void block_exec(unsigned int vcpu_index, void *userdata)
         /* F1 defense: drop the cached ETHREAD read on kernel blocks too. */
         ethread_cache_valid_by_vcpu[vcpu_index] = false;
     }
-    if (!armed) {
+    if (!armed || budget_reached) {
+        return;
+    }
+    if (guest_instruction_budget && sample_started &&
+        observed_instructions - guest_budget_origin >= guest_instruction_budget) {
+        g_mutex_lock(&trace_lock);
+        if (!budget_reached) {
+            stop_for_budget(root_pid, "guest_instruction_budget");
+        }
+        g_mutex_unlock(&trace_lock);
         return;
     }
     /* Kernel-base discovery scans backward from a kernel PC for the ntoskrnl PE
@@ -2736,6 +2895,7 @@ static void block_exec(unsigned int vcpu_index, void *userdata)
                 return;
             }
             sample_started = true;
+            guest_budget_origin = observed_instructions;
             fprintf(trace_file,
                     "{\"event\":\"sample_start\",\"seq\":%" PRIu64
                     ",\"pid\":%" PRIu64 ",\"tid\":%" PRIu64
@@ -2791,6 +2951,11 @@ static void block_exec(unsigned int vcpu_index, void *userdata)
         }
         if (mapped_result == MAPPED_FILE_ERROR) {
             mapped_file_failures++;
+            if (mapped_end_result == MAPPED_FILE_FOUND ||
+                mapped_end_result == MAPPED_FILE_ERROR) {
+                integrity_diag("mapped_file_straddle", block->address,
+                               file_offset, end_file_offset);
+            }
         }
         if (mapped_result == MAPPED_FILE_FOUND) {
             mapped_file_exec_events++;
@@ -2831,6 +2996,10 @@ static void block_exec(unsigned int vcpu_index, void *userdata)
         }
         fputs("}\n", trace_file);
         exec_events++;
+        sample_instructions += block->insns;
+        if (instruction_budget && sample_instructions >= instruction_budget) {
+            stop_for_budget(context.source_pid, "instruction_budget");
+        }
     }
     g_mutex_unlock(&trace_lock);
 }
@@ -3036,7 +3205,17 @@ static void plugin_exit(void *userdata)
 {
     (void)userdata;
     g_mutex_lock(&trace_lock);
+    file_io_handle_failures += file_io_unresolved_outstanding;
+    file_io_failures += file_io_unresolved_outstanding;
+    file_io_unresolved_outstanding = 0;
     if (trace_file) {
+        for (size_t index = 0; index < integrity_site_count; index++) {
+            fprintf(trace_file,
+                    "{\"event\":\"integrity_site\",\"seq\":%" PRIu64
+                    ",\"site\":\"%s\",\"count\":%" PRIu64 "}\n",
+                    ++sequence_number, integrity_sites[index].site,
+                    integrity_sites[index].count);
+        }
         fprintf(trace_file,
                 "{\"event\":\"summary\",\"seq\":%" PRIu64
                 ",\"root_pid\":%" PRIu64
@@ -3077,6 +3256,7 @@ static void plugin_exit(void *userdata)
                 ",\"file_io_evictions\":%" PRIu64
                 ",\"file_io_register_failures\":%" PRIu64
                 ",\"file_io_handle_failures\":%" PRIu64
+                ",\"file_io_rejected_unresolved_handles\":%" PRIu64
                 ",\"file_io_disk_failures\":%" PRIu64
                 ",\"file_io_argument_failures\":%" PRIu64
                 ",\"file_io_status_failures\":%" PRIu64
@@ -3116,6 +3296,10 @@ static void plugin_exit(void *userdata)
                 ",\"pending_exceptions\":%u"
                 ",\"ntdll_sha256\":\"%s\""
                 ",\"kernel_profile_guid_age\":\"%s\""
+                ",\"sample_instructions\":%" PRIu64
+                ",\"instruction_budget\":%" PRIu64
+                ",\"guest_instructions\":%" PRIu64
+                ",\"guest_instruction_budget\":%" PRIu64
                 ",\"saw_stop\":%s,\"stop_detail\":%" PRIu64 "}\n",
                 ++sequence_number, root_pid, root_eprocess,
                 root_create_time, root_job, descendant_create_cutoff,
@@ -3135,7 +3319,8 @@ static void plugin_exit(void *userdata)
                 prestart_system_exec_events, prestart_unmapped_exec_events,
                 file_io_events, file_io_failures,
                 file_io_evictions, file_io_register_failures,
-                file_io_handle_failures, file_io_disk_failures,
+                file_io_handle_failures,
+                file_io_rejected_unresolved_handles, file_io_disk_failures,
                 file_io_argument_failures, file_io_status_failures,
                 file_io_stack_read_failures, file_io_pointer_failures,
                 file_io_offset_failures, file_io_oversize_length,
@@ -3166,6 +3351,10 @@ static void plugin_exit(void *userdata)
                 discover_reads_ok,
                 g_hash_table_size(pending_exceptions), NTDLL_SHA256,
                 KERNEL_PROFILE_GUID_AGE,
+                sample_instructions, instruction_budget,
+                budget_reached ? guest_instructions_at_stop
+                : sample_started ? observed_instructions - guest_budget_origin : 0,
+                guest_instruction_budget,
                 saw_stop ? "true" : "false",
                 stop_detail);
         fclose(trace_file);
@@ -3209,6 +3398,12 @@ QEMU_PLUGIN_EXPORT int qemu_plugin_install(qemu_plugin_id_t id,
             if (file_io_payload_bytes > 4096) {
                 file_io_payload_bytes = 4096;
             }
+        } else if (g_str_has_prefix(argv[index], "guest_insn_budget=")) {
+            guest_instruction_budget = g_ascii_strtoull(
+                argv[index] + strlen("guest_insn_budget="), NULL, 10);
+        } else if (g_str_has_prefix(argv[index], "insn_budget=")) {
+            instruction_budget = g_ascii_strtoull(
+                argv[index] + strlen("insn_budget="), NULL, 10);
         } else if (g_strcmp0(argv[index], "descendant=parent") == 0) {
             descendant_by_parent = true;
         } else {
