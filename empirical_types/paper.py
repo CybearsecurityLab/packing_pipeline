@@ -45,6 +45,7 @@ def analyze_paper_jsonl(path: Path, sample_id: str) -> Evidence:
     file_writer_layer: dict[tuple[str, int], int] = {}
     file_writers: dict[tuple[str, int], set[tuple[int, int, int]]] = defaultdict(set)
     state: dict[tuple[int, int, int], str] = {}
+    resettable: dict[tuple[int, int], set[int]] = defaultdict(set)
     state_layers: dict[tuple[int, int], set[int]] = defaultdict(set)
     new_frame: dict[tuple[int, int], set[int]] = defaultdict(set)
     frame_number: dict[tuple[int, int], int] = defaultdict(int)
@@ -96,9 +97,9 @@ def analyze_paper_jsonl(path: Path, sample_id: str) -> Evidence:
         return result
 
     def reset_frame(pid: int, layer: int) -> None:
-        for key, value in list(state.items()):
-            if key[0] != pid or key[1] != layer:
-                continue
+        for address in resettable.pop((pid, layer), ()):
+            key = (pid, layer, address)
+            value = state[key]
             if value in {"U", "R"}:
                 state[key] = "W"
             elif value == "X":
@@ -140,6 +141,7 @@ def analyze_paper_jsonl(path: Path, sample_id: str) -> Evidence:
                 repacked.add(key)
             elif state.get(key) != "R":
                 state[key] = "W"
+                resettable[(key[0], key[1])].discard(key[2])
             state_layers[(key[0], key[2])].add(key[1])
             new_frame[(key[0], key[1])].add(key[2])
 
@@ -194,6 +196,7 @@ def analyze_paper_jsonl(path: Path, sample_id: str) -> Evidence:
                 repacked.add(key)
             elif previous != "R":
                 state[key] = "W"
+                resettable[(key[0], key[1])].discard(key[2])
             new_frame[(key[0], key[1])].add(key[2])
             if source_key is not None and key[1] != source_key[1]:
                 packer_blocks.add(source_key)
@@ -448,6 +451,7 @@ def analyze_paper_jsonl(path: Path, sample_id: str) -> Evidence:
                     if memory_key in writer_layer or cross_process_physical_writer
                     else "X"
                 )
+                resettable[(pid, layer)].add(state_key[2])
                 state_layers[memory_key].add(layer)
                 executed_layers[memory_key].add(layer)
                 if physical_key is not None:
