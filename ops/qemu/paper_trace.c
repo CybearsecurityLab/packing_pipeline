@@ -100,6 +100,7 @@ typedef struct {
     uint32_t insns;
     uint32_t span_count;
     bool physical_complete;
+    bool file_pages_recorded;
     PhysicalSpan spans[MAX_PHYSICAL_SPANS];
 } BlockInfo;
 
@@ -314,12 +315,15 @@ static uint64_t file_io_zero_length_skips;
 static uint64_t asynchronous_file_io;
 static uint64_t mapped_file_exec_events;
 static uint64_t mapped_file_failures;
+static uint64_t mapped_file_system_straddles;
+static uint64_t mapped_file_physical_fallbacks;
 static uint64_t system_role_failures;
 static uint64_t exception_dispatch_events;
 static uint64_t exception_recovery_events;
 static uint64_t process_snapshot_failures;
 static uint64_t virtual_memory_write_events;
 static uint64_t virtual_memory_write_failures;
+static uint64_t virtual_memory_write_unattributed;
 static uint64_t tb_flush_requests;
 static uint64_t block_context_misses;
 static uint64_t block_context_refreshes;
@@ -477,10 +481,24 @@ static bool canonical_kernel_pointer(uint64_t value)
     return value >= UINT64_C(0xffff800000000000);
 }
 
+static __thread GByteArray *register_scratch
+    __attribute__((tls_model("initial-exec")));
+static __thread GByteArray *memory_scratch
+    __attribute__((tls_model("initial-exec")));
+
+static GByteArray *scratch_array(GByteArray **slot)
+{
+    if (!*slot) {
+        *slot = g_byte_array_sized_new(64);
+    }
+    (*slot)->len = 0;
+    return *slot;
+}
+
 static uint64_t read_register_value(struct qemu_plugin_register *handle,
                                     bool *ok)
 {
-    g_autoptr(GByteArray) bytes = g_byte_array_new();
+    GByteArray *bytes = scratch_array(&register_scratch);
     uint64_t value = 0;
 
     /* Register zero is represented by a NULL-valued opaque handle. */
@@ -496,7 +514,7 @@ static uint64_t read_register_value(struct qemu_plugin_register *handle,
 
 static bool read_memory(uint64_t address, void *destination, size_t size)
 {
-    g_autoptr(GByteArray) bytes = g_byte_array_new();
+    GByteArray *bytes = scratch_array(&memory_scratch);
 
     if (!qemu_plugin_read_memory_vaddr(address, bytes, size) ||
         bytes->len != size) {
@@ -748,41 +766,6 @@ static bool valid_eprocess(uint64_t eprocess, uint64_t *pid)
            read_u64(eprocess + EPROCESS_PID, pid) && *pid <= G_MAXUINT &&
            read_u64(eprocess + EPROCESS_ACTIVE_LINKS, &link) &&
            canonical_kernel_pointer(link);
-}
-
-typedef struct {
-    const char *site;
-    uint64_t count;
-} IntegritySite;
-
-static IntegritySite integrity_sites[96];
-static size_t integrity_site_count;
-
-static void integrity_diag(const char *site, uint64_t a, uint64_t b,
-                           uint64_t c)
-{
-    IntegritySite *entry = NULL;
-
-    for (size_t index = 0; index < integrity_site_count; index++) {
-        if (integrity_sites[index].site == site) {
-            entry = &integrity_sites[index];
-            break;
-        }
-    }
-    if (!entry && integrity_site_count < G_N_ELEMENTS(integrity_sites)) {
-        entry = &integrity_sites[integrity_site_count++];
-        entry->site = site;
-    }
-    if (entry && entry->count++ >= 8) {
-        return;
-    }
-    if (trace_file) {
-        fprintf(trace_file,
-                "{\"event\":\"integrity_diag\",\"seq\":%" PRIu64
-                ",\"site\":\"%s\",\"a\":%" PRIu64 ",\"b\":%" PRIu64
-                ",\"c\":%" PRIu64 "}\n",
-                ++sequence_number, site, a, b, c);
-    }
 }
 
 static bool resolve_handle_object(const ThreadContext *context,
@@ -1046,14 +1029,6 @@ typedef enum {
     MAPPED_FILE_ERROR,
 } MappedFileResult;
 
-static MappedFileResult mapped_file_error(const char *site,
-                                          uint64_t eprocess,
-                                          uint64_t address)
-{
-    integrity_diag(site, eprocess, address, 0);
-    return MAPPED_FILE_ERROR;
-}
-
 static MappedFileResult mapped_file_location(uint64_t eprocess,
                                              uint64_t address,
                                              uint64_t *file_id,
@@ -1074,20 +1049,20 @@ static MappedFileResult mapped_file_location(uint64_t eprocess,
     uint32_t vad_flags;
 
     if (!vad_find(eprocess, address, &vad, &vad_base, &vad_size)) {
-        return mapped_file_error("mapped_file_location_1", eprocess, address);
+        return MAPPED_FILE_ERROR;
     }
     if (!read_u32(vad + VAD_FLAGS, &vad_flags)) {
-        return mapped_file_error("mapped_file_location_2", eprocess, address);
+        return MAPPED_FILE_ERROR;
     }
     if (vad_flags & UINT32_C(1 << 20)) {
         return MAPPED_FILE_NONE;
     }
     if (!read_u64(vad + MMVAD_FILE_OBJECT, &file_object)) {
-        return mapped_file_error("mapped_file_location_3", eprocess, address);
+        return MAPPED_FILE_ERROR;
     }
     if (!file_object) {
         if (!read_u64(vad + MMVAD_SUBSECTION, &subsection)) {
-            return mapped_file_error("mapped_file_location_4", eprocess, address);
+            return MAPPED_FILE_ERROR;
         }
         if (!subsection) {
             return MAPPED_FILE_NONE;
@@ -1096,7 +1071,7 @@ static MappedFileResult mapped_file_location(uint64_t eprocess,
             !canonical_kernel_pointer(control_area) ||
             !read_u64(control_area + CONTROL_AREA_FILE_POINTER,
                       &file_object)) {
-            return mapped_file_error("mapped_file_location_5", eprocess, address);
+            return MAPPED_FILE_ERROR;
         }
     }
     if (!file_object) {
@@ -1108,7 +1083,7 @@ static MappedFileResult mapped_file_location(uint64_t eprocess,
         !canonical_kernel_pointer(prototype) ||
         !read_u64(vad + MMVAD_SUBSECTION, &subsection) ||
         !canonical_kernel_pointer(subsection)) {
-        return mapped_file_error("mapped_file_location_6", eprocess, address);
+        return MAPPED_FILE_ERROR;
     }
     prototype += ((address - vad_base) >> 12) * PROTOTYPE_PTE_SIZE;
     for (unsigned int iteration = 0; iteration < 65536; iteration++) {
@@ -1116,7 +1091,7 @@ static MappedFileResult mapped_file_location(uint64_t eprocess,
             !canonical_kernel_pointer(subsection_base) ||
             !read_u32(subsection + SUBSECTION_PTES, &ptes) || !ptes ||
             !read_u32(subsection + SUBSECTION_STARTING_SECTOR, &sector)) {
-            return mapped_file_error("mapped_file_location_7", eprocess, address);
+            return MAPPED_FILE_ERROR;
         }
         if (prototype >= subsection_base &&
             prototype < subsection_base + (uint64_t)ptes * PROTOTYPE_PTE_SIZE) {
@@ -1128,17 +1103,17 @@ static MappedFileResult mapped_file_location(uint64_t eprocess,
             return MAPPED_FILE_FOUND;
         }
         if (!read_u64(subsection + SUBSECTION_NEXT, &next)) {
-            return mapped_file_error("mapped_file_location_8", eprocess, address);
+            return MAPPED_FILE_ERROR;
         }
         if (!next) {
-            return mapped_file_error("mapped_file_location_9", eprocess, address);
+            return MAPPED_FILE_ERROR;
         }
         if (!canonical_kernel_pointer(next)) {
-            return mapped_file_error("mapped_file_location_10", eprocess, address);
+            return MAPPED_FILE_ERROR;
         }
         subsection = next;
     }
-    return mapped_file_error("mapped_file_location_11", eprocess, address);
+    return MAPPED_FILE_ERROR;
 }
 
 static guint mapped_page_hash(gconstpointer pointer)
@@ -1187,8 +1162,6 @@ static MappedFileResult cached_mapped_file_location(uint64_t eprocess,
     if (result == MAPPED_FILE_FOUND) {
         if (!file_object_system_role(file_object, system)) {
             system_role_failures++;
-            integrity_diag("mapped_file_system_role", eprocess, address,
-                           file_object);
             result = MAPPED_FILE_ERROR;
             stored_value->result = result;
             g_hash_table_insert(mapped_page_cache, stored_key, stored_value);
@@ -1330,7 +1303,7 @@ typedef enum {
 
 static bool read_physical_u64(uint64_t address, uint64_t *value)
 {
-    g_autoptr(GByteArray) bytes = g_byte_array_new();
+    GByteArray *bytes = scratch_array(&memory_scratch);
 
     if (qemu_plugin_read_memory_hwaddr(address, bytes, sizeof(*value)) !=
             QEMU_PLUGIN_HWADDR_OPERATION_OK ||
@@ -1657,12 +1630,8 @@ static void file_io_entry(unsigned int vcpu_index, uint64_t pc,
             !canonical_kernel_pointer(return_address)) {
             file_io_handle_failures++;
             file_io_failures++;
-            integrity_diag("file_io_handle_no_return", handle,
-                           context->source_pid, context->attached_pid);
             return;
         }
-        integrity_diag("file_io_handle_unresolved", handle,
-                       context->source_pid, context->attached_pid);
         pending = allocate_file_io();
         *pending = (PendingFileIo){
             .used = true,
@@ -1786,8 +1755,6 @@ static void file_io_return(unsigned int vcpu_index, uint64_t pc,
         }
         if (pending->unresolved_handle) {
             file_io_unresolved_outstanding--;
-            integrity_diag("file_io_handle_unresolved_return", status,
-                           pending->pid, ok);
             if (ok && status >= UINT32_C(0xc0000000)) {
                 file_io_rejected_unresolved_handles++;
             } else {
@@ -1883,7 +1850,6 @@ static void virtual_write_entry(unsigned int vcpu_index, uint64_t pc,
     if (!regs->has_rcx || !regs->has_rdx || !regs->has_r8 ||
         !regs->has_r9 || !regs->has_rsp) {
         virtual_memory_write_failures++;
-        integrity_diag("vm_write_entry_1", context->source_pid, pc, 0);
         return;
     }
     process_handle = read_register_value(regs->rcx, &ok);
@@ -1895,13 +1861,11 @@ static void virtual_write_entry(unsigned int vcpu_index, uint64_t pc,
     address = read_register_value(regs->rdx, &ok);
     if (!ok || !user_address(address)) {
         virtual_memory_write_failures++;
-        integrity_diag("vm_write_entry_2", context->source_pid, pc, 0);
         return;
     }
     (void)read_register_value(regs->r8, &ok);
     if (!ok) {
         virtual_memory_write_failures++;
-        integrity_diag("vm_write_entry_3", context->source_pid, pc, 0);
         return;
     }
     requested = read_register_value(regs->r9, &ok);
@@ -1911,7 +1875,6 @@ static void virtual_write_entry(unsigned int vcpu_index, uint64_t pc,
         !read_u64(rsp + UINT64_C(0x28), &completed_pointer) ||
         !canonical_kernel_pointer(return_address)) {
         virtual_memory_write_failures++;
-        integrity_diag("vm_write_entry_4", context->source_pid, pc, 0);
         return;
     }
     if ((!read_u64(target_eprocess + KPROCESS_USER_DIRECTORY_TABLE,
@@ -1919,19 +1882,15 @@ static void virtual_write_entry(unsigned int vcpu_index, uint64_t pc,
         !read_u64(target_eprocess + KPROCESS_DIRECTORY_TABLE,
                   &directory_table)) {
         virtual_memory_write_failures++;
-        integrity_diag("vm_write_entry_5", context->source_pid, pc, 0);
         return;
     }
     source_pc = cached_application_pc(context);
     if (!source_pc) {
-        virtual_memory_write_failures++;
-        integrity_diag("vm_write_entry_6", context->source_pid, pc, 0);
-        return;
+        virtual_memory_write_unattributed++;
     }
     pending = allocate_virtual_write();
     if (!pending) {
         virtual_memory_write_failures++;
-        integrity_diag("vm_write_entry_7", context->source_pid, pc, 0);
         return;
     }
     *pending = (PendingVirtualWrite){
@@ -1975,13 +1934,11 @@ static void virtual_write_return(unsigned int vcpu_index, uint64_t pc,
         }
         if (!ok) {
             virtual_memory_write_failures++;
-            integrity_diag("vm_write_return_1", context->source_pid, pc, 0);
         } else if (status < UINT32_C(0x80000000)) {
             if (pending->completed_pointer) {
                 if (!read_u64(pending->completed_pointer, &completed) ||
                     completed > pending->requested) {
                     virtual_memory_write_failures++;
-                    integrity_diag("vm_write_return_2", context->source_pid, pc, 0);
                     pending->used = false;
                     return;
                 }
@@ -1993,7 +1950,6 @@ static void virtual_write_return(unsigned int vcpu_index, uint64_t pc,
                     pending->address, completed,
                     pending->target_directory_table, false, &spans)) {
                 virtual_memory_write_failures++;
-                integrity_diag("vm_write_return_3", context->source_pid, pc, 0);
             } else if (completed) {
                 if (pending->target_pid != pending->pid) {
                     bool already_monitored = process_monitored(
@@ -2683,6 +2639,136 @@ static void stop_for_budget(uint64_t pid, const char *reason)
     fflush(trace_file);
 }
 
+typedef struct {
+    uint64_t file_id;
+    uint64_t page_offset;
+    uint64_t eprocess;
+    uint64_t directory_table;
+    uint64_t virtual_page;
+    bool system;
+} PhysicalFilePage;
+
+static GHashTable *physical_file_pages;
+
+static bool block_page_ram(const BlockInfo *block, uint64_t virtual_page,
+                           uint64_t *ram_page)
+{
+    uint64_t first = virtual_page << 12;
+    uint32_t offset = first > block->address
+                          ? (uint32_t)(first - block->address)
+                          : 0;
+
+    for (uint32_t index = 0; index < block->span_count; index++) {
+        const PhysicalSpan *span = &block->spans[index];
+        if (offset >= span->offset && offset < span->offset + span->size) {
+            *ram_page = (span->address + (offset - span->offset)) >> 12;
+            return true;
+        }
+    }
+    return false;
+}
+
+static void record_physical_file_pages(const BlockInfo *block,
+                                       const ThreadContext *context,
+                                       uint64_t file_id, uint64_t file_offset,
+                                       bool system)
+{
+    uint64_t first_page = block->address >> 12;
+    uint64_t last_page = (block->address + (block->size ? block->size - 1 : 0)) >> 12;
+
+    if (!block->physical_complete || block->file_pages_recorded) {
+        return;
+    }
+    if (!physical_file_pages) {
+        physical_file_pages =
+            g_hash_table_new_full(g_int64_hash, g_int64_equal, g_free, g_free);
+    }
+    for (uint64_t page = first_page; page <= last_page; page++) {
+        uint64_t ram_page;
+        if (!block_page_ram(block, page, &ram_page)) {
+            return;
+        }
+        uint64_t *key = g_new(uint64_t, 1);
+        PhysicalFilePage *value = g_new(PhysicalFilePage, 1);
+        *key = ram_page;
+        *value = (PhysicalFilePage){
+            .file_id = file_id,
+            .page_offset = file_offset - (block->address & UINT64_C(0xfff)) +
+                           ((page - first_page) << 12),
+            .eprocess = context->attached_eprocess,
+            .directory_table = context->attached_asid,
+            .virtual_page = page,
+            .system = system,
+        };
+        g_hash_table_replace(physical_file_pages, key, value);
+    }
+    ((BlockInfo *)block)->file_pages_recorded = true;
+}
+
+static bool physical_file_page_current(const PhysicalFilePage *entry,
+                                       uint64_t ram_page)
+{
+    uint64_t physical;
+    uint64_t file_id;
+    uint64_t file_offset;
+    uint64_t file_object;
+    bool system;
+
+    if (translate_x64_page(entry->directory_table, entry->virtual_page << 12,
+                           &physical) != PAGE_TRANSLATION_OK ||
+        qemu_plugin_phys_addr_ram_addr(physical) >> 12 != ram_page) {
+        return false;
+    }
+    if (mapped_file_location(entry->eprocess, entry->virtual_page << 12,
+                             &file_id, &file_offset, &file_object) !=
+            MAPPED_FILE_FOUND ||
+        file_id != entry->file_id || file_offset != entry->page_offset ||
+        !file_object_system_role(file_object, &system) ||
+        system != entry->system) {
+        return false;
+    }
+    return true;
+}
+
+static bool physical_file_location(const BlockInfo *block, uint64_t *file_id,
+                                   uint64_t *file_offset, bool *system)
+{
+    uint64_t first_page = block->address >> 12;
+    uint64_t last_page = (block->address + (block->size ? block->size - 1 : 0)) >> 12;
+    const PhysicalFilePage *first = NULL;
+
+    if (!block->physical_complete || !physical_file_pages) {
+        return false;
+    }
+    for (uint64_t page = first_page; page <= last_page; page++) {
+        uint64_t ram_page;
+        const PhysicalFilePage *entry;
+        if (!block_page_ram(block, page, &ram_page)) {
+            return false;
+        }
+        entry = g_hash_table_lookup(physical_file_pages, &ram_page);
+        if (!entry || !physical_file_page_current(entry, ram_page)) {
+            return false;
+        }
+        if (!first) {
+            first = entry;
+        } else if (entry->file_id != first->file_id ||
+                   entry->system != first->system ||
+                   (!first->system &&
+                    entry->page_offset !=
+                        first->page_offset + ((page - first_page) << 12))) {
+            return false;
+        }
+    }
+    if (!first) {
+        return false;
+    }
+    *file_id = first->file_id;
+    *file_offset = first->page_offset + (block->address & UINT64_C(0xfff));
+    *system = first->system;
+    return true;
+}
+
 static void block_exec(unsigned int vcpu_index, void *userdata)
 {
     const BlockInfo *block = userdata;
@@ -2946,16 +3032,29 @@ static void block_exec(unsigned int vcpu_index, void *userdata)
                 end_file_id != file_id ||
                 end_system_role != system_role ||
                 end_file_offset != file_offset + block->size - 1) {
-                mapped_result = MAPPED_FILE_ERROR;
+                if (mapped_end_result == MAPPED_FILE_FOUND &&
+                    end_file_id == file_id && system_role &&
+                    end_system_role) {
+                    mapped_file_system_straddles++;
+                } else {
+                    mapped_result = MAPPED_FILE_ERROR;
+                }
+            } else {
+                record_physical_file_pages(block, &context, file_id, file_offset,
+                                           system_role);
             }
+        } else if (mapped_result == MAPPED_FILE_FOUND) {
+            record_physical_file_pages(block, &context, file_id, file_offset,
+                                       system_role);
+        }
+        if (mapped_result == MAPPED_FILE_ERROR &&
+            physical_file_location(block, &file_id, &file_offset,
+                                   &system_role)) {
+            mapped_result = MAPPED_FILE_FOUND;
+            mapped_file_physical_fallbacks++;
         }
         if (mapped_result == MAPPED_FILE_ERROR) {
             mapped_file_failures++;
-            if (mapped_end_result == MAPPED_FILE_FOUND ||
-                mapped_end_result == MAPPED_FILE_ERROR) {
-                integrity_diag("mapped_file_straddle", block->address,
-                               file_offset, end_file_offset);
-            }
         }
         if (mapped_result == MAPPED_FILE_FOUND) {
             mapped_file_exec_events++;
@@ -3047,14 +3146,26 @@ static void memory_write(unsigned int vcpu_index, qemu_plugin_meminfo_t info,
      * vCPU address space and convert the resulting physical address to the
      * stable RAM-block identity used by execution and invalidation events. */
     bool write_physical_complete = true;
+    uint64_t current_page = UINT64_MAX;
+    uint64_t current_ram_base = UINT64_MAX;
     for (uint64_t offset = 0; offset < size; offset++) {
         uint64_t physical_address;
         uint64_t ram_address = UINT64_MAX;
+        uint64_t byte_address = address + offset;
 
-        if (qemu_plugin_translate_vaddr(address + offset,
-                                        &physical_address)) {
-            ram_address =
-                qemu_plugin_phys_addr_ram_addr(physical_address);
+        if ((byte_address >> 12) != current_page) {
+            current_page = byte_address >> 12;
+            current_ram_base = UINT64_MAX;
+            if (qemu_plugin_translate_vaddr(byte_address, &physical_address)) {
+                uint64_t ram =
+                    qemu_plugin_phys_addr_ram_addr(physical_address);
+                if (ram != UINT64_MAX) {
+                    current_ram_base = ram - (byte_address & UINT64_C(0xfff));
+                }
+            }
+        }
+        if (current_ram_base != UINT64_MAX) {
+            ram_address = current_ram_base + (byte_address & UINT64_C(0xfff));
         }
         if (!add_physical_byte(spans, &span_count, (uint32_t)offset,
                                ram_address)) {
@@ -3209,13 +3320,6 @@ static void plugin_exit(void *userdata)
     file_io_failures += file_io_unresolved_outstanding;
     file_io_unresolved_outstanding = 0;
     if (trace_file) {
-        for (size_t index = 0; index < integrity_site_count; index++) {
-            fprintf(trace_file,
-                    "{\"event\":\"integrity_site\",\"seq\":%" PRIu64
-                    ",\"site\":\"%s\",\"count\":%" PRIu64 "}\n",
-                    ++sequence_number, integrity_sites[index].site,
-                    integrity_sites[index].count);
-        }
         fprintf(trace_file,
                 "{\"event\":\"summary\",\"seq\":%" PRIu64
                 ",\"root_pid\":%" PRIu64
@@ -3268,12 +3372,15 @@ static void plugin_exit(void *userdata)
                 ",\"asynchronous_file_io\":%" PRIu64
                 ",\"mapped_file_exec_events\":%" PRIu64
                 ",\"mapped_file_failures\":%" PRIu64
+                ",\"mapped_file_system_straddles\":%" PRIu64
+                ",\"mapped_file_physical_fallbacks\":%" PRIu64
                 ",\"system_role_failures\":%" PRIu64
                 ",\"exception_dispatch_events\":%" PRIu64
                 ",\"exception_recovery_events\":%" PRIu64
                 ",\"process_snapshot_failures\":%" PRIu64
                 ",\"virtual_memory_write_events\":%" PRIu64
                 ",\"virtual_memory_write_failures\":%" PRIu64
+                ",\"virtual_memory_write_unattributed\":%" PRIu64
                 ",\"tb_flush_requests\":%" PRIu64
                 ",\"block_context_misses\":%" PRIu64
                 ",\"block_context_refreshes\":%" PRIu64
@@ -3327,10 +3434,12 @@ static void plugin_exit(void *userdata)
                 file_io_zero_length_skips,
                 asynchronous_file_io,
                 mapped_file_exec_events, mapped_file_failures,
+                mapped_file_system_straddles, mapped_file_physical_fallbacks,
                 system_role_failures, exception_dispatch_events,
                 exception_recovery_events, process_snapshot_failures,
                 virtual_memory_write_events,
                 virtual_memory_write_failures,
+                virtual_memory_write_unattributed,
                 tb_flush_requests,
                 block_context_misses,
                 block_context_refreshes,
