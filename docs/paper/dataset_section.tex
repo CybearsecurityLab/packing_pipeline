@@ -1,7 +1,6 @@
 % ===========================================================================
-% Dataset section -- regenerated 2026-09-14 from the deduplicated corpus.
-% Placeholders marked \TODO{} are values the dynamic typing campaign has not
-% produced yet.  Every other number is measured; see docs/paper/NUMBERS.md for
+% Dataset section -- regenerated 2026-11-06; malware typing campaign complete apart from a retry of infrastructure failures.
+% Every number is measured; see docs/paper/NUMBERS.md for
 % provenance.
 % ===========================================================================
 
@@ -100,15 +99,18 @@ Unclassified            &      2 &  0.0\% &      1 \\
 \Cref{tab:typedist} reports the Ugarte Type distribution. Every benign condition
 is typed from its own dynamic trace. A malware sample inherits a Type only when
 its static packer label exactly matches a corpus family typed dynamically;
-otherwise it requires its own trace. Of \textbf{8,224} Win32 packed samples typed
-so far, \textbf{830} are dynamic and \textbf{7,394} inherited. The campaign over
-the remaining \textbf{22,987} is ongoing; those entries are blank.
+otherwise it requires its own trace. Of \textbf{25,820} Win32 packed executables (launchable i386 PE32; DLLs, drivers,
+.NET and Win64 are excluded), \textbf{9,954} are typed: \textbf{3,278} dynamic and \textbf{6,676} inherited.
+All \textbf{19,144} samples that need their own trace have been traced. Of the
+remaining \textbf{15,866}, \textbf{15,258} were unresolved (no Type observed),
+\textbf{339} would not launch, and \textbf{269} were infrastructure failures
+that await a retry.
 
 \begin{table}[t]
 \centering
 \caption{Ugarte Type distribution. Benign counts are packer \emph{conditions},
 each typed from its own dynamic trace. Malware counts are Win32 packed
-\emph{samples}. Blank entries await the ongoing dynamic typing campaign.}
+\emph{executables}. Malware counts are final apart from a pending retry of 269 infrastructure failures.}
 \label{tab:typedist}
 \footnotesize
 \begin{tabular}{@{}lrrrr@{}}
@@ -117,18 +119,19 @@ each typed from its own dynamic trace. Malware counts are Win32 packed
 \cmidrule(lr){2-2}\cmidrule(lr){3-5}
 Type & Conditions & Dynamic & Inherited & Total \\
 \midrule
-TYPE\_0     &   1 & \TODO{} & \TODO{} & \TODO{} \\
-TYPE\_I     &  76 & \TODO{} & \TODO{} &  1,634 \\
-TYPE\_II    &   7 & \TODO{} & \TODO{} &    129 \\
-TYPE\_III   &   5 & \TODO{} & \TODO{} &    218 \\
-TYPE\_IV    &  11 & \TODO{} & \TODO{} &  5,840 \\
-TYPE\_V-F   &   2 & \TODO{} & \TODO{} &    121 \\
-TYPE\_VI-F  &   5 & \TODO{} & \TODO{} &    282 \\
+TYPE\_0     &   1 &     0 &     0 &     0 \\
+TYPE\_I     &  76 &   343 & 1,184 & 1,527 \\
+TYPE\_II    &   7 &   391 &    54 &   445 \\
+TYPE\_III   &   5 &   665 &     7 &   672 \\
+TYPE\_IV    &  11 &   798 & 5,408 & 6,206 \\
+TYPE\_V-F   &   2 &   314 &     6 &   320 \\
+TYPE\_VI-B  &   0 &     3 &     0 &     3 \\
+TYPE\_VI-F  &   5 &   764 &    17 &   781 \\
 \midrule
-Typed       & \textbf{112} & \textbf{830} & \textbf{7,394} & \textbf{8,224} \\
-Untyped     &   0 & \multicolumn{3}{r}{\textbf{22,987}} \\
+Typed       & \textbf{112} & \textbf{3,278} & \textbf{6,676} & \textbf{9,954} \\
+Untyped     &   0 & \multicolumn{3}{r}{\textbf{15,866}} \\
 \midrule
-\textbf{Total} & \textbf{112} & \multicolumn{3}{r}{\textbf{31,211}} \\
+\textbf{Total} & \textbf{112} & \multicolumn{3}{r}{\textbf{25,820}} \\
 \bottomrule
 \end{tabular}
 \end{table}
