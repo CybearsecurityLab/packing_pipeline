@@ -6,6 +6,8 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 
+import msgspec
+
 from .model import Evidence
 
 
@@ -13,7 +15,7 @@ PAPER_PAGE_SIZE = 4096
 PAPER_SEPARATION_PAGES = 10
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class _Block:
     sequence: int
     pid: int
@@ -26,6 +28,19 @@ class _Block:
     @property
     def key(self) -> tuple[int, int, int]:
         return (self.pid, self.layer, self.address)
+
+
+def _trace_lines(path: Path):
+    with path.open("rb") as handle:
+        previous = None
+        line_no = 0
+        for raw in handle:
+            if previous is not None:
+                yield line_no, previous, False
+            line_no += 1
+            previous = raw
+        if previous is not None:
+            yield line_no, previous, True
 
 
 def analyze_paper_jsonl(path: Path, sample_id: str) -> Evidence:
@@ -116,24 +131,22 @@ def analyze_paper_jsonl(path: Path, sample_id: str) -> Evidence:
             if source_key[0] != target_pid:
                 process_interactions.add((source_key[0], target_pid))
         memory_key = (target_pid, address)
-        highest = max(
-            writer_layer.get(memory_key, -1),
-            physical_writer_layer.get(physical_key, -1)
-            if physical_key is not None
-            else -1,
-            source_layer,
-        )
+        highest = writer_layer.get(memory_key, -1)
+        if physical_key is not None:
+            physical_layer = physical_writer_layer.get(physical_key, -1)
+            if physical_layer > highest:
+                highest = physical_layer
+        if source_layer > highest:
+            highest = source_layer
         writer_layer[memory_key] = highest
+        writers[memory_key].update(source_keys)
+        affected_locations = {
+            (target_pid, layer, address) for layer in state_layers[memory_key]
+        }
+        affected_locations.add((target_pid, highest + 1, address))
         if physical_key is not None:
             physical_writer_layer[physical_key] = highest
-        writers[memory_key].update(source_keys)
-        if physical_key is not None:
             physical_writers[physical_key].update(source_keys)
-        affected_locations = {
-            (target_pid, layer, address)
-            for layer in state_layers[memory_key] | {highest + 1}
-        }
-        if physical_key is not None:
             affected_locations.update(physical_locations[physical_key])
         for key in affected_locations:
             if state.get(key) == "U":
@@ -215,23 +228,22 @@ def analyze_paper_jsonl(path: Path, sample_id: str) -> Evidence:
     # essentially every malware sample ends this way, so an unguarded json.loads here
     # fails 100% of the campaign. A partial line ANYWHERE ELSE is real corruption and
     # still raises.
-    raw_lines = path.read_text(encoding="utf-8", errors="strict").splitlines()
-    truncated_tail = False
-    if raw_lines:
-        try:
-            json.loads(raw_lines[-1])
-        except json.JSONDecodeError:
-            raw_lines.pop()
-            truncated_tail = True
-
+    decode = msgspec.json.decode
     with contextlib.nullcontext():
         file_version: dict[tuple[str, int], int] = {}
         mapped_applied: dict[tuple[int, int], tuple] = {}
-        events = enumerate(raw_lines, 1)
-        for line_no, line in events:
+        for line_no, line, final in _trace_lines(path):
             if not line.strip():
                 continue
-            event = json.loads(line)
+            try:
+                event = decode(line)
+            except msgspec.DecodeError:
+                try:
+                    event = json.loads(line.decode("utf-8", errors="strict"))
+                except json.JSONDecodeError:
+                    if final:
+                        break
+                    raise
             if "seq" in event:
                 sequence = int(event["seq"])
                 if sequence <= last_sequence:
@@ -433,7 +445,8 @@ def analyze_paper_jsonl(path: Path, sample_id: str) -> Evidence:
             for memory_key, physical_key, state_key in zip(
                 memory_keys, block_physical_keys, state_keys, strict=True
             ):
-                byte_writers = set(writers.get(memory_key, set()))
+                memory_writers = writers.get(memory_key)
+                byte_writers = set(memory_writers) if memory_writers else set()
                 cross_process_physical_writer = False
                 if physical_key is not None:
                     for source in physical_writers.get(physical_key, set()):

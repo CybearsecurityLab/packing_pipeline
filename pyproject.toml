@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "bump-my-version>=1.2.6",
+    "msgspec>=0.20",
     "pefile>=2024.8.26",
     "pyautogui>=0.9.54",
     "pypackerdetect>=1.1.3",
