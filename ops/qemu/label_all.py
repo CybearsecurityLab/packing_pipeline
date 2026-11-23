@@ -33,6 +33,9 @@ CONDITIONS = max(1, int(os.environ.get("LABEL_CONDITIONS", "1")))
 # arms separate.
 RUNS_ROOT = os.environ.get("LABEL_RUNS_ROOT",
                            "empirical_results/qemu_runtime/all_runs").strip("/")
+DONE_DIR = REPO / os.environ.get("LABEL_DONE_DIR", "empirical_results/full_matrix")
+RELABEL = os.environ.get("LABEL_RELABEL") == "1"
+NO_GIT = os.environ.get("LABEL_NO_GIT") == "1"
 STAGE_LOCK = threading.Lock()
 GIT_LOCK = threading.Lock()
 SMB_LOCK = threading.Lock()
@@ -78,7 +81,18 @@ def candidate_samples(w: dict, limit: int = 8):
     return [(base + "/" + nm, nm) for _, nm in cand[:limit]]
 
 
+LOCAL_MIRROR = os.environ.get("LABEL_LOCAL_MIRROR")
+NAS_ROOT = "//10.100.99.29/samples/benign_packed/"
+
+
 def fetch(remote: str, dest: Path) -> str:
+    if LOCAL_MIRROR and remote.startswith(NAS_ROOT):
+        local = Path(LOCAL_MIRROR) / remote[len(NAS_ROOT):]
+        if local.is_file():
+            data = local.read_bytes()
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(data)
+            return hashlib.sha256(data).hexdigest()
     last = None
     for attempt in range(4):
         try:
@@ -104,8 +118,13 @@ def fetch(remote: str, dest: Path) -> str:
 
 def stage(sample: Path, image: Path) -> bool:
     with STAGE_LOCK:
-        p = subprocess.run(["sudo", "-S", "ops/qemu/stage_sample.sh", str(sample),
-                            str(image), "300"], cwd=str(REPO), input=SUDO_PW + "\n",
+        stage_env = [f"{k}={os.environ[k]}" for k in
+                     ("STAGE_BASE", "STAGE_LAUNCHER", "STAGE_OVERLAY", "STAGE_NBD")
+                     if os.environ.get(k)]
+        p = subprocess.run(["sudo", "-S", "env", *stage_env, "ops/qemu/stage_sample.sh",
+                            str(sample), str(image),
+                            os.environ.get("LABEL_STAGE_TIMEOUT", "300")],
+                           cwd=str(REPO), input=SUDO_PW + "\n",
                            text=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return p.returncode == 0
 
@@ -116,6 +135,9 @@ def run_pair(tag: str, cond: dict, pair) -> tuple[str, dict]:
     for i, (remote, nm) in enumerate(pair, 1):
         sample = RT / f"{tag}_s{i}" / "sample.exe"
         sha = fetch(remote, sample)
+        if os.environ.get("LABEL_INCOMING"):
+            images.append([str(sample.relative_to(REPO)), sha, f"{tag}{chr(64+i)}"])
+            continue
         img = RT / f"windows10-qemu-{tag}{i}.qcow2"
         if not stage(sample, img):
             return "STAGE_FAILED", {}
@@ -185,8 +207,10 @@ def run_pair(tag: str, cond: dict, pair) -> tuple[str, dict]:
 
 
 def already_labeled(tag: str) -> bool:
-    if (REPO / f"empirical_results/full_matrix/{tag}.done").exists():
+    if (DONE_DIR / f"{tag}.done").exists():
         return True
+    if RELABEL:
+        return False
     f = REPO / f"manifest/type/empirical_types_{tag}.yaml"
     if not f.exists():
         return False
@@ -266,7 +290,8 @@ def label_condition(w: dict) -> None:
         return
     if label.startswith("BAD_PAYLOAD"):
         label = "UNRESOLVED"
-    (REPO / f"empirical_results/full_matrix/{tag}.done").write_text(
+    DONE_DIR.mkdir(parents=True, exist_ok=True)
+    (DONE_DIR / f"{tag}.done").write_text(
         json.dumps({"label": label, "runs": all_types}), encoding="utf-8")
     with GIT_LOCK:
         sh(["python3", "ops/qemu/build_label_document.py"])
@@ -276,13 +301,15 @@ def label_condition(w: dict) -> None:
         # the two documents and the manifests drift apart (79 vs 92 vs 97).  Generate
         # it here so it stays derived from whatever the labeller just wrote.
         sh(["python3", "ops/qemu/build_packer_type_document.py"])
-        sh(["git", "add", "-f", f"manifest/type/empirical_types_{tag}.yaml",
-            "docs/EMPIRICAL_TYPE_LABELS.md", "docs/PACKER_TYPE_LABELS.md"])
-        sh(["git", "add", f"empirical_results/qemu_runtime/configs/{tag}.json"])
-        sh(["git", "commit", "-q", "-m",
-            f"Empirical label: {tag} -> {label} ({w['testcase']})"])
-        sh(["git", "push", "origin", "feature/empirical-type-backend"],
-           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if not NO_GIT:
+        with GIT_LOCK:
+            sh(["git", "add", "-f", f"manifest/type/empirical_types_{tag}.yaml",
+                "docs/EMPIRICAL_TYPE_LABELS.md", "docs/PACKER_TYPE_LABELS.md"])
+            sh(["git", "add", f"empirical_results/qemu_runtime/configs/{tag}.json"])
+            sh(["git", "commit", "-q", "-m",
+                f"Empirical label: {tag} -> {label} ({w['testcase']})"])
+            sh(["git", "push", "origin", "feature/empirical-type-backend"],
+               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     rd = REPO / f"{RUNS_ROOT}/{tag}"
     traces = sorted(rd.glob("*/trace.jsonl"))
     keep = set()
@@ -329,13 +356,15 @@ def _process(idx_total_w) -> None:
 
 
 def main() -> int:
-    work = json.loads((RT / "worklist.json").read_text())
+    work = json.loads(Path(os.environ.get("LABEL_WORKLIST") or RT / "worklist.json").read_text())
     work.sort(key=lambda w: (_tier(w), w["nas_dir"]))
-    todo = [w for w in work if not already_labeled(w["nas_dir"])]
+    only = {x for x in os.environ.get("LABEL_ONLY", "").split(",") if x}
+    todo = [w for w in work if not already_labeled(w["nas_dir"])
+            and (not only or w["nas_dir"] in only)]
     print(f"[all] {len(work)} conditions ({len(todo)} to do); "
           f"{CONDITIONS} parallel x {os.environ.get('LABEL_JOBS','1')} runs each",
           flush=True)
-    subprocess.run(["pkill", "-f", "qemu-system-x86_64 -name paper"], check=False)
+    subprocess.run(["pkill", "-u", str(os.getuid()), "-f", "qemu-system-x86_64 -name paper"], check=False)
     time.sleep(2)
     runs_root = REPO / RUNS_ROOT
     freed = 0

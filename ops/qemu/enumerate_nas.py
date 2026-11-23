@@ -57,8 +57,10 @@ def _remote(base, nas_dir, tc, nm):
 
 def main() -> int:
     smb = session()
-    base = "//10.100.99.29/samples/benign_packed"
-    families = sorted(e.name for e in smb.scandir(base) if e.is_dir())
+    base = os.environ.get("ENUM_BASE") or "//10.100.99.29/samples/benign_packed"
+    only = {x for x in os.environ.get("ENUM_ONLY", "").split(",") if x}
+    families = sorted(e.name for e in smb.scandir(base) if e.is_dir()
+                      and (not only or e.name in only))
 
     per_dir = {}
     hash_dirs = {}
@@ -80,7 +82,9 @@ def main() -> int:
                 exes.append((sz, "", e.name))
         if exes:
             rep_tc = ""
-        for tc in sorted(e.name for e in entries if e.is_dir()):
+        for tc in sorted(e.name for e in entries if e.is_dir()
+                         and e.name.lower() != "logs"
+                         and not e.name.lower().lstrip("_").startswith("temp")):
             try:
                 for e in smb.scandir(f"{base}/{nas_dir}/{tc}"):
                     if e.name.lower().endswith(".exe"):
@@ -174,7 +178,8 @@ def main() -> int:
     except Exception:
         pass
 
-    (RT / "worklist.json").write_text(json.dumps(work, indent=2))
+    out = Path(os.environ.get("ENUM_OUT") or RT / "worklist.json")
+    out.write_text(json.dumps(work, indent=2))
     fams = sorted({w["family"] for w in work})
     print(f"[enum] {len(work)} family+versions, {len(fams)} families")
     print("[enum] families:", ", ".join(fams))

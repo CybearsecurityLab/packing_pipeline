@@ -8,6 +8,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shlex
+import shutil
 import subprocess
 import sys
 import time
@@ -16,8 +18,28 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-QEMU = REPO / "empirical_results/qemu_runtime/qemu-build/qemu-system-x86_64"
-PLUGIN = REPO / "ops/qemu/paper_trace.so"
+QEMU = Path(os.environ.get("LABEL_QEMU") or
+            REPO / "empirical_results/qemu_runtime/qemu-build/qemu-system-x86_64")
+PLUGIN = Path(os.environ.get("LABEL_PLUGIN") or REPO / "ops/qemu/paper_trace.so")
+TRACE_ARGS = shlex.split(os.environ.get("LABEL_TRACE_ARGS", ""))
+INCOMING = os.environ.get("LABEL_INCOMING")
+BOOTED_BASE = os.environ.get("LABEL_BOOTED_BASE")
+
+
+def _stage_delivery(sample: Path, d: Path) -> Path:
+    iso_dir = d / "iso"
+    iso_dir.mkdir(exist_ok=True)
+    shutil.copyfile(sample, iso_dir / "SAMPLE.EXE")
+    delivery = d / "delivery.iso"
+    subprocess.run(["genisoimage", "-quiet", "-J", "-r", "-V", "DELIVERY",
+                    "-o", str(delivery), str(iso_dir)], check=True,
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    shutil.rmtree(iso_dir, ignore_errors=True)
+    staged = d / "staged.qcow2"
+    subprocess.run(["qemu-img", "create", "-f", "qcow2", "-b", str(BOOTED_BASE),
+                    "-F", "qcow2", str(staged)], check=True,
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return staged
 
 _DEFAULT = {
     "condition": {
@@ -122,6 +144,11 @@ def run_one(image: Path, sha: str, name: str, rep: int) -> str:
     mon = Path("/tmp/qm") / (hashlib.md5(f"{sample_id}".encode()).hexdigest()[:12] + ".sock")
     mon.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run(["rm", "-f", str(mon)], check=False)
+    delivery_args: list[str] = []
+    if INCOMING:
+        image = _stage_delivery(image, d)
+        delivery_args = ["--incoming", INCOMING,
+                         "--delivery-disk", str(d / "delivery.iso")]
     command = [
         "uv", "run", "python", str(REPO / "ops/qemu/run_trace.py"),
         str(image), str(d / "work.qcow2"), str(d / "trace.jsonl"),
@@ -140,6 +167,7 @@ def run_one(image: Path, sha: str, name: str, rep: int) -> str:
         command.append("--transparent")
     if CPU_MODEL:
         command += ["--cpu-model", CPU_MODEL]
+    command += delivery_args + TRACE_ARGS
     proc = subprocess.Popen(
         command,
         stdout=(d / "runner.out").open("w"), stderr=subprocess.STDOUT, cwd=str(REPO),
