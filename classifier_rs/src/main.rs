@@ -586,6 +586,12 @@ impl St {
         self.affected = affected;
     }
 
+    fn executed_at(&self, key: SKey) -> bool {
+        self.mem.get(&(key.0, key.2)).map_or(false, |rec| {
+            rec.layers.as_slice().iter().any(|e| e.layer == key.1 && e.flags & F_EXEC != 0)
+        })
+    }
+
     fn invalidate_byte(&mut self, target_pid: u32, address: u64, physical_key: Option<u64>, source: Option<u32>) {
         let mut affected = std::mem::take(&mut self.affected);
         affected.clear();
@@ -601,7 +607,7 @@ impl St {
         for &key in &affected {
             self.mark_written(key, true);
             if let (Some(s), Some(sl)) = (source, source_layer) {
-                if key.1 != sl {
+                if key.1 != sl && self.executed_at(key) {
                     self.packer[s as usize] = true;
                 }
             }

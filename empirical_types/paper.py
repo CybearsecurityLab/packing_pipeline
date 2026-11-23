@@ -354,7 +354,11 @@ def _analyze_paper_jsonl_python(path: Path, sample_id: str) -> Evidence:
                 state[key] = "W"
                 resettable[(key[0], key[1])].discard(key[2])
             new_frame[(key[0], key[1])].add(key[2])
-            if source_key is not None and key[1] != source_key[1]:
+            if (
+                source_key is not None
+                and key[1] != source_key[1]
+                and key[1] in executed_layers.get((key[0], key[2]), ())
+            ):
                 packer_blocks.add(source_key)
                 strict_packer_blocks.add(source_key)
 

@@ -316,6 +316,47 @@ class PaperFaithfulTraceTests(unittest.TestCase):
         self.assertTrue(evidence.all_code_flagged_packer)
         self.assertEqual(classify(evidence).complexity_type, "TYPE_III")
 
+    def _free(self, address):
+        return {"event": "free", "pid": 1, "tid": 1, "target_pid": 1,
+                "address": address, "size": 1}
+
+    def test_freeing_never_executed_data_is_not_repacking(self):
+        events = [
+            execute(0x1000),
+            write(0x20000),
+            execute(0x20000),
+            write(0x90000),
+            execute(0x20000),
+            self._free(0x90000),
+            execute(0x20000),
+        ]
+        for evidence in (self.analyze(events), self.analyze_python(events)):
+            self.assertTrue(evidence.tail_transition)
+            self.assertFalse(evidence.all_code_flagged_packer)
+            self.assertEqual(classify(evidence).complexity_type, "TYPE_I")
+
+    def test_freeing_another_layers_executed_code_is_repacking(self):
+        events = [
+            execute(0x1000),
+            write(0x20000),
+            execute(0x20000),
+            self._free(0x1000),
+            execute(0x20000),
+        ]
+        for evidence in (self.analyze(events), self.analyze_python(events)):
+            self.assertFalse(evidence.tail_transition)
+            self.assertTrue(evidence.all_code_flagged_packer)
+
+    def analyze_python(self, events):
+        from empirical_types.paper import _analyze_paper_jsonl_python
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "trace.jsonl"
+            path.write_text(
+                "".join(json.dumps(event) + "\n" for event in events),
+                encoding="utf-8",
+            )
+            return _analyze_paper_jsonl_python(path, "sample")
+
 
 if __name__ == "__main__":
     unittest.main()
