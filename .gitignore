@@ -302,3 +302,5 @@ WiX.Toolset.DummyFile.txt
 GitHubVS.sln.DotSettings
 ops/qemu/*.so.*
 .superpower/
+
+classifier_rs/target/
