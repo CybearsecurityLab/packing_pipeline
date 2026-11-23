@@ -186,7 +186,47 @@ emitted only on exact consensus across ≥2 distinct payloads × 3 repetitions,
 using the two-vCPU upstream-QEMU tracer with complete ordered
 basic-block/write/IPC evidence and a passing eligibility gate. Backend details and validation status are in
 [`ops/qemu/README.md`](ops/qemu/README.md); the collection workflow is in
-[`doc/empirical_type_collection.md`](doc/empirical_type_collection.md).
+[`docs/empirical_type_collection.md`](docs/empirical_type_collection.md).
+
+### Certified deterministic backend
+
+All labelling runs on one certified backend identity, recorded in
+`ops/qemu/backend_validation.json` and checked before every label is issued:
+
+| Component | Value |
+|---|---|
+| QEMU | `/data/determinism/qemu-det-build`, `-icount shift=2,sleep=off,det=on`, blkdet |
+| Tracer plugin | `/data/determinism/paper_trace.final1.so` (sha256 `9b51dab0…`) |
+| Guest | Defender-off snapshot `/data/determinism/snap_nodef`, resumed per run, sample delivered on a CD |
+| Launcher | `guest_launcher.delivery.exe` (sha256 `812b7303…`) |
+
+Traces are byte-reproducible run to run. A run whose identity differs from the stamp is
+never labelled. Recertify after changing any component with the channel fixture
+(`ops/qemu/validate_fixture_trace.py`).
+
+### Campaigns
+
+| Corpus | Entry point | Scope |
+|---|---|---|
+| Benign packers | `ops/qemu/label_all.py` | 105 packer conditions, 2 payloads × 3 reps, exact consensus |
+| EMBER 2024 test set | `ops/qemu/label_malware_types.py run` with `MALWARE_WORKLIST=/data/ember2024/worklist.jsonl` | 5,080 Win32 samples |
+| Malware corpus | `ops/qemu/label_malware_types.py run` | 25,820 packed Win32 samples |
+
+All three corpora are typed **dynamically only**. A static packer name never
+assigns a Type; for malware samples whose static name maps to a labelled packer
+family, that family's Type is kept as `static_family_type` purely for comparison.
+Every run stops at the same bound: 100M sample instructions or a 20e9 guest-wide
+instruction cap.
+
+Campaign settings live in `.env` (`MALWARE_*`); packer settings are exported by
+`LABEL_*` variables (`LABEL_QEMU`, `LABEL_PLUGIN`, `LABEL_TRACE_ARGS`,
+`LABEL_INCOMING`, `LABEL_BOOTED_BASE`, `LABEL_WORKLIST`, `LABEL_LOCAL_MIRROR`,
+`LABEL_RELABEL`, `LABEL_DONE_DIR`, `LABEL_RUNS_ROOT`, `LABEL_NO_GIT`,
+`LABEL_ONLY`). Samples are read from local mirrors under `/data`
+(`/data/benign_packed`, `/data/ember2024/binaries`, `/data/malware_zips`).
+Guest and classification slots are separate (`MALWARE_GUEST_SLOTS`,
+`MALWARE_CLASSIFY_SLOTS`); classification is the throughput bottleneck on large
+traces.
 
 ---
 
