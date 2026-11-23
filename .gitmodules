@@ -1,3 +1,3 @@
 [submodule "packers"]
 	path = packers
-	url = https://gitlab.ecs.baylor.edu/leal-security-lab/packers/tools.git
+	url = https://github.com/CybearsecurityLab/packers.git
