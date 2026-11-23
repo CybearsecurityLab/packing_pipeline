@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import contextlib
 import json
+import logging
+import os
+import subprocess
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -9,6 +12,8 @@ from pathlib import Path
 import msgspec
 
 from .model import Evidence
+
+_LOG = logging.getLogger(__name__)
 
 
 PAPER_PAGE_SIZE = 4096
@@ -43,7 +48,145 @@ def _trace_lines(path: Path):
             yield line_no, previous, True
 
 
+PAPER_CORE_ENV = "PAPER_CORE_BIN"
+PAPER_CORE_DEFAULT = (
+    Path(__file__).resolve().parent.parent
+    / "classifier_rs" / "target" / "release" / "paper_core"
+)
+PAPER_NOTES = (
+    "Application/packer separation uses the paper's 10-page heuristic; "
+    "no original-binary role labels were consumed.",
+    "Secondary processes are included only when observed IPC/file/physical "
+    "provenance connects them to the protected root process.",
+)
+
+
+class _PaperCoreFallback(Exception):
+    pass
+
+
+def _paper_core_binary() -> Path | None:
+    configured = os.environ.get(PAPER_CORE_ENV)
+    if configured is not None:
+        if configured in {"", "0", "off", "python"}:
+            return None
+        candidate = Path(configured)
+    else:
+        candidate = PAPER_CORE_DEFAULT
+    if candidate.is_file() and os.access(candidate, os.X_OK):
+        return candidate
+    return None
+
+
+def _read_line_at(path: Path, offset: int) -> bytes:
+    with path.open("rb") as handle:
+        handle.seek(offset)
+        return handle.readline()
+
+
+def _decode_like_reference(line: bytes):
+    try:
+        return msgspec.json.decode(line)
+    except msgspec.DecodeError:
+        return json.loads(line.decode("utf-8", errors="strict"))
+
+
+def _confirm_undecodable(line: bytes, final: bool) -> None:
+    try:
+        msgspec.json.decode(line)
+    except msgspec.DecodeError:
+        try:
+            json.loads(line.decode("utf-8", errors="strict"))
+        except json.JSONDecodeError:
+            if final:
+                return
+            raise
+    raise _PaperCoreFallback("reference decoder accepts a line the core rejected")
+
+
+def _evidence_from_core(path: Path, sample_id: str, report: dict) -> Evidence:
+    status = report["status"]
+    if status == "fallback":
+        raise _PaperCoreFallback(report.get("detail", ""))
+    line_no = report.get("line_no")
+    if status == "json_error":
+        _confirm_undecodable(_read_line_at(path, report["offset"]), False)
+    if status == "unknown_event":
+        event = _decode_like_reference(_read_line_at(path, report["offset"]))
+        kind = event.get("event")
+        raise ValueError(f"{path}:{line_no}: unknown event {kind!r}")
+    if status == "non_monotonic":
+        raise ValueError(f"{path}:{line_no}: non-monotonic global sequence")
+    if status == "value_error":
+        raise ValueError(report["detail"])
+    if status == "key_error":
+        raise KeyError(report["detail"])
+    if status != "ok":
+        raise _PaperCoreFallback(f"unexpected core status {status!r}")
+    unparsed = report.get("unparsed_final")
+    if unparsed is not None:
+        _confirm_undecodable(_read_line_at(path, unparsed["offset"]), True)
+    multiframe = report["candidate_multiframe_bytes"]
+    total = report["candidate_code_bytes"]
+    return Evidence(
+        sample_id=sample_id,
+        taxonomy_basis="paper_runtime_heuristic",
+        original_match_available=False,
+        layers=report["layers"],
+        processes=report["processes"],
+        threads=report["threads"],
+        forward_transitions=report["forward_transitions"],
+        backward_transitions=report["backward_transitions"],
+        original_code_frames=report["original_code_frames"],
+        original_multiframe_ratio=multiframe / total if total else None,
+        repacked_original_bytes=report["repacked_original_bytes"],
+        tail_transition=report["tail_transition"],
+        interleaved=report["interleaved"],
+        frame_sizes=list(report["frame_sizes"]),
+        frame_basic_blocks=list(report["frame_basic_blocks"]),
+        candidate_code_bytes=total,
+        candidate_multiframe_bytes=multiframe,
+        all_code_flagged_packer=report["all_code_flagged_packer"],
+        cross_process_activity=report["cross_process_activity"],
+        linear_transition_model=report["linear_transition_model"],
+        packer_to_application_transitions=report["packer_to_application_transitions"],
+        application_to_packer_transitions=report["application_to_packer_transitions"],
+        notes=list(PAPER_NOTES),
+    )
+
+
+def _analyze_paper_jsonl_core(binary: Path, path: Path, sample_id: str) -> Evidence:
+    completed = subprocess.run(
+        [str(binary), str(path)],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if completed.returncode != 0:
+        raise _PaperCoreFallback(
+            f"core exited with {completed.returncode}: "
+            f"{completed.stderr.decode('utf-8', 'replace')[-2000:]}"
+        )
+    try:
+        report = json.loads(completed.stdout)
+    except ValueError as error:
+        raise _PaperCoreFallback(f"unreadable core report: {error}") from error
+    if not isinstance(report, dict) or "status" not in report:
+        raise _PaperCoreFallback("malformed core report")
+    return _evidence_from_core(path, sample_id, report)
+
+
 def analyze_paper_jsonl(path: Path, sample_id: str) -> Evidence:
+    binary = _paper_core_binary() if isinstance(path, Path) else None
+    if binary is not None:
+        try:
+            return _analyze_paper_jsonl_core(binary, path, sample_id)
+        except _PaperCoreFallback as reason:
+            _LOG.warning("paper core fell back to Python for %s: %s", path, reason)
+    return _analyze_paper_jsonl_python(path, sample_id)
+
+
+def _analyze_paper_jsonl_python(path: Path, sample_id: str) -> Evidence:
     """Reconstruct the runtime taxonomy exactly as described by Ugarte et al.
 
     This path deliberately does not use an original executable or an externally
