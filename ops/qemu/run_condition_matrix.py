@@ -20,6 +20,8 @@ from pathlib import Path
 
 import delivery_iso
 
+SAMPLE_ARGS = os.environ.get("LABEL_SAMPLE_ARGS", "").strip()
+
 REPO = Path(__file__).resolve().parents[2]
 QEMU = Path(os.environ.get("LABEL_QEMU") or
             REPO / "empirical_results/qemu_runtime/qemu-build/qemu-system-x86_64")
@@ -40,6 +42,8 @@ def _stage_delivery(sample: Path, d: Path) -> Path:
     iso_dir = d / "iso"
     iso_dir.mkdir(exist_ok=True)
     shutil.copyfile(sample, iso_dir / "SAMPLE.EXE")
+    if SAMPLE_ARGS:
+        (iso_dir / "ARGS.TXT").write_text(SAMPLE_ARGS, encoding="ascii")
     delivery = d / "delivery.iso"
     if delivery_iso.build(iso_dir, delivery) != 0:
         raise RuntimeError(f"delivery ISO build failed for {sample}")
