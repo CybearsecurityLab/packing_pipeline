@@ -105,6 +105,45 @@ def _activity_and_started(trace: Path, offset: int) -> tuple[int, int, int, bool
     return activity, writes, new_offset, started, stopped
 
 
+def tap_paths(trace: Path) -> tuple[Path, Path, Path]:
+    return (trace.with_suffix(".fifo"), trace.with_name(trace.name + ".zst"),
+            trace.with_suffix(".tap.json"))
+
+
+def _tap_state(status: Path) -> dict:
+    try:
+        return json.loads(status.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def _tap_activity(status: Path, offset: int) -> tuple[int, int, int, bool, bool]:
+    state = _tap_state(status)
+    raw = int(state.get("raw_bytes") or offset)
+    return (int(int(state.get("last_activity_raw") or 0) > offset),
+            int(int(state.get("last_write_raw") or 0) > offset), raw,
+            bool(state.get("sample_start")), bool(state.get("stop_marker")))
+
+
+def _release_tap(fifo: Path, tap: subprocess.Popen | None) -> None:
+    if tap is None:
+        return
+    try:
+        tap.wait(timeout=5)
+        return
+    except subprocess.TimeoutExpired:
+        pass
+    try:
+        os.close(os.open(fifo, os.O_WRONLY | os.O_NONBLOCK))
+    except OSError:
+        pass
+    try:
+        tap.wait(timeout=600)
+    except subprocess.TimeoutExpired:
+        tap.kill()
+        tap.wait()
+
+
 def _graceful_quit(monitor: Path | None, runas: str | None) -> bool:
     """Ask QEMU to exit via its monitor so the plugin FLUSHES ITS SUMMARY.
 
@@ -148,6 +187,7 @@ def wait_or_host_idle(
     no_start_seconds: int = NO_START_SECONDS, write_settled_seconds: int = 0,
     monitor_path: Path | None = None, runas_user: str | None = None,
     stop_grace_seconds: int = 180, guest_completion: bool = False,
+    tap_status: Path | None = None,
 ) -> tuple[int | None, bool, bool, bool, bool]:
     """Wait for qemu, terminating early on the host-observed idle boundary.
 
@@ -181,8 +221,9 @@ def wait_or_host_idle(
         except subprocess.TimeoutExpired:
             pass
         now = time.monotonic()
-        activity, writes, offset, saw_start, saw_stop = _activity_and_started(
-            trace, offset)
+        activity, writes, offset, saw_start, saw_stop = (
+            _tap_activity(tap_status, offset) if tap_status is not None
+            else _activity_and_started(trace, offset))
         if saw_start:
             sample_started = True
         if saw_stop and stop_seen_at is None:
@@ -461,6 +502,12 @@ def main() -> int:
         "realistic model like Nehalem/Haswell hides the QEMU brand string.",
     )
     parser.add_argument(
+        "--trace-tap",
+        action="store_true",
+        help="stream the plugin's trace through a FIFO into trace_tap.py, which "
+        "stores TRACE.zst and a status file; the raw trace is never written.",
+    )
+    parser.add_argument(
         "--guest-completion",
         action="store_true",
         help="end only on the guest's own boundary (launcher stop marker or the "
@@ -654,13 +701,21 @@ def main() -> int:
             # written by THIS process at the end, so touching it here leaves a
             # zero-byte file for the whole run that readers mistake for "finished"
             # (it silently broke a completion poller). Leave it alone.
-            for extra in (args.trace, args.log):
+            for extra in (None if args.trace_tap else args.trace, args.log):
                 if extra is not None:
                     extra.parent.mkdir(parents=True, exist_ok=True)
                     extra.touch(exist_ok=True)
                     extra.chmod(0o666)
         except OSError as exc:
             parser.error(f"--runas set but cannot make run artifacts writable: {exc}")
+
+    tap_fifo, tap_output, tap_status = tap_paths(args.trace)
+    if args.trace_tap:
+        for stale in (tap_fifo, tap_output, tap_status, args.trace):
+            stale.unlink(missing_ok=True)
+        os.mkfifo(tap_fifo, 0o666)
+        tap_fifo.chmod(0o666)
+    plugin_out = tap_fifo if args.trace_tap else args.trace
 
     hardening: list[str] = []
     if args.sandbox:
@@ -721,7 +776,7 @@ def main() -> int:
         "-no-reboot",
         *vm_profiles.disk_args(args.profile, args.work, args.deterministic),
         "-plugin",
-        ",".join([f"{plugin.resolve()},out={args.trace.resolve()}",
+        ",".join([f"{plugin.resolve()},out={plugin_out.resolve()}",
                   *([f"insn_budget={args.insn_budget}"]
                     if args.insn_budget > 0 else []),
                   *([f"guest_insn_budget={args.guest_insn_budget}"]
@@ -781,6 +836,10 @@ def main() -> int:
         command = ["sudo", "-n", "-u", args.runas] + (
             ["env", f"DET_DEBUG_LOG={args.trace.parent.resolve() / 'detdebug.log'}"]
             if os.environ.get("DET_DEBUG") == "1" else []) + command
+    tap = (subprocess.Popen([sys.executable, str(Path(__file__).resolve().parent / "trace_tap.py"),
+                             str(tap_fifo), str(tap_output), str(tap_status)],
+                            start_new_session=True)
+           if args.trace_tap else None)
     started = time.monotonic()
     with log.open("wb") as log_handle:
         process = subprocess.Popen(command, stdout=log_handle, stderr=log_handle)
@@ -820,6 +879,7 @@ def main() -> int:
                     "qemu_log_tail": log.read_bytes()[-4000:].decode(errors="replace"),
                     "elapsed_seconds": time.monotonic() - started,
                 }))
+                _release_tap(tap_fifo, tap)
                 raise SystemExit(f"run_trace: monitor resume failed rc={resume_rc}")
         return_code, host_timed_out, host_observed_idle, never_started, write_settled = (
             wait_or_host_idle(
@@ -828,10 +888,15 @@ def main() -> int:
                 monitor_path=monitor, runas_user=args.runas,
                 guest_completion=args.guest_completion,
                 stop_grace_seconds=2 if args.deterministic else 180,
+                tap_status=tap_status if args.trace_tap else None,
             )
         )
+    _release_tap(tap_fifo, tap)
     elapsed = time.monotonic() - started
-    summary = final_summary(args.trace)
+    tap_final = _tap_state(tap_status) if args.trace_tap else {}
+    if args.trace_tap:
+        tap_fifo.unlink(missing_ok=True)
+    summary = tap_final.get("summary") if args.trace_tap else final_summary(args.trace)
     implemented_channels = {
         "basic_block_execution": True,
         "successful_memory_writes": True,
@@ -1015,7 +1080,13 @@ def main() -> int:
         ),
         "elapsed_seconds": elapsed,
         "qemu_return_code": return_code,
-        "trace_sha256": sha256(args.trace) if args.trace.exists() else None,
+        "trace_sha256": (tap_final.get("sha256") if args.trace_tap
+                         else sha256(args.trace) if args.trace.exists() else None),
+        **({"trace_storage": {"format": "zstd", "path": str(tap_output),
+                              "raw_bytes": tap_final.get("raw_bytes"),
+                              "complete": bool(tap_final.get("complete")),
+                              "tap_return_code": tap.returncode if tap else None}}
+           if args.trace_tap else {}),
         "summary": summary,
         "implemented_channels": implemented_channels,
         "trace_integrity": trace_integrity,
