@@ -8,10 +8,22 @@ static FILE *out;
 
 static void line(const char *key, const char *fmt, ...) {
     va_list ap;
-    fprintf(out, "%s=", key);
+    char value[400];
+    char path[512];
+    HKEY probe_key;
     va_start(ap, fmt);
-    vfprintf(out, fmt, ap);
+    vsnprintf(value, sizeof(value), fmt, ap);
     va_end(ap);
+    fprintf(out, "%s=%s", key, value);
+    snprintf(path, sizeof(path), "Software\\vmprobe\\%s=%s", key, value);
+    for (char *c = path + 17; *c; c++) {
+        if (*c == '\\' || *c < 0x20) {
+            *c = '/';
+        }
+    }
+    if (RegOpenKeyExA(HKEY_CURRENT_USER, path, 0, KEY_READ, &probe_key) == ERROR_SUCCESS) {
+        RegCloseKey(probe_key);
+    }
     fputc('\n', out);
     fflush(out);
     FlushFileBuffers((HANDLE)_get_osfhandle(_fileno(out)));
