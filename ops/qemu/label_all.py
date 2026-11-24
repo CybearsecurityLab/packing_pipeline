@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 import os
 import subprocess
 import sys
@@ -36,6 +37,7 @@ RUNS_ROOT = os.environ.get("LABEL_RUNS_ROOT",
 DONE_DIR = REPO / os.environ.get("LABEL_DONE_DIR", "empirical_results/full_matrix")
 RELABEL = os.environ.get("LABEL_RELABEL") == "1"
 NO_GIT = os.environ.get("LABEL_NO_GIT") == "1"
+RERUN_FAILED = "--rerun-failed" in sys.argv or os.environ.get("LABEL_RERUN_FAILED") == "1"
 STAGE_LOCK = threading.Lock()
 GIT_LOCK = threading.Lock()
 SMB_LOCK = threading.Lock()
@@ -206,8 +208,29 @@ def run_pair(tag: str, cond: dict, pair) -> tuple[str, dict]:
     return "UNRESOLVED", types
 
 
+def _failed_condition(marker: Path) -> bool:
+    try:
+        done = json.loads(marker.read_text())
+    except (OSError, ValueError):
+        return True
+    runs = list((done.get("runs") or {}).values())
+    if not runs:
+        return True
+    return any(not (str(t).startswith("TYPE_") or t == "UNRESOLVED_NO_UNPACKING_OBSERVED")
+               for t in runs)
+
+
 def already_labeled(tag: str) -> bool:
-    if (DONE_DIR / f"{tag}.done").exists():
+    marker = DONE_DIR / f"{tag}.done"
+    if marker.exists():
+        if RERUN_FAILED and _failed_condition(marker):
+            archive = DONE_DIR.parent / f"{DONE_DIR.name}.rerun-failed"
+            archive.mkdir(exist_ok=True)
+            shutil.move(str(marker), str(archive / marker.name))
+            runs = REPO / RUNS_ROOT / tag
+            if runs.exists():
+                shutil.move(str(runs), str(archive / tag))
+            return False
         return True
     if RELABEL:
         return False

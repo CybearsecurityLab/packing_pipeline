@@ -197,7 +197,7 @@ All labelling runs on one certified backend identity, recorded in
 |---|---|
 | QEMU | `/data/determinism/qemu-det-build`, `-icount shift=2,sleep=off,det=on`, blkdet |
 | Tracer plugin | `/data/determinism/paper_trace.final1.so` (sha256 `9b51dab0…`) |
-| Guest | Defender-off snapshot `/data/determinism/snap_nodef`, resumed per run, sample delivered on a CD |
+| Guest | Windows 10 x64, Defender off, with VC++ 2010–2022 and DirectX 9–11 runtimes (`/data/determinism/snap_redist`), resumed per run, sample delivered on a CD |
 | Launcher | `guest_launcher.delivery.exe` (sha256 `812b7303…`) |
 
 Traces are byte-reproducible run to run. A run whose identity differs from the stamp is
@@ -227,6 +227,15 @@ Campaign settings live in `.env` (`MALWARE_*`); packer settings are exported by
 Guest and classification slots are separate (`MALWARE_GUEST_SLOTS`,
 `MALWARE_CLASSIFY_SLOTS`); classification is the throughput bottleneck on large
 traces.
+
+Campaigns resume where they stopped: completed verdicts are kept and samples without a
+verdict run. Pass `--rerun-failed` (or set `MALWARE_RERUN_FAILED=1` /
+`LABEL_RERUN_FAILED=1`) to also re-queue failures: infrastructure outcomes such as
+`failed:*`, `error:*`, `trace_oversize`, `sample_would_not_launch`, trace loss on every
+rep, or a packer condition with any non-Type run. Re-queued verdicts are moved to a
+`*.rerun-failed/` directory beside the originals, never deleted. Each malware verdict
+records `guest_image`, a hash of the snapshot it ran on. EXEs whose section table is
+larger than the file are skipped as `not_process_launchable:truncated_image`.
 
 ---
 
