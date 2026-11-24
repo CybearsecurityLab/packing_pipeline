@@ -528,9 +528,37 @@ static BOOL vmarm_create_process(const char *staged, char *command_line,
                           process);
 }
 
+static void vmarm_flush_volume(void) {
+    HANDLE volume = CreateFileW(L"\\\\.\\C:", GENERIC_WRITE,
+                                FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
+                                OPEN_EXISTING, 0, NULL);
+    if (volume != INVALID_HANDLE_VALUE) {
+        FlushFileBuffers(volume);
+        CloseHandle(volume);
+    }
+}
+
+static DWORD WINAPI vmarm_flush_loop(LPVOID unused) {
+    (void)unused;
+    for (;;) {
+        Sleep(2000);
+        vmarm_flush_volume();
+    }
+    return 0;
+}
+
 static void vmarm_handoff_job(HANDLE job, DWORD root_pid) {
     HANDLE remote = NULL;
     FILE *handle;
+    static int flushing;
+
+    if (!flushing) {
+        HANDLE thread = CreateThread(NULL, 0, vmarm_flush_loop, NULL, 0, NULL);
+        if (thread != NULL) {
+            CloseHandle(thread);
+            flushing = 1;
+        }
+    }
 
     if (!vmarm.user || vmarm.helper_process == NULL) {
         return;
@@ -550,6 +578,7 @@ static void vmarm_handoff_job(HANDLE job, DWORD root_pid) {
 }
 
 static void vmarm_release_job(void) {
+    vmarm_flush_volume();
     if (vmarm.remote_job != NULL && vmarm.helper_process != NULL) {
         DuplicateHandle(vmarm.helper_process, vmarm.remote_job, NULL, NULL, 0,
                         FALSE, DUPLICATE_CLOSE_SOURCE);
@@ -859,7 +888,7 @@ static DWORD WINAPI vmarm_mouse_thread(void *unused) {
         x = target_x;
         y = target_y;
         if (vmarm_lcg() % 3u == 0) {
-            Sleep(500 + vmarm_lcg() % 2500u);
+            Sleep(100 + vmarm_lcg() % 500u);
         }
     }
     return 0;
