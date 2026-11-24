@@ -83,7 +83,8 @@ def candidate_samples(w: dict, limit: int = 8):
     """
     pool = w.get("samples")
     if pool:
-        return [(s["remote"], s["name"]) for s in pool[:limit]]
+        usable = [s for s in pool if not _truncated_payload(s["remote"])]
+        return [(s["remote"], s["name"]) for s in usable[:limit]]
     smb = _session()
     base = f"//10.100.99.29/samples/benign_packed/{w['nas_dir']}/{w['testcase']}"
     cand = []
@@ -99,6 +100,31 @@ def candidate_samples(w: dict, limit: int = 8):
 
 LOCAL_MIRROR = os.environ.get("LABEL_LOCAL_MIRROR")
 NAS_ROOT = "//10.100.99.29/samples/benign_packed/"
+
+
+def _truncated_payload(remote: str) -> bool:
+    if not (LOCAL_MIRROR and remote.startswith(NAS_ROOT)):
+        return False
+    local = Path(LOCAL_MIRROR) / remote[len(NAS_ROOT):]
+    try:
+        size = local.stat().st_size
+        with local.open("rb") as handle:
+            head = handle.read(65536)
+        pe = int.from_bytes(head[0x3C:0x40], "little")
+        if head[:2] != b"MZ" or head[pe:pe + 4] != b"PE\0\0":
+            return False
+        sections = int.from_bytes(head[pe + 6:pe + 8], "little")
+        table = pe + 24 + int.from_bytes(head[pe + 20:pe + 22], "little")
+        needed = 0
+        for index in range(sections):
+            entry = table + 40 * index
+            raw_size = int.from_bytes(head[entry + 16:entry + 20], "little")
+            raw_pointer = int.from_bytes(head[entry + 20:entry + 24], "little")
+            if raw_size:
+                needed = max(needed, raw_pointer + raw_size)
+    except (OSError, ValueError):
+        return False
+    return needed > size
 
 
 def fetch(remote: str, dest: Path) -> str:
@@ -421,6 +447,14 @@ def label_condition(w: dict) -> None:
     if len(cands) < 2:
         print(f"[cond] {tag}: fewer than 2 candidates; cannot form a consensus pair",
               flush=True)
+        pool = w.get("samples") or []
+        if pool and len(pool) - sum(_truncated_payload(s["remote"]) for s in pool) < 2:
+            DONE_DIR.mkdir(parents=True, exist_ok=True)
+            (DONE_DIR / f"{tag}.done").write_text(json.dumps(
+                {"label": "UNRESOLVED", "reason": "no_valid_payload", "runs": {},
+                 "truncated_payloads": sum(_truncated_payload(s["remote"]) for s in pool),
+                 "pool": len(pool)}), encoding="utf-8")
+            print(f"[LABEL] {tag} -> UNRESOLVED (no_valid_payload)", flush=True)
         return
     pair = [cands[0], cands[1]]
     nxt = 2

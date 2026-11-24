@@ -18,6 +18,8 @@ import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
+import delivery_iso
+
 REPO = Path(__file__).resolve().parents[2]
 QEMU = Path(os.environ.get("LABEL_QEMU") or
             REPO / "empirical_results/qemu_runtime/qemu-build/qemu-system-x86_64")
@@ -39,9 +41,8 @@ def _stage_delivery(sample: Path, d: Path) -> Path:
     iso_dir.mkdir(exist_ok=True)
     shutil.copyfile(sample, iso_dir / "SAMPLE.EXE")
     delivery = d / "delivery.iso"
-    subprocess.run(["genisoimage", "-quiet", "-J", "-r", "-V", "DELIVERY",
-                    "-o", str(delivery), str(iso_dir)], check=True,
-                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if delivery_iso.build(iso_dir, delivery) != 0:
+        raise RuntimeError(f"delivery ISO build failed for {sample}")
     shutil.rmtree(iso_dir, ignore_errors=True)
     staged = d / "staged.qcow2"
     subprocess.run(["qemu-img", "create", "-f", "qcow2", "-b", str(BOOTED_BASE),
