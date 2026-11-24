@@ -1,0 +1,13 @@
+--- a/accel/tcg/icount-common.c
++++ b/accel/tcg/icount-common.c
+@@ -511,6 +511,10 @@ void icount_notify_exit(void)
+ {
+     assert(icount_enabled());
+ 
++    if (icount_deterministic) {
++        return;
++    }
++
+     if (current_cpu) {
+         qemu_cpu_kick(current_cpu);
+         qemu_clock_notify(QEMU_CLOCK_VIRTUAL);
