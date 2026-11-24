@@ -387,7 +387,8 @@ def main() -> int:
     print(f"[all] {len(work)} conditions ({len(todo)} to do); "
           f"{CONDITIONS} parallel x {os.environ.get('LABEL_JOBS','1')} runs each",
           flush=True)
-    subprocess.run(["pkill", "-u", str(os.getuid()), "-f", "qemu-system-x86_64 -name paper"], check=False)
+    subprocess.run(["pkill", "-u", str(os.getuid()), "-f",
+                    f"qemu-system-x86_64 -name paper.*{REPO / RUNS_ROOT}/"], check=False)
     time.sleep(2)
     runs_root = REPO / RUNS_ROOT
     freed = 0
