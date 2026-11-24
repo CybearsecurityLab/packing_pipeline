@@ -8,7 +8,7 @@ condition_count: 1
 label_status_distribution:
   empirical_exact_trace_consensus: 1
 label_distribution:
-  TYPE_VI-F: 1
+  TYPE_IV: 1
 nas_status_distribution:
   planned: 1
 dynamic_gate_complete_conditions: 0
@@ -38,9 +38,9 @@ conditions:
   original_mapped_distinct_samples: 0
   exact_trace_resolved_runs: 6
   exact_trace_distribution:
-    TYPE_VI-F: 6
+    TYPE_IV: 6
   dynamic_failure_reasons: {}
-  label: TYPE_VI-F
+  label: TYPE_IV
   label_status: empirical_exact_trace_consensus
   confidence: 0.95
   paper_evidence_level: A_exact_layer_frame_trace

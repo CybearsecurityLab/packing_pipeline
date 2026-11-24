@@ -6,9 +6,9 @@ minimum_repetitions_per_sample: 3
 minimum_distinct_samples: 2
 condition_count: 1
 label_status_distribution:
-  null: 1
+  empirical_family_version_inference: 1
 label_distribution:
-  null: 1
+  TYPE_II: 1
 nas_status_distribution:
   planned: 1
 dynamic_gate_complete_conditions: 0
@@ -46,5 +46,13 @@ conditions:
   label_rule: Type inherited from the same packer family's measured versions; ties
     broken by Ugarte SoK Sec V-C (highest complexity observed across packer versions).
     Inference, not a measurement.
-  family_inference_evidence:
-    0.23_alpha: TYPE_II
+  label_carried_forward: true
+  vm_arm:
+    outcome: inconclusive
+    type: null
+    type_rule: null
+    consensus_label: UNRESOLVED
+    evasion_suspected: false
+    evidence:
+    - no_rule_matched
+    done_marker: empirical_results/full_matrix_final1/kkrunchy_v0.23a2_0.23_alpha_2.vmarm.done

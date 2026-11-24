@@ -6,7 +6,7 @@ minimum_repetitions_per_sample: 3
 minimum_distinct_samples: 2
 condition_count: 1
 label_status_distribution:
-  empirical_max_observed_complexity: 1
+  empirical_exact_trace_consensus: 1
 label_distribution:
   TYPE_I: 1
 nas_status_distribution:
@@ -19,7 +19,7 @@ conditions:
 - packer_family: themida
   packer_version: 3.2.4.34
   configuration_id: gui-0eafd032f331
-  test_case_id: null
+  test_case_id: .
   condition_source: yaml_test_case
   nas_status: planned
   available_nas_samples: 2
@@ -36,16 +36,11 @@ conditions:
   validated_target_events: 0
   target_event_totals: {}
   original_mapped_distinct_samples: 0
-  exact_trace_resolved_runs: 4
+  exact_trace_resolved_runs: 6
   exact_trace_distribution:
-    TYPE_I: 4
+    TYPE_I: 6
   dynamic_failure_reasons: {}
   label: TYPE_I
-  label_status: empirical_max_observed_complexity
-  confidence: 0.667
-  paper_evidence_level: null
-  max_observed_evidence:
-    TYPE_I: 4
-    UNRESOLVED_NO_UNPACKING_OBSERVED: 2
-  label_rule: 'Ugarte SoK Sec V-C: highest complexity observed; no-observation reps
-    abstain'
+  label_status: empirical_exact_trace_consensus
+  confidence: 0.95
+  paper_evidence_level: A_exact_layer_frame_trace

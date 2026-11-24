@@ -6,9 +6,9 @@ minimum_repetitions_per_sample: 3
 minimum_distinct_samples: 2
 condition_count: 1
 label_status_distribution:
-  null: 1
+  empirical_mutator_no_unpacking: 1
 label_distribution:
-  null: 1
+  TYPE_0: 1
 nas_status_distribution:
   planned: 1
 dynamic_gate_complete_conditions: 0
@@ -45,3 +45,13 @@ conditions:
   paper_evidence_level: null
   label_rule: TYPE_0 = transformation without runtime unpacking (PE-header/EP mutator);
     no W->X exists by design
+  label_carried_forward: true
+  vm_arm:
+    outcome: evasion_confirmed
+    type: null
+    type_rule: null
+    consensus_label: UNRESOLVED
+    evasion_suspected: false
+    evidence:
+    - post_check_exec_diverges
+    done_marker: empirical_results/full_matrix_final1/astral_pe_1.6.0.0.vmarm.done

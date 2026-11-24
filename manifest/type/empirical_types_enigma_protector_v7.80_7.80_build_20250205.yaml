@@ -6,9 +6,9 @@ minimum_repetitions_per_sample: 3
 minimum_distinct_samples: 2
 condition_count: 1
 label_status_distribution:
-  null: 1
+  empirical_exact_trace_consensus: 1
 label_distribution:
-  null: 1
+  TYPE_II: 1
 nas_status_distribution:
   planned: 1
 dynamic_gate_complete_conditions: 0
@@ -36,18 +36,11 @@ conditions:
   validated_target_events: 0
   target_event_totals: {}
   original_mapped_distinct_samples: 0
-  exact_trace_resolved_runs: 5
+  exact_trace_resolved_runs: 6
   exact_trace_distribution:
-    TYPE_IV: 4
-    TYPE_I: 1
+    TYPE_II: 6
   dynamic_failure_reasons: {}
-  label: TYPE_IV
-  label_status: empirical_max_observed_complexity
-  confidence: 0.667
-  paper_evidence_level: null
-  max_observed_evidence:
-    UNRESOLVED_NO_UNPACKING_OBSERVED: 1
-    TYPE_IV: 4
-    TYPE_I: 1
-  label_rule: 'Ugarte SoK Sec V-C: highest complexity observed; no-observation reps
-    abstain'
+  label: TYPE_II
+  label_status: empirical_exact_trace_consensus
+  confidence: 0.95
+  paper_evidence_level: A_exact_layer_frame_trace

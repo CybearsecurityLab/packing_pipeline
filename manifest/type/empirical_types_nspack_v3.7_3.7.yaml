@@ -1,7 +1,7 @@
 schema_version: 1
 taxonomy: Ugarte et al. Type I-VI
 warning: Only empirical_exact_trace_consensus is an exact paper-faithful measurement;
-  provisional and hypothesis-only labels retain their provenance.
+  conditions without it remain explicitly unresolved.
 minimum_repetitions_per_sample: 3
 minimum_distinct_samples: 2
 condition_count: 1
@@ -39,9 +39,7 @@ conditions:
   exact_trace_resolved_runs: 6
   exact_trace_distribution:
     TYPE_IV: 6
-  dynamic_failure_reasons:
-    missing_metadata: 6
-  taxonomy_hypothesis: null
+  dynamic_failure_reasons: {}
   label: TYPE_IV
   label_status: empirical_exact_trace_consensus
   confidence: 0.95
