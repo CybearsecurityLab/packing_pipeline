@@ -78,6 +78,10 @@ static int query_packer_status(DWORD root_pid, PACKER_STATUS *status) {
     return status->magic == PACKER_STATUS_MAGIC;
 }
 
+#ifdef VMARM
+static void vmarm_status_extra(FILE *handle);
+#endif
+
 static void write_status(const char *path, const char *state, DWORD detail,
                          DWORD child_pid) {
     FILE *handle = fopen(path, "wb");
@@ -86,6 +90,9 @@ static void write_status(const char *path, const char *state, DWORD detail,
     }
     fprintf(handle, "state=%s\r\ndetail=%lu\r\nchild_pid=%lu\r\n",
             state, (unsigned long)detail, (unsigned long)child_pid);
+#ifdef VMARM
+    vmarm_status_extra(handle);
+#endif
     fclose(handle);
 }
 
@@ -176,6 +183,7 @@ static int fetch_from_delivery_disk(const char *dest) {
     return 0;
 }
 
+#ifndef VMARM
 static int wait_for_sample(const char *path, DWORD timeout_seconds,
                            const char *status_path) {
     DWORD waited = 0;
@@ -216,6 +224,11 @@ static int wait_for_sample(const char *path, DWORD timeout_seconds,
     }
     return 0;
 }
+#endif
+
+#ifdef VMARM
+#include "guest_launcher_vmarm.inc"
+#endif
 
 static int run_sample(int argc, char **argv) {
     STARTUPINFOA startup;
@@ -254,12 +267,20 @@ static int run_sample(int argc, char **argv) {
     /* Snapshot-resume: if the sample is not present yet it is arriving on the
      * secondary disk, so wait for it. Absent in cold-boot runs (file already
      * staged), which therefore behave exactly as before. */
+#ifdef VMARM
+    vmarm_prepare(argv[4]);
+    if (!vmarm_wait_for_sample(argv[1], argv[4])) {
+        write_status(argv[4], "sample_never_arrived", timeout_seconds, 0);
+        return 2;
+    }
+#else
     if (GetFileAttributesA(argv[1]) == INVALID_FILE_ATTRIBUTES) {
         if (!wait_for_sample(argv[1], PACKER_DELIVERY_WAIT_SECONDS, argv[4])) {
             write_status(argv[4], "sample_never_arrived", timeout_seconds, 0);
             return 2;
         }
     }
+#endif
 
     write_status(argv[4], "starting", timeout_seconds, 0);
 
@@ -284,6 +305,9 @@ static int run_sample(int argc, char **argv) {
      *
      * The handles go to a file rather than NUL so the output is recoverable as
      * evidence.  Failure is non-fatal: the sample simply runs as it did before. */
+#ifdef VMARM
+    if (!vmarm.user)
+#endif
     stdio_sink = CreateFileA("C:\\Panda\\sample_stdout.txt",
                              FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE,
                              &sink_security, OPEN_ALWAYS,
@@ -315,8 +339,13 @@ static int run_sample(int argc, char **argv) {
         goto cleanup;
     }
 
+#ifdef VMARM
+    if (!vmarm_create_process(argv[1], command_line, inherit_handles, &startup,
+                              &process)) {
+#else
     if (!CreateProcessA(argv[1], command_line, NULL, NULL, inherit_handles,
                         CREATE_SUSPENDED, NULL, NULL, &startup, &process)) {
+#endif
         write_status(argv[4], "create_process_failed", GetLastError(), 0);
         goto cleanup;
     }
@@ -326,6 +355,9 @@ static int run_sample(int argc, char **argv) {
         TerminateProcess(process.hProcess, 1);
         goto process_cleanup;
     }
+#ifdef VMARM
+    vmarm_handoff_job(job, process.dwProcessId);
+#endif
 
     if (!live_mode) {
         record_result = recording_toggle(argv[3]);
@@ -530,6 +562,9 @@ process_cleanup:
         CloseHandle(process.hProcess);
     }
 cleanup:
+#ifdef VMARM
+    vmarm_release_job();
+#endif
     if (job != NULL) {
         CloseHandle(job);
     }
@@ -577,6 +612,11 @@ int main(int argc, char **argv) {
         {NULL, NULL},
     };
 
+#ifdef VMARM
+    if (argc > 1 && strcmp(argv[1], "--activity") == 0) {
+        return vmarm_activity_main(argc, argv);
+    }
+#endif
     if (argc > 1 && strcmp(argv[1], "--service") == 0) {
         /* Keep the configured command-line arguments for ServiceMain. */
         service_argc = argc - 1;
