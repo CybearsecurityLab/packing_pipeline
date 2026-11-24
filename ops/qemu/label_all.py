@@ -6,6 +6,12 @@ payloads do not yield a consensus Type (a sample that evades/crashes/doesn't
 unpack), it retries with DIFFERENT samples before recording an UNRESOLVED reason.
 
 Reads empirical_results/qemu_runtime/worklist.json (built by the enumerator).
+
+LABEL_ARM=vmarm runs the VM arm instead: only conditions whose certified
+`<tag>.done` label is UNRESOLVED, traced with run_trace.py --profile vmarm on the
+certified payload pair, compared with the certified runs (compare_arms.py), and
+recorded as `<tag>.vmarm.done` plus a `vm_arm` block in the condition's manifest
+YAML. The certified `label` is never changed.
 """
 from __future__ import annotations
 
@@ -27,13 +33,21 @@ MAX_SAMPLE_ATTEMPTS = 4
 REPS = 3
 MIN_MEANINGFUL_EXEC = 50_000
 CONDITIONS = max(1, int(os.environ.get("LABEL_CONDITIONS", "1")))
+ARM = os.environ.get("LABEL_ARM", "")
+if ARM not in ("", "vmarm"):
+    raise SystemExit(f"LABEL_ARM must be unset or 'vmarm', not {ARM!r}")
+VMARM = ARM == "vmarm"
 # Where per-condition run artifacts land, relative to the repo.  Each condition's
 # directory is rm -rf'd before its runs, so a non-certified experiment (e.g.
 # LABEL_TRANSPARENT=1, a different backend identity) pointed at the default root
 # DESTROYS the certified traces/metas for that condition.  Override it to keep the
 # arms separate.
 RUNS_ROOT = os.environ.get("LABEL_RUNS_ROOT",
-                           "empirical_results/qemu_runtime/all_runs").strip("/")
+                           "empirical_results/qemu_runtime/vmarm_runs" if VMARM
+                           else "empirical_results/qemu_runtime/all_runs").strip("/")
+CERT_RUNS_ROOT = os.environ.get("LABEL_CERTIFIED_RUNS_ROOT",
+                                "empirical_results/qemu_runtime/all_runs").strip("/")
+VMARM_DIR = REPO / os.environ.get("LABEL_VMARM_DIR", "empirical_results/full_matrix_vmarm")
 DONE_DIR = REPO / os.environ.get("LABEL_DONE_DIR", "empirical_results/full_matrix")
 RELABEL = os.environ.get("LABEL_RELABEL") == "1"
 NO_GIT = os.environ.get("LABEL_NO_GIT") == "1"
@@ -134,20 +148,21 @@ def stage(sample: Path, image: Path) -> bool:
 def run_pair(tag: str, cond: dict, pair) -> tuple[str, dict]:
     """Run n=REPS x 2 payloads for one pair; return (label, per-run types)."""
     images = []
+    arm_tag = f"{tag}_vmarm" if VMARM else tag
     for i, (remote, nm) in enumerate(pair, 1):
-        sample = RT / f"{tag}_s{i}" / "sample.exe"
+        sample = RT / f"{arm_tag}_s{i}" / "sample.exe"
         sha = fetch(remote, sample)
         if os.environ.get("LABEL_INCOMING"):
             images.append([str(sample.relative_to(REPO)), sha, f"{tag}{chr(64+i)}"])
             continue
-        img = RT / f"windows10-qemu-{tag}{i}.qcow2"
+        img = RT / f"windows10-qemu-{arm_tag}{i}.qcow2"
         if not stage(sample, img):
             return "STAGE_FAILED", {}
-        images.append([f"empirical_results/qemu_runtime/windows10-qemu-{tag}{i}.qcow2",
+        images.append([f"empirical_results/qemu_runtime/windows10-qemu-{arm_tag}{i}.qcow2",
                        sha, f"{tag}{chr(64+i)}"])
     runs_dir = f"{RUNS_ROOT}/{tag}"
     cfg = {"condition": cond, "payloads": images, "reps": REPS, "runs_dir": runs_dir}
-    cfg_path = RT / "configs" / f"{tag}.json"
+    cfg_path = RT / "configs" / (f"{tag}.vmarm.json" if VMARM else f"{tag}.json")
     cfg_path.parent.mkdir(parents=True, exist_ok=True)
     cfg_path.write_text(json.dumps(cfg, indent=2))
     sh(["rm", "-rf", str(REPO / runs_dir)])
@@ -197,11 +212,14 @@ def run_pair(tag: str, cond: dict, pair) -> tuple[str, dict]:
             c.setdefault("status", "planned")
             c.setdefault("available_samples", 2)
         plan.write_text(json.dumps(pd, indent=2))
+        yaml_out = (str(VMARM_DIR / f"empirical_types_{tag}.yaml") if VMARM
+                    else f"manifest/type/empirical_types_{tag}.yaml")
+        labels_out = (str(VMARM_DIR / f"{tag}_labels.json") if VMARM
+                      else f"empirical_results/full_matrix/{tag}_labels.json")
         sh(["uv", "run", "packer-types", "finalize", str(plan), str(REPO / runs_dir),
-            "--yaml-output", f"manifest/type/empirical_types_{tag}.yaml",
-            "--output", f"empirical_results/full_matrix/{tag}_labels.json"])
+            "--yaml-output", yaml_out, "--output", labels_out])
         import yaml
-        m = yaml.safe_load((REPO / f"manifest/type/empirical_types_{tag}.yaml").read_text())
+        m = yaml.safe_load((REPO / yaml_out).read_text())
         for c in m.get("conditions", []):
             if c.get("label_status") == "empirical_exact_trace_consensus" and c.get("label"):
                 return c["label"], types
@@ -245,12 +263,9 @@ def already_labeled(tag: str) -> bool:
     return False
 
 
-def label_condition(w: dict) -> None:
+def _condition(w: dict) -> dict:
     tag = w["nas_dir"]
-    if already_labeled(tag):
-        print(f"[skip] {tag} already labeled", flush=True)
-        return
-    cond = {
+    return {
         "packer_family": w.get("family") or w["nas_dir"].split("_v")[0],
         "packer_version": w.get("version") or "?",
         "test_case_id": w["testcase"],
@@ -258,6 +273,148 @@ def label_condition(w: dict) -> None:
         "type_hypothesis": None, "source": "yaml_test_case",
         "status": "planned", "available_samples": 2,
     }
+
+
+def certified_unresolved(tag: str) -> bool:
+    try:
+        done = json.loads((DONE_DIR / f"{tag}.done").read_text())
+    except (OSError, ValueError):
+        return False
+    return done.get("label") == "UNRESOLVED"
+
+
+def vmarm_pending(tag: str) -> bool:
+    if not certified_unresolved(tag):
+        return False
+    return RELABEL or not (DONE_DIR / f"{tag}.vmarm.done").exists()
+
+
+def certified_pair(tag: str, cands: list) -> list:
+    """The candidates whose sha256 matches the certified run's payloads, in order."""
+    try:
+        cfg = json.loads((RT / "configs" / f"{tag}.json").read_text())
+        wanted = [p[1] for p in cfg.get("payloads") or []]
+    except (OSError, ValueError, IndexError, TypeError):
+        wanted = []
+    found: dict[str, tuple] = {}
+    probe = RT / f"{tag}_vmarm_probe" / "sample.exe"
+    for cand in cands:
+        if len(found) == len(set(wanted)):
+            break
+        try:
+            sha = fetch(cand[0], probe)
+        except Exception:
+            continue
+        if sha in wanted and sha not in found:
+            found[sha] = cand
+    shutil.rmtree(probe.parent, ignore_errors=True)
+    pair = [found[sha] for sha in wanted if sha in found]
+    return pair if len(pair) >= 2 else list(cands[:2])
+
+
+def _ops(name: str):
+    if str(REPO / "ops/qemu") not in sys.path:
+        sys.path.insert(0, str(REPO / "ops/qemu"))
+    return __import__(name)
+
+
+def vmarm_result(tag: str, family: str | None, label: str, types: dict) -> dict:
+    compare_arms = _ops("compare_arms")
+    cert_dirs = [d for d in sorted((REPO / CERT_RUNS_ROOT / tag).glob("*/"))
+                 if (d / "classification.json").exists() or (d / "meta.json").exists()]
+    vm_dirs = [d for d in sorted((REPO / RUNS_ROOT / tag).glob("*/"))
+               if (d / "classification.json").exists() or (d / "meta.json").exists()]
+    comparison = compare_arms.compare([compare_arms.rep_from_dir(d) for d in cert_dirs],
+                                      [compare_arms.rep_from_dir(d) for d in vm_dirs],
+                                      family)
+    consensus = label if label.startswith("TYPE_") else None
+    vm_type = consensus or comparison["vm_arm_type"]
+    return {
+        "label": label,
+        "runs": types,
+        "vm_arm_outcome": comparison["vm_arm_outcome"],
+        "vm_arm_type": vm_type,
+        "vm_arm_type_rule": "exact" if consensus else "max-observed" if vm_type else None,
+        "evasion_suspected": comparison["evasion_suspected"],
+        "evidence": comparison["evidence"],
+        "arm_comparison": {k: v for k, v in comparison.items()
+                           if k not in ("vm_arm_outcome", "vm_arm_type",
+                                        "evasion_suspected", "evidence")},
+    }
+
+
+def annotate_manifest(tag: str, result: dict) -> Path | None:
+    import yaml
+    path = REPO / f"manifest/type/empirical_types_{tag}.yaml"
+    if not path.exists():
+        return None
+    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    block = {
+        "outcome": result["vm_arm_outcome"],
+        "type": result["vm_arm_type"],
+        "type_rule": result["vm_arm_type_rule"],
+        "consensus_label": result["label"],
+        "evasion_suspected": result["evasion_suspected"],
+        "evidence": sorted({str(e.get("signal")) for e in result["evidence"]
+                            if e.get("signal")}),
+        "done_marker": os.path.relpath(DONE_DIR / f"{tag}.vmarm.done", REPO),
+    }
+    for cond in data.get("conditions") or []:
+        cond["vm_arm"] = block
+    path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+    return path
+
+
+def label_condition_vmarm(w: dict) -> None:
+    tag = w["nas_dir"]
+    if not vmarm_pending(tag):
+        print(f"[skip] {tag} not pending for the VM arm", flush=True)
+        return
+    cands = candidate_samples(w, limit=2 * MAX_SAMPLE_ATTEMPTS)
+    if len(cands) < 2:
+        print(f"[vmarm] {tag}: fewer than 2 candidates", flush=True)
+        return
+    pair = certified_pair(tag, cands)
+    print(f"[vmarm] {tag}: {[p[1] for p in pair]}", flush=True)
+    label, types = run_pair(tag, _condition(w), pair)
+    if label == "STAGE_FAILED":
+        print(f"[VMARM] {tag} -> STAGE_FAILED (not recorded)", flush=True)
+        return
+    if label.startswith("BAD_PAYLOAD"):
+        label = "UNRESOLVED"
+    result = vmarm_result(tag, w.get("family"), label, types)
+    DONE_DIR.mkdir(parents=True, exist_ok=True)
+    (DONE_DIR / f"{tag}.vmarm.done").write_text(json.dumps(result), encoding="utf-8")
+    manifest = annotate_manifest(tag, result)
+    with GIT_LOCK:
+        sh(["python3", "ops/qemu/build_label_document.py"])
+    if not NO_GIT and manifest is not None:
+        with GIT_LOCK:
+            sh(["git", "add", "-f", str(manifest.relative_to(REPO)),
+                "docs/EMPIRICAL_TYPE_LABELS.md"])
+            sh(["git", "commit", "-q", "-m",
+                f"VM arm: {tag} -> {result['vm_arm_outcome']} "
+                f"({result['vm_arm_type'] or 'no Type'})"])
+            sh(["git", "push", "origin", "feature/empirical-type-backend"],
+               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    rd = REPO / f"{RUNS_ROOT}/{tag}"
+    traces = sorted(rd.glob("*/trace.jsonl"))
+    keep = {traces[0]} if traces and not result["vm_arm_type"] else set()
+    for junk in traces + list(rd.glob("*/work.qcow2")):
+        if junk not in keep:
+            junk.unlink(missing_ok=True)
+    for img in RT.glob(f"windows10-qemu-{tag}_vmarm[12].qcow2"):
+        img.unlink(missing_ok=True)
+    print(f"[VMARM] {tag} -> {result['vm_arm_outcome']} type={result['vm_arm_type']}",
+          flush=True)
+
+
+def label_condition(w: dict) -> None:
+    tag = w["nas_dir"]
+    if already_labeled(tag):
+        print(f"[skip] {tag} already labeled", flush=True)
+        return
+    cond = _condition(w)
     cands = candidate_samples(w, limit=2 * MAX_SAMPLE_ATTEMPTS)
     print(f"[cond] {tag}: {len(cands)} candidate samples", flush=True)
     label, all_types = "UNRESOLVED", {}
@@ -373,7 +530,7 @@ def _process(idx_total_w) -> None:
     i, total, w = idx_total_w
     print(f"===== [{i}/{total}] {w['nas_dir']} =====", flush=True)
     try:
-        label_condition(w)
+        (label_condition_vmarm if VMARM else label_condition)(w)
     except Exception as e:
         print(f"[error] {w['nas_dir']}: {e}", flush=True)
 
@@ -382,8 +539,18 @@ def main() -> int:
     work = json.loads(Path(os.environ.get("LABEL_WORKLIST") or RT / "worklist.json").read_text())
     work.sort(key=lambda w: (_tier(w), w["nas_dir"]))
     only = {x for x in os.environ.get("LABEL_ONLY", "").split(",") if x}
-    todo = [w for w in work if not already_labeled(w["nas_dir"])
-            and (not only or w["nas_dir"] in only)]
+    if VMARM:
+        if not (os.environ.get("LABEL_INCOMING") or os.environ.get("STAGE_BASE")):
+            raise SystemExit("LABEL_ARM=vmarm needs the VM arm's guest: set LABEL_INCOMING/"
+                             "LABEL_BOOTED_BASE (snapshot) or STAGE_BASE (hardened image)")
+        os.environ.setdefault("LABEL_SUDO_PW", SUDO_PW)
+        os.environ.setdefault("STAGE_LAUNCHER",
+                              str(REPO / "ops/panda/build/guest_launcher_vmarm.exe"))
+        todo = [w for w in work if vmarm_pending(w["nas_dir"])
+                and (not only or w["nas_dir"] in only)]
+    else:
+        todo = [w for w in work if not already_labeled(w["nas_dir"])
+                and (not only or w["nas_dir"] in only)]
     print(f"[all] {len(work)} conditions ({len(todo)} to do); "
           f"{CONDITIONS} parallel x {os.environ.get('LABEL_JOBS','1')} runs each",
           flush=True)

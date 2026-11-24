@@ -5,6 +5,7 @@ certified QEMU tracer + classifier, writing finalize-compatible run directories
 an exact-consensus empirical label.  icount makes each run reliable (no retries)."""
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import json
 import os
@@ -24,6 +25,13 @@ PLUGIN = Path(os.environ.get("LABEL_PLUGIN") or REPO / "ops/qemu/paper_trace.so"
 TRACE_ARGS = shlex.split(os.environ.get("LABEL_TRACE_ARGS", ""))
 INCOMING = os.environ.get("LABEL_INCOMING")
 BOOTED_BASE = os.environ.get("LABEL_BOOTED_BASE")
+ARM = os.environ.get("LABEL_ARM", "")
+if ARM not in ("", "vmarm"):
+    raise SystemExit(f"LABEL_ARM must be unset or 'vmarm', not {ARM!r}")
+VMARM = ARM == "vmarm"
+VMARM_WINDOWS = os.environ.get("LABEL_VMARM_WINDOWS", "1") == "1"
+EXTRACT_NBD = os.environ.get("LABEL_EXTRACT_NBD", "/dev/nbd13")
+SUDO_PW = os.environ.get("LABEL_SUDO_PW", "")
 
 
 def _stage_delivery(sample: Path, d: Path) -> Path:
@@ -108,6 +116,12 @@ VALIDATION_STAMP = (os.environ.get("LABEL_VALIDATION_STAMP")
                     or _cfg.get("validation_stamp")
                     or (REPO / "ops/qemu/profiles" / f"{PROFILE}.validation.json"
                         if PROFILE != "default" else ""))
+if VMARM and (TRANSPARENT or CPU_MODEL):
+    raise SystemExit("LABEL_ARM=vmarm fixes its own CPU; unset LABEL_TRANSPARENT/LABEL_CPU_MODEL")
+if VMARM and PROFILE != "default" and not (os.environ.get("LABEL_VALIDATION_STAMP")
+                                           or _cfg.get("validation_stamp")):
+    raise SystemExit("LABEL_ARM=vmarm with a non-default LABEL_PROFILE needs an explicit "
+                     "LABEL_VALIDATION_STAMP certifying that combination")
 
 ICOUNT_SHIFT = str(_cfg.get("icount_shift")
                    if _cfg.get("icount_shift") is not None
@@ -128,6 +142,34 @@ PLUGIN_ARGS = [a for a in (os.environ.get("LABEL_PLUGIN_ARGS", "").split(","))
                if a.strip()]
 CLASSIFY_SEM = threading.Semaphore(
     max(1, int(os.environ.get("LABEL_CLASSIFY_JOBS", "4"))))
+
+
+def _extract_windows(work: Path, dest: Path) -> None:
+    lock = Path("/tmp") / f"corpus_extract_{Path(EXTRACT_NBD).name}.lock"
+    with lock.open("a") as handle:
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        try:
+            subprocess.run(["sudo", "-S", "env", f"STAGE_NBD={EXTRACT_NBD}",
+                            "ops/qemu/extract_guest_file.sh", str(work),
+                            "Panda/windows.txt", str(dest)],
+                           cwd=str(REPO), input=SUDO_PW + "\n", text=True,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                           timeout=600)
+        except subprocess.TimeoutExpired:
+            pass
+
+
+def vmarm_evasion(d: Path) -> None:
+    windows = d / "windows.txt"
+    if VMARM_WINDOWS and (d / "work.qcow2").exists():
+        _extract_windows(d / "work.qcow2", windows)
+    if not (d / "trace.jsonl").exists():
+        return
+    subprocess.run(["uv", "run", "python", str(REPO / "ops/qemu/evasion_analysis.py"),
+                    str(d / "trace.jsonl"), "--meta", str(d / "meta.json"),
+                    *(["--windows", str(windows)] if windows.exists() else []),
+                    "--output", str(d / "evasion.json")],
+                   cwd=str(REPO), check=False)
 
 
 def run_one(image: Path, sha: str, name: str, rep: int) -> str:
@@ -167,6 +209,8 @@ def run_one(image: Path, sha: str, name: str, rep: int) -> str:
         command.append("--transparent")
     if CPU_MODEL:
         command += ["--cpu-model", CPU_MODEL]
+    if VMARM:
+        command += ["--profile", ARM]
     command += delivery_args + TRACE_ARGS
     proc = subprocess.Popen(
         command,
@@ -182,6 +226,8 @@ def run_one(image: Path, sha: str, name: str, rep: int) -> str:
         if ACCEPT_BOUNDED:
             classify_command.append("--accept-bounded")
         subprocess.run(classify_command, cwd=str(REPO), check=False)
+    if VMARM:
+        vmarm_evasion(d)
     if DELETE_TRACE:
         for artifact in (d / "trace.jsonl", d / "work.qcow2"):
             try:

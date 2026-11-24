@@ -32,8 +32,55 @@ def corpus_keys() -> set[tuple[str, str]]:
     return {(str(w.get("family")).lower(), str(w.get("version"))) for w in work}
 
 
+def vm_arm_row(cond: dict, corpus: set[tuple[str, str]]) -> dict | None:
+    vm = cond.get("vm_arm")
+    if not isinstance(vm, dict):
+        return None
+    if (str(cond.get("packer_family")).lower(), str(cond.get("packer_version"))) not in corpus:
+        return None
+    if cond.get("label") and cond.get("label_status") == "empirical_exact_trace_consensus":
+        return None
+    return {
+        "family": cond.get("packer_family"),
+        "version": cond.get("packer_version"),
+        "test_case": cond.get("test_case_id"),
+        "certified": cond.get("label") or "UNRESOLVED",
+        "outcome": vm.get("outcome") or "-",
+        "type": vm.get("type") or "-",
+        "rule": vm.get("type_rule") or "-",
+        "suspected": "yes" if vm.get("evasion_suspected") else "no",
+        "evidence": ", ".join(vm.get("evidence") or []) or "-",
+    }
+
+
+def vm_arm_section(vm_rows: dict) -> list[str]:
+    if not vm_rows:
+        return []
+    ordered = sorted(vm_rows.values(), key=lambda r: (str(r["family"]).lower(),
+                                                      str(r["version"]), str(r["test_case"])))
+    lines = [
+        "## VM arm (certified-unresolved conditions)",
+        "",
+        "Conditions the certified lane left without an exact Type, re-traced under the",
+        "anti-VM-hardened `vmarm` profile (own backend identity, snapshot and stamp).",
+        "These results are reported separately and never replace the certified label.",
+        "",
+        "| Packer family | Version | Test case | Certified | VM-arm outcome | VM-arm Type "
+        "| VM-arm rule | Evasion suspected | Evidence |",
+        "|---|---|---|---|---|---|---|---|---|",
+    ]
+    for r in ordered:
+        lines.append(
+            f"| {r['family']} | {r['version']} | {r['test_case']} | {r['certified']} | "
+            f"{r['outcome']} | {r['type']} | {r['rule']} | {r['suspected']} | "
+            f"{r['evidence']} |")
+    lines.append("")
+    return lines
+
+
 def main() -> int:
     rows: dict[tuple[str, str], dict] = {}
+    vm_rows: dict[tuple[str, str], dict] = {}
     corpus = corpus_keys()
     manifests = sorted(glob.glob(str(REPO / "manifest/type" / "empirical_types_*.yaml")))
     for path in manifests:
@@ -41,6 +88,10 @@ def main() -> int:
         for cond in data.get("conditions", []):
             status = cond.get("label_status")
             label = cond.get("label")
+            vm_row = vm_arm_row(cond, corpus)
+            if vm_row is not None:
+                vm_rows[(str(cond.get("packer_family")).lower(),
+                         str(cond.get("packer_version")))] = vm_row
             if not label or status in {"provisional_stack_cross_check",
                                        "pending_dynamic_evidence"}:
                 continue
@@ -89,6 +140,7 @@ def main() -> int:
     if not ordered:
         lines.append("| _(none yet — run a condition and finalize)_ | | | | | | |")
     lines.append("")
+    lines += vm_arm_section(vm_rows)
     OUT.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"wrote {OUT} with {len(ordered)} empirical labels")
     return 0

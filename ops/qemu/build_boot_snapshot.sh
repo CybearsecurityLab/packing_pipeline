@@ -15,13 +15,25 @@
 # captured fully booted with the service running and Windows warm.
 #
 # Usage: MALWARE_SUDO_PW=... bash ops/qemu/build_boot_snapshot.sh
+#
+# SNAP_PROFILE=vmarm builds the VM arm's snapshot instead: the machine/CPU/SMBIOS/
+# IDE/RTC arguments come from `ops/qemu/vm_profiles.py qemu-args vmarm`, the same
+# source run_trace.py --profile vmarm uses, and the defaults switch to
+# base.vmarm.qcow2 -> booted.vmarm.{qcow2,migstate} with guest_launcher_vmarm.exe.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
 RUNTIME=${MALWARE_RUNTIME:-/data/malware_runtime}
-BASE=${SNAP_BASE:-$RUNTIME/base.qcow2}
-SNAP=${SNAP_OUT:-$RUNTIME/booted.qcow2}
-MIGSTATE=${SNAP_MIGSTATE:-$RUNTIME/booted.migstate}
+PROFILE=${SNAP_PROFILE:-certified}
+case "$PROFILE" in
+    certified) SUFFIX="" ;;
+    vmarm) SUFFIX=".vmarm"
+           STAGE_LAUNCHER=${STAGE_LAUNCHER:-$PWD/ops/panda/build/guest_launcher_vmarm.exe} ;;
+    *) echo "unknown SNAP_PROFILE: $PROFILE" >&2; exit 2 ;;
+esac
+BASE=${SNAP_BASE:-$RUNTIME/base$SUFFIX.qcow2}
+SNAP=${SNAP_OUT:-$RUNTIME/booted$SUFFIX.qcow2}
+MIGSTATE=${SNAP_MIGSTATE:-$RUNTIME/booted$SUFFIX.migstate}
 ICOUNT_SLEEP=${SNAP_ICOUNT_SLEEP:-on}
 GUEST_SMP=${SNAP_GUEST_SMP:-2}
 QEMU="$RUNTIME/qemu-system-x86_64"
@@ -75,7 +87,8 @@ fi
 
 MON=/tmp/snapbuild.sock
 rm -f "$MON"
-echo "[snap] booting for ${BOOT_SECONDS}s (single guest, no contention)"
+echo "[snap] booting for ${BOOT_SECONDS}s (single guest, no contention, profile=$PROFILE)"
+if [ "$PROFILE" = certified ]; then
 "$QEMU" -name snapbuild -machine pc-i440fx-5.2 -accel tcg,thread=single \
   -cpu qemu64 -m 4G -smp "$GUEST_SMP" -icount shift=2,sleep="$ICOUNT_SLEEP" -rtc base=localtime,clock=vm \
   -display none -monitor "unix:$MON,server=on,wait=off" -serial none -parallel none \
@@ -83,6 +96,18 @@ echo "[snap] booting for ${BOOT_SECONDS}s (single guest, no contention)"
   -drive "file=$SNAP,format=qcow2,if=ide,cache=writeback" \
   -drive "file=$EMPTY_ISO,format=raw,if=ide,index=2,media=cdrom" &
 QPID=$!
+else
+mapfile -t MACHINE_ARGS < <(python3 ops/qemu/vm_profiles.py qemu-args "$PROFILE" \
+    --disk "$SNAP" --cdrom "$EMPTY_ISO")
+[ "${#MACHINE_ARGS[@]}" -gt 0 ] || { echo "[snap] vm_profiles.py printed no args" >&2; exit 1; }
+printf '[snap] machine args:'; printf ' %q' "${MACHINE_ARGS[@]}"; echo
+"$QEMU" -name snapbuild -accel tcg,thread=single \
+  -m 4G -smp "$GUEST_SMP" -icount shift=2,sleep="$ICOUNT_SLEEP" \
+  -display none -monitor "unix:$MON,server=on,wait=off" -serial none -parallel none \
+  -net none -no-reboot \
+  "${MACHINE_ARGS[@]}" &
+QPID=$!
+fi
 
 # Poll for the monitor socket and snapshot as soon as the guest is BOOTED AND STILL
 # ALIVE. A fixed sleep is wrong in both directions: too short and Windows has not
