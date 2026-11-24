@@ -247,7 +247,7 @@ static void vmarm_start_helper(void) {
                helper, vmarm.windows_file, vmarm.job_file, vmarm.activity_file);
     command[VMARM_PATH * 4 - 1] = L'\0';
     ZeroMemory(&process, sizeof(process));
-    if (vmarm_spawn(vmarm.token, helper, command, vmarm.profile, 0, &process)) {
+    if (vmarm_spawn(vmarm.token, helper, command, vmarm.profile, CREATE_NO_WINDOW, &process)) {
         vmarm.helper_process = process.hProcess;
         vmarm.helper_pid = process.dwProcessId;
         CloseHandle(process.hThread);

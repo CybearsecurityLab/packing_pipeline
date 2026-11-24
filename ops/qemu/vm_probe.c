@@ -2,6 +2,7 @@
 #include <intrin.h>
 #include <stdio.h>
 #include <string.h>
+#include <io.h>
 
 static FILE *out;
 
@@ -13,6 +14,7 @@ static void line(const char *key, const char *fmt, ...) {
     va_end(ap);
     fputc('\n', out);
     fflush(out);
+    FlushFileBuffers((HANDLE)_get_osfhandle(_fileno(out)));
 }
 
 static void cpuid_checks(void) {
@@ -189,7 +191,16 @@ static void backdoor_check(void) {
     RemoveVectoredExceptionHandler(h);
 }
 
+static LONG WINAPI crash_filter(PEXCEPTION_POINTERS info) {
+    line("crash", "code=0x%08lx address=%p", info->ExceptionRecord->ExceptionCode,
+         info->ExceptionRecord->ExceptionAddress);
+    ExitProcess(3);
+    return EXCEPTION_EXECUTE_HANDLER;
+}
+
 int main(void) {
+    SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX | SEM_NOOPENFILEERRORBOX);
+    SetUnhandledExceptionFilter(crash_filter);
     char path[MAX_PATH];
     GetModuleFileNameA(NULL, path, sizeof(path));
     char *slash = strrchr(path, '\\');
@@ -200,11 +211,17 @@ int main(void) {
     if (!out) {
         return 2;
     }
+    line("stage", "cpuid");
     cpuid_checks();
+    line("stage", "timing");
     timing_checks();
+    line("stage", "firmware");
     smbios_checks();
+    line("stage", "registry");
     registry_checks();
+    line("stage", "environment");
     environment_checks();
+    line("stage", "backdoor");
     backdoor_check();
     line("done", "1");
     fclose(out);
