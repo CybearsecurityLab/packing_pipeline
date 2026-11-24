@@ -9,7 +9,11 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import time
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import vm_profiles  # noqa: E402
 
 
 def final_summary(trace: Path) -> dict | None:
@@ -254,6 +258,14 @@ def wait_or_host_idle(
                 process.kill()
                 return process.wait(), False, False, False, True
 
+
+
+def identity_mismatches(current: dict, stamped: dict, profile: str) -> list[str]:
+    mismatches = [key for key, value in current.items()
+                  if stamped.get(key, _UNSET) != value]
+    if stamped.get("profile", vm_profiles.CERTIFIED) != profile and "profile" not in mismatches:
+        mismatches.append("profile")
+    return mismatches
 
 
 def _monitor_command(monitor: Path, commands: list[str], runas: str | None,
@@ -553,6 +565,12 @@ def main() -> int:
         "The plugin rejects unknown options, so a typo fails loudly.",
     )
     parser.add_argument("--validation-stamp", type=Path)
+    parser.add_argument(
+        "--profile", choices=vm_profiles.PROFILES, default=vm_profiles.CERTIFIED,
+        help="analysis profile (ops/qemu/vm_profiles.py). certified (default) is the "
+        "certified lane's exact command line; vmarm is the anti-VM-hardened arm with "
+        "its own machine identity, boot snapshot and validation stamp.",
+    )
     parser.add_argument("--guest-smp", default=GUEST_SMP)
     parser.add_argument(
         "--sandbox",
@@ -576,6 +594,10 @@ def main() -> int:
         "no network. Off by default; does not touch the certified qemu binary.",
     )
     args = parser.parse_args()
+    if args.profile != vm_profiles.CERTIFIED and (args.transparent
+                                                  or args.cpu_model != "qemu64"):
+        parser.error("--transparent/--cpu-model are certified-profile knobs; the "
+                     f"{args.profile} profile fixes its own CPU")
     if args.deterministic:
         args.icount_sleep = "off"
 
@@ -584,9 +606,8 @@ def main() -> int:
         repo / "empirical_results/qemu_runtime/qemu-build/qemu-system-x86_64"
     )
     plugin = args.plugin or repo / "ops/qemu/paper_trace.so"
-    validation_stamp = args.validation_stamp or (
-        repo / "ops/qemu/backend_validation.json"
-    )
+    validation_stamp = args.validation_stamp or vm_profiles.default_stamp(
+        args.profile, repo)
     ntdll = repo / "empirical_results/qemu_runtime/ntdll.dll"
     qemu_img = Path("/usr/bin/qemu-img")
     meta = args.meta or args.trace.with_suffix(".meta.json")
@@ -660,7 +681,7 @@ def main() -> int:
         "paper-trace",
         *hardening,
         "-machine",
-        "pc-i440fx-5.2",
+        vm_profiles.machine_arg(args.profile),
         "-accel",
         "tcg,thread=single",
         "-cpu",
@@ -668,7 +689,7 @@ def main() -> int:
         # hypervisor-present bit (leaf 1 ECX[31]) and the 0x40000000 vendor leaf, and
         # replaces the "QEMU Virtual CPU" brand string that anti-VM packers detect.
         # Default keeps the certified qemu64 so labeled results are unaffected.
-        (args.cpu_model + ",-hypervisor" if args.transparent else args.cpu_model),
+        vm_profiles.cpu_arg(args.profile, args.cpu_model, args.transparent),
         "-m",
         args.guest_memory,
         "-smp",
@@ -684,8 +705,9 @@ def main() -> int:
             if args.icount_shift >= 0
             else []
         ),
+        *vm_profiles.smbios_args(args.profile),
         "-rtc",
-        "base=localtime,clock=vm" if args.icount_shift >= 0 else "base=localtime",
+        vm_profiles.rtc_arg(args.profile, args.icount_shift >= 0),
         "-display",
         "none",
         "-monitor",
@@ -697,20 +719,21 @@ def main() -> int:
         "-net",
         "none",
         "-no-reboot",
-        "-drive",
-        (f"driver=blkdet,image.driver=qcow2,image.file.filename={args.work},"
-         "if=ide,cache=writeback"
-         if args.deterministic
-         else f"file={args.work},format=qcow2,if=ide,cache=writeback"),
+        *vm_profiles.disk_args(args.profile, args.work, args.deterministic),
         "-plugin",
         ",".join([f"{plugin.resolve()},out={args.trace.resolve()}",
                   *([f"insn_budget={args.insn_budget}"]
                     if args.insn_budget > 0 else []),
                   *([f"guest_insn_budget={args.guest_insn_budget}"]
                     if args.guest_insn_budget > 0 else []),
+                  *vm_profiles.plugin_args(args.profile),
                   *args.plugin_args]),
     ]
-    if args.delivery_disk:
+    if args.profile != vm_profiles.CERTIFIED:
+        command += vm_profiles.cdrom_args(
+            args.profile,
+            args.delivery_disk.resolve() if args.delivery_disk else None)
+    elif args.delivery_disk:
         # Second IDE drive; the guest picks it up as the next available volume.
         # snapshot=on sends this device's writes to a throwaway temp overlay, so it
         # is writable from QEMU's point of view (loadvm needs that -- a plain
@@ -728,9 +751,7 @@ def main() -> int:
         # invisible to Windows (measured: 0 read ops vs 7416 on the boot disk). A
         # media change on the already-enumerated CD drive IS honoured across resume
         # (measured: 23 read ops). readonly is implied by media=cdrom.
-        command += ["-drive",
-                    f"file={args.delivery_disk.resolve()},format=raw,if=ide,"
-                    "index=2,media=cdrom"]
+        command += vm_profiles.cdrom_args(args.profile, args.delivery_disk.resolve())
     if args.incoming:
         # RAM state comes from an EXTERNAL migration file, not a qcow2 internal
         # snapshot. Internal snapshots live only in the file that holds them and are
@@ -889,10 +910,11 @@ def main() -> int:
         "ntdll_sha256": sha256(ntdll),
         "icount_shift": args.icount_shift,
         "icount_sleep": args.icount_sleep if args.icount_shift >= 0 else None,
-        "cpu_model": (args.cpu_model + ",-hypervisor"
-                      if args.transparent else args.cpu_model),
+        "cpu_model": vm_profiles.cpu_arg(args.profile, args.cpu_model,
+                                         args.transparent),
         "guest_smp": str(args.guest_smp),
         "deterministic": bool(args.deterministic),
+        **vm_profiles.identity_fields(args.profile),
     }
     stamped_identity = (
         backend_validation.get("backend_identity", {})
@@ -902,14 +924,11 @@ def main() -> int:
     # A stamp written before tracing parameters were pinned carries none of them.
     # Treat a missing key as "not attested" rather than as a match, so an old stamp
     # cannot silently vouch for a configuration it never saw.
-    identity_mismatches = [
-        key for key, value in current_identity.items()
-        if stamped_identity.get(key, _UNSET) != value
-    ]
+    mismatches = identity_mismatches(current_identity, stamped_identity, args.profile)
     backend_validation_complete = bool(
         backend_validation
         and backend_validation.get("validated") is True
-        and not identity_mismatches
+        and not mismatches
     )
     stop_detail = int(summary.get("stop_detail", 0)) if summary else 0
     saw_stop = bool(summary and summary.get("saw_stop"))
@@ -935,6 +954,7 @@ def main() -> int:
     )
     metadata = {
         "schema_version": 1,
+        "profile": args.profile,
         "backend": "upstream_qemu_tcg_plugin",
         "qemu_revision": "eca2c16212ef9dcb0871de39bb9d1c2efebe76be",
         "kernel_profile_guid_age": (
@@ -1017,7 +1037,7 @@ def main() -> int:
             str(validation_stamp.resolve()) if validation_stamp.exists() else None
         ),
         "backend_identity": current_identity,
-        "backend_identity_mismatches": identity_mismatches,
+        "backend_identity_mismatches": mismatches,
         "paper_label_eligible": (
             backend_validation_complete
             and completion_observed

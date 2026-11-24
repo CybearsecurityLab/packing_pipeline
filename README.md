@@ -237,6 +237,37 @@ rep, or a packer condition with any non-Type run. Re-queued verdicts are moved t
 records `guest_image`, a hash of the snapshot it ran on. EXEs whose section table is
 larger than the file are skipped as `not_process_launchable:truncated_image`.
 
+### VM arm
+
+Samples and conditions the certified lane leaves without a Type are re-traced under
+an anti-VM-hardened profile, `run_trace.py --profile vmarm`. It keeps qemu64's AMD
+feature set and adds `hypervisor=off,tcg-cpuid=off`, a matching AMD brand string,
+OEM-like SMBIOS types 0/1/2/3/4/17, ACPI OEM ids in place of BOCHS/BXPC, realistic
+IDE disk and CD identify strings, a fixed RTC date, and the plugin's `evasion=on`
+detector. The constants live in `ops/qemu/vm_profiles.py`, which both `run_trace.py`
+and the snapshot builder read. The arm has its own backend identity (`profile` and
+`machine_config_sha256`), stamp (`ops/qemu/backend_validation.vmarm.json`), guest
+image and snapshot. A run never validates against the other arm's stamp. The default
+`certified` profile produces exactly the certified command line.
+
+| Step | Command |
+|---|---|
+| Snapshot | `SNAP_PROFILE=vmarm MALWARE_SUDO_PW=... bash ops/qemu/build_boot_snapshot.sh` (base.vmarm.qcow2 → booted.vmarm.{qcow2,migstate}, `guest_launcher_vmarm.exe`) |
+| Malware / EMBER | `MALWARE_ARM=vmarm ... label_malware_types.py run --from-untyped empirical_results/malware/verdicts` → `verdicts_vmarm/` |
+| Packer conditions | `LABEL_ARM=vmarm LABEL_INCOMING=... LABEL_BOOTED_BASE=... label_all.py` (only `<tag>.done` = UNRESOLVED) → `<tag>.vmarm.done` |
+| One trace | `evasion_analysis.py trace.jsonl --meta meta.json [--windows windows.txt]`, then `compare_arms.py --certified DIRS --vmarm DIRS` |
+
+`evasion_analysis.py` streams the trace and flags `evasion_suspected` with tiered
+evidence. A high-tier check (hypervisor CPUID leaf, firmware-table query, VM registry
+key, descriptor-table probe, VMware port, hypercall, VM-detection window title) flags
+on its own. Medium- and low-tier checks flag only together with an outcome anomaly:
+the sample exits, crashes or idles shortly after its last check. `compare_arms.py`
+assigns `vm_arm_outcome`: `evasion_confirmed`, `virtualization_suspected`,
+`genuine_no_unpacking` or `inconclusive`. VM-arm results are written to separate
+fields: `vm_arm_outcome`, `vm_arm_type`, `evasion_suspected` and `evidence` in
+malware verdicts, and a `vm_arm` block in packer manifests. They never overwrite the
+certified label. `docs/EMPIRICAL_TYPE_LABELS.md` lists them in a separate VM-arm table.
+
 ---
 
 # 🔒 SHA Quality Gate
