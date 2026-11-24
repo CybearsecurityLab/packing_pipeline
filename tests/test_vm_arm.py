@@ -424,6 +424,13 @@ class CompareArmsTests(unittest.TestCase):
         self.assertEqual(r["evidence"][0]["certified_exec_after_check"], 2_000)
         self.assertTrue(r["evidence"][0]["certified_estimated_from_vm_prefix"])
 
+    def test_exec_divergence_when_both_arms_hit_the_budget_is_not_evasion(self):
+        both = dict(termination="instruction_budget")
+        r = compare_arms.compare(
+            [rep(exec_events=12_000, **both)],
+            [rep(exec_events=900_000, evasion=ev(red=1, before=10_000, after=890_000), **both)])
+        self.assertEqual(r["vm_arm_outcome"], "inconclusive")
+
     def test_divergence_without_checks_is_not_attributed(self):
         r = compare_arms.compare([rep(termination="all_monitored_processes_exited")],
                                  [rep(termination="guest_instruction_budget")])

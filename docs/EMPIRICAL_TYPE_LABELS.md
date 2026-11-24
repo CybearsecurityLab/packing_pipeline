@@ -129,8 +129,8 @@ These results are reported separately and never replace the certified label.
 
 | Packer family | Version | Test case | Certified | VM-arm outcome | VM-arm Type | VM-arm rule | Evasion suspected | Evidence |
 |---|---|---|---|---|---|---|---|---|
-| astral_pe | 1.6.0.0 | ASTRAL_001_DEFAULT_MUTATION | TYPE_0 | evasion_confirmed | - | - | no | post_check_exec_diverges |
-| hxor_packer | 0.1 | HXOR_001_DEFAULT | UNRESOLVED | evasion_confirmed | - | - | no | post_check_exec_diverges |
+| astral_pe | 1.6.0.0 | ASTRAL_001_DEFAULT_MUTATION | TYPE_0 | inconclusive | - | - | no | no_rule_matched |
+| hxor_packer | 0.1 | HXOR_001_DEFAULT | UNRESOLVED | inconclusive | - | - | no | no_rule_matched |
 | hyperion | 1.2 | HYPERION_V12_001_DEFAULT | UNRESOLVED | inconclusive | - | - | no | no_rule_matched |
 | hyperion | 2.3.1 | HYPERION_001_DEFAULT | UNRESOLVED | inconclusive | - | - | no | no_rule_matched |
 | kkrunchy | 0.23_alpha_2 | KKRUNCHY_V023A2_001_DEFAULT | TYPE_II | inconclusive | - | - | no | no_rule_matched |

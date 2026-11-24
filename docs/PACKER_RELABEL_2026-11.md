@@ -25,10 +25,15 @@ Conditions: 118. Labels: TYPE_0 1, TYPE_I 79, TYPE_II 10, TYPE_III 4, TYPE_IV 14
 | yoda_protector_v1.03.3_1.03.3 | TYPE_IV | TYPE_VI-F | empirical_exact_trace_consensus |
 | zprotect_1.4.2.0 | TYPE_VI-F | TYPE_IV | empirical_exact_trace_consensus |
 
-## VM arm for unresolved conditions (3)
+## VM arm for unresolved conditions (6)
 
-| Condition | VM-arm outcome | VM-arm Type | Evasion suspected |
-|---|---|---|---|
-| astral_pe_1.6.0.0 | — | — | False |
-| kkrunchy_v0.23a2_0.23_alpha_2 | — | — | False |
-| molebox_4.6000 | — | — | False |
+| Condition | VM-arm outcome | VM-arm Type | Evasion suspected | Evidence |
+|---|---|---|---|---|
+| astral_pe_1.6.0.0 | inconclusive | — | False | no_rule_matched |
+| hxor_packer_0.1 | inconclusive | — | False | no_rule_matched |
+| hyperion_v1.2_1.2 | inconclusive | — | False | no_rule_matched |
+| hyperion_v2.3.1_2.3.1 | inconclusive | — | False | no_rule_matched |
+| kkrunchy_v0.23a2_0.23_alpha_2 | inconclusive | — | False | no_rule_matched |
+| molebox_4.6000 | inconclusive | — | False | no_rule_matched |
+
+All six stopped on the 100M sample-instruction budget in both arms with no VM check detected; they are budget-bound, not evasive, and are being re-traced at 1B (then 2B) sample instructions.

@@ -44,11 +44,11 @@ conditions:
   confidence: 0.0
   paper_evidence_level: null
   vm_arm:
-    outcome: evasion_confirmed
+    outcome: inconclusive
     type: null
     type_rule: null
     consensus_label: UNRESOLVED
     evasion_suspected: false
     evidence:
-    - post_check_exec_diverges
+    - no_rule_matched
     done_marker: empirical_results/full_matrix_final1/hxor_packer_0.1.vmarm.done

@@ -192,7 +192,7 @@ def compare(certified: list[dict], vmarm: list[dict], protector: str | None = No
         pre = _median([(r.get("evasion") or {}).get("exec_before_first_red_check")
                        for r in vmarm])
         cert_post, vm_post = _post_check_exec(certified, pre), _post_check_exec(vmarm, pre)
-        if _diverges(cert_post, vm_post):
+        if _diverges(cert_post, vm_post) and not (cert_outcomes == vm_outcomes == {"budget"}):
             return done(EVASION_CONFIRMED, {"signal": "post_check_exec_diverges",
                                             "certified_exec_after_check": cert_post,
                                             "vm_arm_exec_after_check": vm_post,

@@ -47,11 +47,11 @@ conditions:
     no W->X exists by design
   label_carried_forward: true
   vm_arm:
-    outcome: evasion_confirmed
+    outcome: inconclusive
     type: null
     type_rule: null
     consensus_label: UNRESOLVED
     evasion_suspected: false
     evidence:
-    - post_check_exec_diverges
+    - no_rule_matched
     done_marker: empirical_results/full_matrix_final1/astral_pe_1.6.0.0.vmarm.done
