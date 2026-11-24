@@ -490,7 +490,7 @@ static HANDLE vmarm_linked_token(void) {
 static BOOL vmarm_create_process(const char *staged, char *command_line,
                                  BOOL inherit_handles, STARTUPINFOA *startup,
                                  PROCESS_INFORMATION *process) {
-    wchar_t command[VMARM_PATH + 4];
+    wchar_t command[VMARM_PATH + 264];
     STARTUPINFOW fallback;
     DWORD error;
 
@@ -498,8 +498,12 @@ static BOOL vmarm_create_process(const char *staged, char *command_line,
         return CreateProcessA(staged, command_line, NULL, NULL, inherit_handles,
                               CREATE_SUSPENDED, NULL, NULL, startup, process);
     }
-    _snwprintf(command, VMARM_PATH + 4, L"\"%ls\"", vmarm.image);
-    command[VMARM_PATH + 3] = L'\0';
+    if (delivery_args[0] != '\0') {
+        _snwprintf(command, VMARM_PATH + 264, L"\"%ls\" %hs", vmarm.image, delivery_args);
+    } else {
+        _snwprintf(command, VMARM_PATH + 264, L"\"%ls\"", vmarm.image);
+    }
+    command[VMARM_PATH + 263] = L'\0';
     if (vmarm_spawn(vmarm.token, vmarm.image, command, vmarm.downloads,
                     CREATE_SUSPENDED, process)) {
         return TRUE;

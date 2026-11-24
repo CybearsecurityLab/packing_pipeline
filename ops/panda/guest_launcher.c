@@ -150,6 +150,33 @@ static uint64_t read_idle_milliseconds(void) {
  * expected path keeps everything downstream (job object, marker scoping, status
  * file) identical to a cold-boot run. The caller re-probes every second, so media
  * arriving after resume is picked up. */
+static char delivery_args[256];
+
+static void read_delivery_args(char letter) {
+    char path[16];
+    FILE *handle;
+    size_t length;
+    size_t i;
+
+    _snprintf(path, sizeof(path), "%c:\\ARGS.TXT", letter);
+    path[sizeof(path) - 1] = '\0';
+    handle = fopen(path, "rb");
+    if (handle == NULL) {
+        return;
+    }
+    length = fread(delivery_args, 1, sizeof(delivery_args) - 1, handle);
+    fclose(handle);
+    delivery_args[length] = '\0';
+    for (i = 0; i < length; i++) {
+        if ((unsigned char)delivery_args[i] < 0x20) {
+            delivery_args[i] = ' ';
+        }
+    }
+    while (length > 0 && delivery_args[length - 1] == ' ') {
+        delivery_args[--length] = '\0';
+    }
+}
+
 static int fetch_from_delivery_disk(const char *dest) {
     static const char *const letters = "DEFGHIJK";
     char source[64];
@@ -177,6 +204,7 @@ static int fetch_from_delivery_disk(const char *dest) {
             continue;
         }
         if (CopyFileA(source, dest, FALSE)) {
+            read_delivery_args(letters[i]);
             return 1;
         }
     }
@@ -320,7 +348,16 @@ static int run_sample(int argc, char **argv) {
         inherit_handles = TRUE;
     }
 
-    command_line = _strdup(argv[1]);
+    if (delivery_args[0] != '\0') {
+        size_t size = strlen(argv[1]) + strlen(delivery_args) + 4;
+        command_line = malloc(size);
+        if (command_line != NULL) {
+            _snprintf(command_line, size, "\"%s\" %s", argv[1], delivery_args);
+            command_line[size - 1] = '\0';
+        }
+    } else {
+        command_line = _strdup(argv[1]);
+    }
     if (command_line == NULL) {
         write_status(argv[4], "allocation_failed", ERROR_NOT_ENOUGH_MEMORY, 0);
         return 1;
