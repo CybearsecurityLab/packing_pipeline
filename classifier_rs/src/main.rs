@@ -672,7 +672,7 @@ impl St {
         match kind {
             "process" | "prestart_exec" | "root_image" | "sample_start" | "trace_start" | "marker"
             | "register_handles" | "exception_dispatch" | "exception_recovered" | "descendant_debug"
-            | "root_debug" | "summary" => return Ok(()),
+            | "root_debug" | "summary" | "evasion_check" => return Ok(()),
             "exec" | "write" | "invalidate" | "unmap" | "free" | "file_write" | "file_read" => {}
             _ => return Err(Stop::Unknown),
         }

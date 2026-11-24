@@ -430,6 +430,7 @@ def _analyze_paper_jsonl_python(path: Path, sample_id: str) -> Evidence:
                 "descendant_debug",
                 "root_debug",
                 "summary",
+                "evasion_check",
             }:
                 continue
             if kind not in {

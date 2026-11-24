@@ -233,6 +233,35 @@ class PaperFaithfulTraceTests(unittest.TestCase):
         )
         self.assertEqual(classify(evidence).complexity_type, "TYPE_I")
 
+    def test_evasion_check_events_are_ignored(self):
+        core = [
+            {**execute(0x1000), "seq": 1},
+            {**write(0x20000), "seq": 3},
+            {**execute(0x20000), "seq": 5},
+            {"event": "summary", "seq": 7},
+        ]
+        checks = [
+            {"event": "evasion_check", "seq": 2, "pid": 1, "tid": 1,
+             "pc": "0x1004", "kind": "cpuid", "origin": "sample",
+             "detail": {"leaf": "0x40000000", "subleaf": "0x0",
+                        "category": "hypervisor_vendor", "flagged": True}},
+            {"event": "evasion_check", "seq": 4, "pid": 1, "tid": 1,
+             "pc": "0x7ffe12340014", "kind": "syscall", "origin": "system",
+             "detail": {"service": 18, "name": "NtOpenKey",
+                        "path": "\\Registry\\Machine\\HARDWARE\\ACPI\\DSDT\\VBOX__",
+                        "match": "vbox", "caller": "0x20010",
+                        "caller_origin": "dynamic", "direct": False,
+                        "flagged": True, "module": "ntdll.dll"}},
+            {"event": "evasion_check", "seq": 6, "pid": 1, "tid": 1,
+             "pc": "0x20004", "kind": "rdtsc_pair", "origin": "dynamic",
+             "detail": {"insn": "rdtsc", "first_pc": "0x20000",
+                        "delta_instructions": 3}},
+        ]
+        plain = self.analyze(core)
+        mixed = self.analyze(sorted(core + checks, key=lambda e: e["seq"]))
+        self.assertEqual(mixed, plain)
+        self.assertEqual(classify(mixed).complexity_type, "TYPE_I")
+
     def test_type_iv_interleaves_single_frame_application(self):
         evidence = self.analyze(
             [

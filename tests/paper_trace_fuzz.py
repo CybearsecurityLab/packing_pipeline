@@ -71,6 +71,7 @@ def _event(rng: random.Random, faults: bool) -> dict | str:
         ("summary", 0.3), ("register_handles", 0.3), ("sample_start", 0.2),
         ("trace_start", 0.2), ("exception_dispatch", 0.2), ("root_debug", 0.1),
         ("prestart_exec", 0.2), ("exception_recovered", 0.1),
+        ("evasion_check", 0.5),
     ]
     if faults:
         kinds += [("unknown", 8), ("malformed", 8)]
@@ -160,6 +161,12 @@ def _event(rng: random.Random, faults: bool) -> dict | str:
         event.update(exec_events=rng.randint(0, 100), saw_stop=True, ratio=0.5)
     elif kind == "register_handles":
         event.update(vcpu=0, rax=True)
+    elif kind == "evasion_check":
+        event.update(pid=pid, tid=tid, pc=hex(_address(rng)),
+                     kind=rng.choice(["cpuid", "syscall", "rdtsc_pair"]),
+                     origin=rng.choice(["system", "sample", "dynamic"]),
+                     detail={"leaf": "0x40000000", "flagged": True,
+                             "path": "\\Registry\\Machine\\HARDWARE"})
     else:
         event.update(pid=pid, tid=tid, address=_address(rng))
     if faults:

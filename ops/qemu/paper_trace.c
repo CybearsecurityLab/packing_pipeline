@@ -43,6 +43,7 @@ QEMU_PLUGIN_EXPORT int qemu_plugin_version = QEMU_PLUGIN_VERSION;
  * 89284d0ca6acc8274b9a44bd5af9290b5.  build_profile_header.py verifies and
  * regenerates this block from /var/lib/drakrun/profiles/kernel.json. */
 #include "win10_profile.h"
+#include "win10_syscalls.h"
 
 typedef struct {
     struct qemu_plugin_register *rax;
@@ -52,6 +53,7 @@ typedef struct {
     struct qemu_plugin_register *rsp;
     struct qemu_plugin_register *r8;
     struct qemu_plugin_register *r9;
+    struct qemu_plugin_register *r10;
     struct qemu_plugin_register *cr3;
     struct qemu_plugin_register *fs_base;
     struct qemu_plugin_register *gs_base;
@@ -63,6 +65,7 @@ typedef struct {
     bool has_rsp;
     bool has_r8;
     bool has_r9;
+    bool has_r10;
     bool has_cr3;
     bool has_fs_base;
     bool has_gs_base;
@@ -363,6 +366,9 @@ static uint64_t monitored_user_pagefault_last_pc_by_vcpu[64];
 static bool pagefault_loop_events;
 static GHashTable *pagefault_loop_reported;
 static uint64_t pagefault_loop_sites;
+static bool evasion_enabled;
+static GHashTable *evasion_origin_cache;
+static uint64_t evasion_vcpu_instructions[64];
 
 static bool process_monitored(uint64_t pid, uint64_t eprocess);
 static bool user_address(uint64_t address);
@@ -1176,21 +1182,30 @@ static MappedFileResult cached_mapped_file_location(uint64_t eprocess,
     return result;
 }
 
-static void invalidate_mapped_page_cache(uint64_t eprocess, uint64_t address,
-                                         uint64_t size)
+static void remove_cached_pages(GHashTable *cache, uint64_t eprocess,
+                                uint64_t address, uint64_t size)
 {
     GHashTableIter iterator;
     gpointer key_pointer;
     uint64_t first = address >> 12;
     uint64_t last = size ? (address + size - 1) >> 12 : first;
 
-    g_hash_table_iter_init(&iterator, mapped_page_cache);
+    g_hash_table_iter_init(&iterator, cache);
     while (g_hash_table_iter_next(&iterator, &key_pointer, NULL)) {
         const MappedPageKey *key = key_pointer;
         if (key->eprocess == eprocess && key->page >= first &&
             key->page <= last) {
             g_hash_table_iter_remove(&iterator);
         }
+    }
+}
+
+static void invalidate_mapped_page_cache(uint64_t eprocess, uint64_t address,
+                                         uint64_t size)
+{
+    remove_cached_pages(mapped_page_cache, eprocess, address, size);
+    if (evasion_origin_cache) {
+        remove_cached_pages(evasion_origin_cache, eprocess, address, size);
     }
 }
 
@@ -2785,6 +2800,10 @@ static void block_exec(unsigned int vcpu_index, void *userdata)
     uint64_t asid;
 
     observed_instructions += block->insns;
+    if (evasion_enabled &&
+        vcpu_index < G_N_ELEMENTS(evasion_vcpu_instructions)) {
+        evasion_vcpu_instructions[vcpu_index] += block->insns;
+    }
     if (vcpu_index < G_N_ELEMENTS(block_write_eligible_by_vcpu)) {
         block_write_eligible_by_vcpu[vcpu_index] = false;
         qemu_plugin_u64_set(memory_trace_enabled, vcpu_index, 0);
@@ -3200,6 +3219,1359 @@ static void memory_write(unsigned int vcpu_index, qemu_plugin_meminfo_t info,
     g_mutex_unlock(&trace_lock);
 }
 
+#define EVASION_DETAIL_LIMIT 4u
+#define EVASION_KIND_CAP UINT64_C(4096)
+#define EVASION_RDTSC_WINDOW UINT64_C(200)
+#define EVASION_STRING_BYTES 1024u
+#define EVASION_SYSCALL_SLOTS 0x2000u
+#define EVASION_KEY_RING 64u
+#define EVASION_CAP_SLOTS 64u
+#define VMWARE_BACKDOOR_MAGIC UINT64_C(0x564d5868)
+
+typedef enum {
+    EVOP_NONE,
+    EVOP_CPUID,
+    EVOP_RDTSC,
+    EVOP_RDTSCP,
+    EVOP_SGDT,
+    EVOP_SIDT,
+    EVOP_SLDT,
+    EVOP_STR,
+    EVOP_SMSW,
+    EVOP_IN,
+    EVOP_OUT,
+    EVOP_INS,
+    EVOP_OUTS,
+    EVOP_VMCALL,
+    EVOP_VMMCALL,
+    EVOP_VMFUNC,
+    EVOP_INT2D,
+    EVOP_ICEBP,
+    EVOP_INT3,
+    EVOP_UD2,
+    EVOP_UD_0F3F,
+    EVOP_SYSCALL,
+    EVOP_COUNT,
+} EvasionOp;
+
+static const char *const evasion_op_names[EVOP_COUNT] = {
+    [EVOP_NONE] = "none",       [EVOP_CPUID] = "cpuid",
+    [EVOP_RDTSC] = "rdtsc",     [EVOP_RDTSCP] = "rdtscp",
+    [EVOP_SGDT] = "sgdt",       [EVOP_SIDT] = "sidt",
+    [EVOP_SLDT] = "sldt",       [EVOP_STR] = "str",
+    [EVOP_SMSW] = "smsw",       [EVOP_IN] = "in",
+    [EVOP_OUT] = "out",         [EVOP_INS] = "ins",
+    [EVOP_OUTS] = "outs",       [EVOP_VMCALL] = "vmcall",
+    [EVOP_VMMCALL] = "vmmcall", [EVOP_VMFUNC] = "vmfunc",
+    [EVOP_INT2D] = "int2d",     [EVOP_ICEBP] = "icebp",
+    [EVOP_INT3] = "int3",       [EVOP_UD2] = "ud2",
+    [EVOP_UD_0F3F] = "0f3f",    [EVOP_SYSCALL] = "syscall",
+};
+
+typedef enum {
+    EVK_CPUID,
+    EVK_RDTSC_PAIR,
+    EVK_DESCRIPTOR_TABLE,
+    EVK_IO_PORT,
+    EVK_HYPERCALL,
+    EVK_INT2D,
+    EVK_ICEBP,
+    EVK_INT3,
+    EVK_INVALID_OPCODE,
+    EVK_SYSCALL,
+} EvasionKind;
+
+static const char *const evasion_kind_names[] = {
+    [EVK_CPUID] = "cpuid",
+    [EVK_RDTSC_PAIR] = "rdtsc_pair",
+    [EVK_DESCRIPTOR_TABLE] = "descriptor_table",
+    [EVK_IO_PORT] = "io_port",
+    [EVK_HYPERCALL] = "hypercall",
+    [EVK_INT2D] = "int2d",
+    [EVK_ICEBP] = "icebp",
+    [EVK_INT3] = "int3",
+    [EVK_INVALID_OPCODE] = "invalid_opcode",
+    [EVK_SYSCALL] = "syscall",
+};
+
+typedef enum {
+    ORIGIN_UNKNOWN,
+    ORIGIN_SYSTEM,
+    ORIGIN_SAMPLE,
+    ORIGIN_DYNAMIC,
+    ORIGIN_COUNT,
+} EvasionOriginKind;
+
+static const char *const evasion_origin_names[ORIGIN_COUNT] = {
+    "unknown", "system", "sample", "dynamic",
+};
+
+typedef struct {
+    int origin;
+    char *module;
+} EvasionOrigin;
+
+typedef struct {
+    const BlockInfo *block;
+    uint64_t pc;
+    uint32_t index;
+    uint8_t op;
+    uint8_t port;
+    uint8_t width;
+    bool port_immediate;
+} EvasionInsn;
+
+typedef struct {
+    uint64_t a;
+    uint64_t b;
+    uint64_t c;
+} EvasionKey;
+
+typedef struct {
+    uint64_t tid;
+    uint64_t position;
+    uint64_t pc;
+    unsigned int vcpu;
+    uint8_t op;
+    int origin;
+} EvasionTsc;
+
+typedef struct {
+    bool used;
+    bool resolved;
+    uint64_t pid;
+    uint64_t tid;
+    uint64_t handle_pointer;
+    uint64_t handle;
+    char *path;
+} EvasionKeyHandle;
+
+typedef enum {
+    SC_COUNT_ONLY,
+    SC_QUERY_SYSTEM_INFORMATION,
+    SC_QUERY_SYSTEM_INFORMATION_EX,
+    SC_OPEN_KEY,
+    SC_QUERY_VALUE_KEY,
+    SC_DELAY_EXECUTION,
+    SC_SIMPLE,
+    SC_FIND_WINDOW,
+    SC_QUERY_INFORMATION_PROCESS,
+    SC_SET_INFORMATION_THREAD,
+    SC_QUERY_OBJECT,
+    SC_OPEN_PROCESS,
+    SC_FILE_OA_R8,
+    SC_FILE_OA_R10,
+    SC_USER_CALL_R10,
+    SC_USER_CALL_RDX,
+    SC_USER_CALL_R8,
+    SC_DECODER_COUNT,
+} EvasionDecoder;
+
+static const struct {
+    const char *name;
+    uint8_t decoder;
+} evasion_syscall_decoders[] = {
+    {"NtQuerySystemInformation", SC_QUERY_SYSTEM_INFORMATION},
+    {"NtQuerySystemInformationEx", SC_QUERY_SYSTEM_INFORMATION_EX},
+    {"NtOpenKey", SC_OPEN_KEY},
+    {"NtOpenKeyEx", SC_OPEN_KEY},
+    {"NtCreateKey", SC_OPEN_KEY},
+    {"NtQueryValueKey", SC_QUERY_VALUE_KEY},
+    {"NtDelayExecution", SC_DELAY_EXECUTION},
+    {"NtQueryPerformanceCounter", SC_SIMPLE},
+    {"NtQuerySystemTime", SC_SIMPLE},
+    {"NtUserGetCursorPos", SC_SIMPLE},
+    {"NtUserGetCursorInfo", SC_SIMPLE},
+    {"NtUserGetForegroundWindow", SC_SIMPLE},
+    {"NtUserBuildHwndList", SC_SIMPLE},
+    {"NtUserFindWindowEx", SC_FIND_WINDOW},
+    {"NtQueryInformationProcess", SC_QUERY_INFORMATION_PROCESS},
+    {"NtSetInformationThread", SC_SET_INFORMATION_THREAD},
+    {"NtQueryObject", SC_QUERY_OBJECT},
+    {"NtOpenProcess", SC_OPEN_PROCESS},
+    {"NtCreateFile", SC_FILE_OA_R8},
+    {"NtOpenFile", SC_FILE_OA_R8},
+    {"NtQueryAttributesFile", SC_FILE_OA_R10},
+    {"NtQueryFullAttributesFile", SC_FILE_OA_R10},
+    {"NtUserCallNoParam", SC_USER_CALL_R10},
+    {"NtUserCallOneParam", SC_USER_CALL_RDX},
+    {"NtUserCallTwoParam", SC_USER_CALL_R8},
+};
+
+static const char *const evasion_registry_terms[] = {
+    "vmware", "vbox", "virtualbox", "qemu", "bochs", "xen", "virtio",
+    "hyper-v", "sandboxie", "\\hardware\\description\\system", "scsi",
+    "\\ide\\", "\\enum\\ide", "systembiosversion", "videobiosversion",
+    "bios", "kvm", "vmci", "hgfs", "\\acpi\\dsdt", "\\acpi\\fadt",
+    "\\acpi\\rsdt", "\\disk\\enum", "processornamestring", "wine",
+};
+
+static const char *const evasion_file_terms[] = {
+    "vmware", "vbox", "virtualbox", "qemu", "bochs", "virtio", "vmci",
+    "hgfs", "sandboxie", "sbiedll", "cuckoo", "\\drivers\\vm", "wine",
+    "kvm", "xen", "\\??\\sice", "\\??\\ntice", "\\??\\siwvid",
+};
+
+static const char *const evasion_window_terms[] = {
+    "ollydbg", "x64dbg", "x32dbg", "windbg", "idaq", "idaw", "procmon",
+    "processhacker", "wireshark", "vboxtray", "vmwaretray", "vmwareuser",
+    "sandboxie", "immunity", "procexp", "filemon", "regmon", "tcpview",
+    "autoruns", "fiddler", "pestudio", "qemu", "vmware", "vbox",
+};
+
+static GHashTable *evasion_limits;
+static GHashTable *evasion_tsc_by_thread;
+static EvasionKeyHandle evasion_key_ring[EVASION_KEY_RING];
+static uint32_t evasion_key_next;
+static int16_t evasion_syscall_index[EVASION_SYSCALL_SLOTS];
+static uint8_t evasion_syscall_decoder[EVASION_SYSCALL_SLOTS];
+static uint64_t evasion_syscall_counts[G_N_ELEMENTS(syscall_table)];
+static uint64_t evasion_op_counts[EVOP_COUNT];
+static uint64_t evasion_origin_counts[ORIGIN_COUNT];
+static uint64_t evasion_kind_emitted[EVASION_CAP_SLOTS];
+static uint64_t evasion_cpuid_hypervisor;
+static uint64_t evasion_cpuid_leaf1;
+static uint64_t evasion_cpuid_brand;
+static uint64_t evasion_rdtsc_pairs;
+static uint64_t evasion_io_vmware;
+static uint64_t evasion_syscalls;
+static uint64_t evasion_syscalls_unknown;
+static uint64_t evasion_syscalls_direct;
+static uint64_t evasion_syscalls_flagged;
+static uint64_t evasion_firmware_queries;
+static uint64_t evasion_delay_relative_100ns;
+static uint64_t evasion_events;
+static uint64_t evasion_suppressed;
+static uint64_t evasion_register_failures;
+static uint64_t evasion_read_failures;
+
+static guint evasion_key_hash(gconstpointer pointer)
+{
+    const EvasionKey *key = pointer;
+    uint64_t mixed = key->a * UINT64_C(0x9e3779b97f4a7c15);
+    mixed ^= key->b + UINT64_C(0x7f4a7c159e3779b9) + (mixed << 6);
+    mixed ^= key->c + UINT64_C(0x94d049bb133111eb) + (mixed >> 2);
+    return (guint)(mixed ^ (mixed >> 32));
+}
+
+static gboolean evasion_key_equal(gconstpointer left, gconstpointer right)
+{
+    const EvasionKey *a = left;
+    const EvasionKey *b = right;
+    return a->a == b->a && a->b == b->b && a->c == b->c;
+}
+
+static void evasion_origin_free(gpointer pointer)
+{
+    EvasionOrigin *origin = pointer;
+    g_free(origin->module);
+    g_free(origin);
+}
+
+static void evasion_initialize(void)
+{
+    evasion_origin_cache = g_hash_table_new_full(
+        mapped_page_hash, mapped_page_equal, g_free, evasion_origin_free);
+    evasion_limits = g_hash_table_new_full(evasion_key_hash,
+                                           evasion_key_equal, g_free, g_free);
+    evasion_tsc_by_thread = g_hash_table_new_full(
+        g_direct_hash, g_direct_equal, NULL, g_free);
+    for (size_t slot = 0; slot < EVASION_SYSCALL_SLOTS; slot++) {
+        evasion_syscall_index[slot] = -1;
+    }
+    for (size_t index = 0; index < G_N_ELEMENTS(syscall_table); index++) {
+        uint32_t number = syscall_table[index].number;
+        if (number >= EVASION_SYSCALL_SLOTS) {
+            continue;
+        }
+        evasion_syscall_index[number] = (int16_t)index;
+        for (size_t decoder = 0;
+             decoder < G_N_ELEMENTS(evasion_syscall_decoders); decoder++) {
+            if (strcmp(syscall_table[index].name,
+                       evasion_syscall_decoders[decoder].name) == 0) {
+                evasion_syscall_decoder[number] =
+                    evasion_syscall_decoders[decoder].decoder;
+            }
+        }
+    }
+}
+
+static void evasion_destroy(void)
+{
+    g_hash_table_destroy(evasion_origin_cache);
+    evasion_origin_cache = NULL;
+    g_hash_table_destroy(evasion_limits);
+    g_hash_table_destroy(evasion_tsc_by_thread);
+    for (size_t index = 0; index < EVASION_KEY_RING; index++) {
+        g_free(evasion_key_ring[index].path);
+        evasion_key_ring[index].path = NULL;
+    }
+}
+
+static uint8_t evasion_decode(const uint8_t *bytes, size_t copied,
+                              size_t size, EvasionInsn *insn)
+{
+    size_t at = 0;
+    size_t rest;
+    bool operand16 = false;
+    const uint8_t *op;
+    uint8_t modrm;
+    uint8_t reg;
+
+    if (!size || copied < size) {
+        return EVOP_NONE;
+    }
+    while (at < size) {
+        uint8_t prefix = bytes[at];
+        if (prefix == 0x66) {
+            operand16 = true;
+        } else if (prefix != 0x67 && prefix != 0xf0 && prefix != 0xf2 &&
+                   prefix != 0xf3 && prefix != 0x26 && prefix != 0x2e &&
+                   prefix != 0x36 && prefix != 0x3e && prefix != 0x64 &&
+                   prefix != 0x65) {
+            break;
+        }
+        at++;
+    }
+    if (at + 1 < size && (bytes[at] & 0xf0) == 0x40) {
+        at++;
+    }
+    if (at >= size) {
+        return EVOP_NONE;
+    }
+    op = bytes + at;
+    rest = size - at;
+    insn->width = operand16 ? 2 : 4;
+    switch (op[0]) {
+    case 0x0f:
+        if (rest < 2) {
+            return EVOP_NONE;
+        }
+        switch (op[1]) {
+        case 0xa2:
+            return rest == 2 ? EVOP_CPUID : EVOP_NONE;
+        case 0x31:
+            return rest == 2 ? EVOP_RDTSC : EVOP_NONE;
+        case 0x05:
+            return rest == 2 ? EVOP_SYSCALL : EVOP_NONE;
+        case 0x0b:
+            return rest == 2 ? EVOP_UD2 : EVOP_NONE;
+        case 0x3f:
+            return EVOP_UD_0F3F;
+        case 0x00:
+            if (rest < 3) {
+                return EVOP_NONE;
+            }
+            reg = (op[2] >> 3) & 7;
+            return reg == 0 ? EVOP_SLDT : reg == 1 ? EVOP_STR : EVOP_NONE;
+        case 0x01:
+            if (rest < 3) {
+                return EVOP_NONE;
+            }
+            modrm = op[2];
+            switch (modrm) {
+            case 0xf9:
+                return rest == 3 ? EVOP_RDTSCP : EVOP_NONE;
+            case 0xc1:
+                return EVOP_VMCALL;
+            case 0xd9:
+                return EVOP_VMMCALL;
+            case 0xd4:
+                return EVOP_VMFUNC;
+            default:
+                break;
+            }
+            reg = (modrm >> 3) & 7;
+            if (reg == 4) {
+                return EVOP_SMSW;
+            }
+            if ((modrm >> 6) != 3 && reg == 0) {
+                return EVOP_SGDT;
+            }
+            if ((modrm >> 6) != 3 && reg == 1) {
+                return EVOP_SIDT;
+            }
+            return EVOP_NONE;
+        default:
+            return EVOP_NONE;
+        }
+    case 0xcd:
+        return rest == 2 && op[1] == 0x2d ? EVOP_INT2D : EVOP_NONE;
+    case 0xf1:
+        return rest == 1 ? EVOP_ICEBP : EVOP_NONE;
+    case 0xcc:
+        return rest == 1 ? EVOP_INT3 : EVOP_NONE;
+    case 0xe4:
+    case 0xe5:
+    case 0xe6:
+    case 0xe7:
+        if (rest != 2) {
+            return EVOP_NONE;
+        }
+        insn->port = op[1];
+        insn->port_immediate = true;
+        if (!(op[0] & 1)) {
+            insn->width = 1;
+        }
+        return op[0] < 0xe6 ? EVOP_IN : EVOP_OUT;
+    case 0xec:
+    case 0xed:
+    case 0xee:
+    case 0xef:
+        if (rest != 1) {
+            return EVOP_NONE;
+        }
+        if (!(op[0] & 1)) {
+            insn->width = 1;
+        }
+        return op[0] < 0xee ? EVOP_IN : EVOP_OUT;
+    case 0x6c:
+    case 0x6d:
+    case 0x6e:
+    case 0x6f:
+        if (rest != 1) {
+            return EVOP_NONE;
+        }
+        if (!(op[0] & 1)) {
+            insn->width = 1;
+        }
+        return op[0] < 0x6e ? EVOP_INS : EVOP_OUTS;
+    default:
+        return EVOP_NONE;
+    }
+}
+
+static const EvasionOrigin *evasion_origin(uint64_t eprocess,
+                                           uint64_t address)
+{
+    static const EvasionOrigin unknown = {.origin = ORIGIN_UNKNOWN};
+    MappedPageKey lookup = {
+        .eprocess = eprocess,
+        .page = address >> 12,
+    };
+    EvasionOrigin *origin = g_hash_table_lookup(evasion_origin_cache, &lookup);
+    MappedFileResult result;
+    uint64_t file_id = 0;
+    uint64_t file_offset = 0;
+    uint64_t file_object = 0;
+
+    if (origin) {
+        return origin;
+    }
+    result = mapped_file_location(eprocess, address & ~UINT64_C(0xfff),
+                                  &file_id, &file_offset, &file_object);
+    if (result == MAPPED_FILE_ERROR) {
+        return &unknown;
+    }
+    origin = g_new0(EvasionOrigin, 1);
+    if (result == MAPPED_FILE_NONE) {
+        origin->origin = ORIGIN_DYNAMIC;
+    } else {
+        g_autoptr(GString) path = g_string_new(NULL);
+        const char *slash;
+
+        if (!file_object_path(file_object, path)) {
+            g_free(origin);
+            return &unknown;
+        }
+        origin->origin = g_str_has_prefix(path->str, "\\windows\\")
+                             ? ORIGIN_SYSTEM
+                             : ORIGIN_SAMPLE;
+        slash = strrchr(path->str, '\\');
+        origin->module = g_strdup(slash ? slash + 1 : path->str);
+    }
+    MappedPageKey *stored = g_new(MappedPageKey, 1);
+    *stored = lookup;
+    g_hash_table_insert(evasion_origin_cache, stored, origin);
+    return origin;
+}
+
+static bool evasion_allow(unsigned int cap_slot, uint64_t a, uint64_t b,
+                          uint64_t c, unsigned int limit)
+{
+    EvasionKey lookup = {.a = ((uint64_t)cap_slot << 56) ^ a, .b = b, .c = c};
+    unsigned int *count = g_hash_table_lookup(evasion_limits, &lookup);
+
+    if (cap_slot >= EVASION_CAP_SLOTS ||
+        evasion_kind_emitted[cap_slot] >= EVASION_KIND_CAP ||
+        (count && *count >= limit)) {
+        evasion_suppressed++;
+        return false;
+    }
+    if (!count) {
+        EvasionKey *stored = g_new(EvasionKey, 1);
+        *stored = lookup;
+        count = g_new0(unsigned int, 1);
+        g_hash_table_insert(evasion_limits, stored, count);
+    }
+    (*count)++;
+    evasion_kind_emitted[cap_slot]++;
+    return true;
+}
+
+static uint64_t evasion_hash_string(const char *text)
+{
+    uint64_t hash = UINT64_C(0xcbf29ce484222325);
+
+    for (; text && *text; text++) {
+        hash ^= (uint8_t)*text;
+        hash *= UINT64_C(0x100000001b3);
+    }
+    return hash;
+}
+
+static void evasion_append_json_string(GString *out, const char *field,
+                                       const char *text)
+{
+    g_string_append_printf(out, ",\"%s\":\"", field);
+    for (; *text; text++) {
+        unsigned char character = (unsigned char)*text;
+        if (character == '"' || character == '\\') {
+            g_string_append_c(out, '\\');
+        }
+        g_string_append_c(out, character >= 0x20 && character < 0x7f
+                                   ? (char)character
+                                   : '?');
+    }
+    g_string_append_c(out, '"');
+}
+
+static void evasion_append_hex(GString *out, const char *field,
+                               uint64_t value)
+{
+    g_string_append_printf(out, ",\"%s\":\"0x%" PRIx64 "\"", field, value);
+}
+
+static void evasion_append_origin(GString *out, const char *prefix,
+                                  const EvasionOrigin *origin)
+{
+    g_autofree char *origin_field = g_strconcat(prefix, "origin", NULL);
+    g_autofree char *module_field = g_strconcat(prefix, "module", NULL);
+
+    evasion_append_json_string(out, origin_field,
+                               evasion_origin_names[origin->origin]);
+    if (origin->module) {
+        evasion_append_json_string(out, module_field, origin->module);
+    }
+}
+
+static void evasion_emit(const ThreadContext *context, uint64_t pc,
+                         EvasionKind kind, const EvasionOrigin *origin,
+                         const GString *detail)
+{
+    g_autoptr(GString) fields = g_string_new(detail->str);
+
+    if (origin->module) {
+        evasion_append_json_string(fields, "module", origin->module);
+    }
+    fprintf(trace_file,
+            "{\"event\":\"evasion_check\",\"seq\":%" PRIu64
+            ",\"pid\":%" PRIu64 ",\"tid\":%" PRIu64
+            ",\"pc\":\"0x%" PRIx64 "\",\"kind\":\"%s\",\"origin\":\"%s\""
+            ",\"detail\":{%s}}\n",
+            ++sequence_number, context->source_pid, context->tid, pc,
+            evasion_kind_names[kind], evasion_origin_names[origin->origin],
+            fields->len ? fields->str + 1 : "");
+    evasion_events++;
+}
+
+static bool evasion_register(unsigned int vcpu_index, int which,
+                             uint64_t *value)
+{
+    RegisterSet *regs = &registers_by_vcpu[vcpu_index];
+    struct qemu_plugin_register *handle = NULL;
+    bool present = false;
+    bool ok = false;
+
+    switch (which) {
+    case 0:
+        handle = regs->rax;
+        present = regs->has_rax;
+        break;
+    case 1:
+        handle = regs->rcx;
+        present = regs->has_rcx;
+        break;
+    case 2:
+        handle = regs->rdx;
+        present = regs->has_rdx;
+        break;
+    case 8:
+        handle = regs->r8;
+        present = regs->has_r8;
+        break;
+    case 9:
+        handle = regs->r9;
+        present = regs->has_r9;
+        break;
+    case 10:
+        handle = regs->r10;
+        present = regs->has_r10;
+        break;
+    case 4:
+        handle = regs->rsp;
+        present = regs->has_rsp;
+        break;
+    default:
+        break;
+    }
+    if (present) {
+        *value = read_register_value(handle, &ok);
+    }
+    if (!ok) {
+        *value = 0;
+        evasion_register_failures++;
+    }
+    return ok;
+}
+
+#define EVREG_RAX 0
+#define EVREG_RCX 1
+#define EVREG_RDX 2
+#define EVREG_RSP 4
+#define EVREG_R8 8
+#define EVREG_R9 9
+#define EVREG_R10 10
+
+static bool evasion_read_unicode(uint64_t unicode_string, GString *text,
+                                 uint64_t *atom)
+{
+    uint16_t length;
+    uint64_t buffer;
+    g_autofree uint16_t *characters = NULL;
+
+    *atom = 0;
+    if (!unicode_string) {
+        return false;
+    }
+    if (!read_u16(unicode_string, &length) ||
+        !read_u64(unicode_string + 8, &buffer)) {
+        evasion_read_failures++;
+        return false;
+    }
+    length &= (uint16_t)~1u;
+    if (!length) {
+        if (buffer && buffer < 0x10000) {
+            *atom = buffer;
+        }
+        return true;
+    }
+    if (length > EVASION_STRING_BYTES) {
+        length = EVASION_STRING_BYTES;
+    }
+    if (!buffer) {
+        evasion_read_failures++;
+        return false;
+    }
+    characters = g_malloc(length);
+    if (!read_memory(buffer, characters, length)) {
+        evasion_read_failures++;
+        return false;
+    }
+    for (size_t index = 0; index < length / 2u; index++) {
+        uint16_t character = characters[index];
+        g_string_append_c(text, character >= 0x20 && character < 0x7f
+                                    ? (char)character
+                                    : '?');
+    }
+    return true;
+}
+
+static bool evasion_read_object_name(uint64_t object_attributes,
+                                     uint64_t *root, GString *name)
+{
+    uint64_t object_name;
+    uint64_t atom;
+
+    *root = 0;
+    if (!object_attributes) {
+        return false;
+    }
+    if (!read_u64(object_attributes + 8, root) ||
+        !read_u64(object_attributes + 0x10, &object_name)) {
+        evasion_read_failures++;
+        return false;
+    }
+    return evasion_read_unicode(object_name, name, &atom);
+}
+
+static const char *evasion_match(const char *text, const char *const *terms,
+                                 size_t count)
+{
+    g_autofree char *lower = g_ascii_strdown(text, -1);
+
+    for (size_t index = 0; index < count; index++) {
+        if (strstr(lower, terms[index])) {
+            return terms[index];
+        }
+    }
+    return NULL;
+}
+
+static void evasion_resolve_key_handles(uint64_t pid, uint64_t tid)
+{
+    for (size_t index = 0; index < EVASION_KEY_RING; index++) {
+        EvasionKeyHandle *entry = &evasion_key_ring[index];
+        uint64_t handle;
+
+        if (!entry->used || entry->resolved || entry->pid != pid ||
+            entry->tid != tid) {
+            continue;
+        }
+        entry->resolved = true;
+        if (entry->handle_pointer &&
+            read_u64(entry->handle_pointer, &handle)) {
+            entry->handle = handle;
+        }
+    }
+}
+
+static void evasion_note_key(uint64_t pid, uint64_t tid,
+                             uint64_t handle_pointer, const char *path)
+{
+    EvasionKeyHandle *entry =
+        &evasion_key_ring[evasion_key_next++ % EVASION_KEY_RING];
+
+    g_free(entry->path);
+    *entry = (EvasionKeyHandle){
+        .used = true,
+        .pid = pid,
+        .tid = tid,
+        .handle_pointer = handle_pointer,
+        .path = g_strdup(path),
+    };
+}
+
+static const char *evasion_key_path(uint64_t pid, uint64_t handle)
+{
+    if (!handle) {
+        return NULL;
+    }
+    for (uint32_t step = 1; step <= EVASION_KEY_RING; step++) {
+        EvasionKeyHandle *entry =
+            &evasion_key_ring[(evasion_key_next - step) % EVASION_KEY_RING];
+        if (entry->used && entry->resolved && entry->pid == pid &&
+            entry->handle == handle) {
+            return entry->path;
+        }
+    }
+    return NULL;
+}
+
+static const char *evasion_system_class_name(uint32_t information_class)
+{
+    switch (information_class) {
+    case 0x00:
+        return "SystemBasicInformation";
+    case 0x01:
+        return "SystemProcessorInformation";
+    case 0x05:
+        return "SystemProcessInformation";
+    case 0x0b:
+        return "SystemModuleInformation";
+    case 0x23:
+        return "SystemKernelDebuggerInformation";
+    case 0x4c:
+        return "SystemFirmwareTableInformation";
+    case 0x67:
+        return "SystemCodeIntegrityInformation";
+    case 0x95:
+        return "SystemKernelDebuggerInformationEx";
+    default:
+        return NULL;
+    }
+}
+
+static void evasion_syscall(unsigned int vcpu_index, const EvasionInsn *insn,
+                            const ThreadContext *context,
+                            const EvasionOrigin *origin)
+{
+    g_autoptr(GString) detail = g_string_new(NULL);
+    g_autoptr(GString) text = g_string_new(NULL);
+    g_autoptr(GString) extra = g_string_new(NULL);
+    const EvasionOrigin *caller_origin;
+    const char *name = NULL;
+    const char *match = NULL;
+    uint64_t rax, r10, rdx, r8, r9, rsp;
+    uint64_t caller = 0;
+    uint64_t key_b = 0;
+    uint64_t key_c = 0;
+    uint32_t service;
+    uint8_t decoder = SC_COUNT_ONLY;
+    unsigned int limit = 1;
+    bool emit = false;
+    bool flagged = false;
+    bool direct = origin->origin != ORIGIN_SYSTEM;
+
+    if (!evasion_register(vcpu_index, EVREG_RAX, &rax)) {
+        return;
+    }
+    service = (uint32_t)rax;
+    evasion_syscalls++;
+    if (service < EVASION_SYSCALL_SLOTS &&
+        evasion_syscall_index[service] >= 0) {
+        evasion_syscall_counts[evasion_syscall_index[service]]++;
+        name = syscall_table[evasion_syscall_index[service]].name;
+        decoder = evasion_syscall_decoder[service];
+    } else {
+        evasion_syscalls_unknown++;
+    }
+    if (direct) {
+        evasion_syscalls_direct++;
+    }
+    evasion_resolve_key_handles(context->source_pid, context->tid);
+    if (decoder == SC_COUNT_ONLY && !direct) {
+        return;
+    }
+    evasion_register(vcpu_index, EVREG_R10, &r10);
+    evasion_register(vcpu_index, EVREG_RDX, &rdx);
+    evasion_register(vcpu_index, EVREG_R8, &r8);
+    evasion_register(vcpu_index, EVREG_R9, &r9);
+    if (evasion_register(vcpu_index, EVREG_RSP, &rsp) &&
+        !read_u64(rsp, &caller)) {
+        evasion_read_failures++;
+        caller = 0;
+    }
+    key_b = caller;
+
+    switch (decoder) {
+    case SC_QUERY_SYSTEM_INFORMATION:
+    case SC_QUERY_SYSTEM_INFORMATION_EX: {
+        uint32_t information_class = (uint32_t)r10;
+        const char *class_name = evasion_system_class_name(information_class);
+        emit = true;
+        key_b = information_class;
+        g_string_append_printf(detail, ",\"class\":%u", information_class);
+        if (class_name) {
+            evasion_append_json_string(detail, "class_name", class_name);
+        }
+        if (decoder == SC_QUERY_SYSTEM_INFORMATION) {
+            g_string_append_printf(detail, ",\"length\":%" PRIu64,
+                                   (uint64_t)(uint32_t)r8);
+        }
+        if (information_class == 0x23 || information_class == 0x95) {
+            flagged = true;
+            limit = EVASION_DETAIL_LIMIT;
+        }
+        if (information_class == 0x4c &&
+            decoder == SC_QUERY_SYSTEM_INFORMATION) {
+            uint32_t firmware[3];
+            flagged = true;
+            limit = EVASION_DETAIL_LIMIT;
+            evasion_firmware_queries++;
+            if (rdx && read_memory(rdx, firmware, sizeof(firmware))) {
+                char provider[5];
+                for (int index = 0; index < 4; index++) {
+                    char character =
+                        (char)((firmware[0] >> (8 * (3 - index))) & 0xff);
+                    provider[index] =
+                        character >= 0x20 && character < 0x7f ? character
+                                                              : '?';
+                }
+                provider[4] = '\0';
+                key_c = firmware[0] | ((uint64_t)firmware[2] << 32);
+                evasion_append_json_string(detail, "provider", provider);
+                g_string_append_printf(detail,
+                                       ",\"action\":%u,\"table_id\":%u",
+                                       firmware[1], firmware[2]);
+            } else {
+                evasion_read_failures++;
+            }
+        }
+        break;
+    }
+    case SC_OPEN_KEY: {
+        uint64_t root;
+        const char *root_path;
+        emit = true;
+        if (evasion_read_object_name(r8, &root, text)) {
+            root_path = evasion_key_path(context->source_pid, root);
+            if (root_path) {
+                g_string_prepend_c(text, '\\');
+                g_string_prepend(text, root_path);
+            } else if (root) {
+                evasion_append_hex(detail, "root_handle", root);
+            }
+            evasion_note_key(context->source_pid, context->tid, r10,
+                             text->str);
+            evasion_append_json_string(detail, "path", text->str);
+            match = evasion_match(text->str, evasion_registry_terms,
+                                  G_N_ELEMENTS(evasion_registry_terms));
+        }
+        key_b = evasion_hash_string(text->str);
+        break;
+    }
+    case SC_QUERY_VALUE_KEY: {
+        const char *key_path = evasion_key_path(context->source_pid, r10);
+        uint64_t atom;
+        emit = true;
+        evasion_read_unicode(rdx, text, &atom);
+        evasion_append_json_string(detail, "value", text->str);
+        g_string_append_printf(detail, ",\"info_class\":%u", (uint32_t)r8);
+        if (key_path) {
+            evasion_append_json_string(detail, "key", key_path);
+            g_string_append_printf(extra, "%s\\", key_path);
+        } else {
+            evasion_append_hex(detail, "key_handle", r10);
+        }
+        g_string_append(extra, text->str);
+        match = evasion_match(extra->str, evasion_registry_terms,
+                              G_N_ELEMENTS(evasion_registry_terms));
+        key_b = evasion_hash_string(extra->str);
+        break;
+    }
+    case SC_DELAY_EXECUTION: {
+        int64_t interval;
+        emit = true;
+        limit = EVASION_DETAIL_LIMIT;
+        if (rdx && read_memory(rdx, &interval, sizeof(interval))) {
+            key_c = (uint64_t)interval;
+            g_string_append_printf(detail,
+                                   ",\"interval_100ns\":%" PRId64
+                                   ",\"relative\":%s",
+                                   interval, interval < 0 ? "true" : "false");
+            if (interval < 0 && interval != INT64_MIN) {
+                evasion_delay_relative_100ns += (uint64_t)(-interval);
+                g_string_append_printf(detail, ",\"milliseconds\":%" PRIu64,
+                                       (uint64_t)(-interval) / 10000u);
+            }
+        } else {
+            evasion_read_failures++;
+        }
+        break;
+    }
+    case SC_SIMPLE:
+        emit = true;
+        limit = EVASION_DETAIL_LIMIT;
+        break;
+    case SC_FIND_WINDOW: {
+        uint64_t atom;
+        emit = true;
+        if (evasion_read_unicode(r8, text, &atom)) {
+            if (atom) {
+                g_string_append_printf(detail, ",\"class_atom\":%" PRIu64,
+                                       atom);
+            } else {
+                evasion_append_json_string(detail, "class", text->str);
+            }
+        }
+        if (evasion_read_unicode(r9, extra, &atom)) {
+            evasion_append_json_string(detail, "window", extra->str);
+        }
+        g_string_append_c(text, '|');
+        g_string_append(text, extra->str);
+        match = evasion_match(text->str, evasion_window_terms,
+                              G_N_ELEMENTS(evasion_window_terms));
+        key_b = evasion_hash_string(text->str);
+        break;
+    }
+    case SC_QUERY_INFORMATION_PROCESS: {
+        uint32_t information_class = (uint32_t)rdx;
+        const char *class_name =
+            information_class == 0x07   ? "ProcessDebugPort"
+            : information_class == 0x1e ? "ProcessDebugObjectHandle"
+            : information_class == 0x1f ? "ProcessDebugFlags"
+                                        : NULL;
+        if (class_name) {
+            emit = true;
+            flagged = true;
+            limit = EVASION_DETAIL_LIMIT;
+            key_c = information_class;
+            g_string_append_printf(detail, ",\"class\":%u", information_class);
+            evasion_append_json_string(detail, "class_name", class_name);
+            evasion_append_hex(detail, "handle", r10);
+        }
+        break;
+    }
+    case SC_SET_INFORMATION_THREAD:
+        if ((uint32_t)rdx == 0x11) {
+            emit = true;
+            flagged = true;
+            limit = EVASION_DETAIL_LIMIT;
+            g_string_append_printf(detail, ",\"class\":%u", 0x11u);
+            evasion_append_json_string(detail, "class_name",
+                                       "ThreadHideFromDebugger");
+        }
+        break;
+    case SC_QUERY_OBJECT: {
+        uint32_t information_class = (uint32_t)rdx;
+        if (information_class == 2 || information_class == 3) {
+            emit = true;
+            flagged = information_class == 3;
+            limit = flagged ? EVASION_DETAIL_LIMIT : 1;
+            key_c = information_class;
+            g_string_append_printf(detail, ",\"class\":%u", information_class);
+            evasion_append_json_string(detail, "class_name",
+                                       information_class == 3
+                                           ? "ObjectTypesInformation"
+                                           : "ObjectTypeInformation");
+        }
+        break;
+    }
+    case SC_OPEN_PROCESS: {
+        uint64_t target = 0;
+        emit = true;
+        if (r9 && read_u64(r9, &target)) {
+            g_string_append_printf(detail, ",\"target_pid\":%" PRIu64, target);
+        } else {
+            evasion_read_failures++;
+        }
+        evasion_append_hex(detail, "access", (uint32_t)rdx);
+        key_b = target;
+        break;
+    }
+    case SC_FILE_OA_R8:
+    case SC_FILE_OA_R10: {
+        uint64_t root;
+        if (evasion_read_object_name(decoder == SC_FILE_OA_R8 ? r8 : r10,
+                                     &root, text)) {
+            match = evasion_match(text->str, evasion_file_terms,
+                                  G_N_ELEMENTS(evasion_file_terms));
+            if (match) {
+                emit = true;
+                evasion_append_json_string(detail, "path", text->str);
+            }
+        }
+        key_b = evasion_hash_string(text->str);
+        break;
+    }
+    case SC_USER_CALL_R10:
+    case SC_USER_CALL_RDX:
+    case SC_USER_CALL_R8: {
+        uint64_t routine = decoder == SC_USER_CALL_R10   ? r10
+                           : decoder == SC_USER_CALL_RDX ? rdx
+                                                         : r8;
+        emit = true;
+        key_b = (uint32_t)routine;
+        g_string_append_printf(detail, ",\"routine\":%u", (uint32_t)routine);
+        break;
+    }
+    default:
+        break;
+    }
+    if (match) {
+        flagged = true;
+        limit = EVASION_DETAIL_LIMIT;
+        evasion_append_json_string(detail, "match", match);
+    }
+    if (direct) {
+        emit = true;
+        flagged = true;
+        limit = EVASION_DETAIL_LIMIT;
+        key_b = insn->pc;
+        key_c = 0;
+    }
+    if (flagged) {
+        evasion_syscalls_flagged++;
+    }
+    if (!emit || !evasion_allow(16u + decoder, service, key_b, key_c, limit)) {
+        return;
+    }
+    g_string_printf(text, ",\"service\":%u", service);
+    if (name) {
+        evasion_append_json_string(text, "name", name);
+    }
+    g_string_append(text, detail->str);
+    evasion_append_hex(text, "caller", caller);
+    if (caller) {
+        caller_origin = evasion_origin(context->attached_eprocess, caller);
+        evasion_append_origin(text, "caller_", caller_origin);
+    }
+    g_string_append_printf(text, ",\"direct\":%s,\"flagged\":%s",
+                           direct ? "true" : "false",
+                           flagged ? "true" : "false");
+    evasion_emit(context, insn->pc, EVK_SYSCALL, origin, text);
+}
+
+static void evasion_cpuid(unsigned int vcpu_index, const EvasionInsn *insn,
+                          const ThreadContext *context,
+                          const EvasionOrigin *origin)
+{
+    g_autoptr(GString) detail = g_string_new(NULL);
+    uint64_t rax, rcx;
+    uint32_t leaf, subleaf;
+    const char *category = "other";
+    bool flagged = false;
+
+    if (!evasion_register(vcpu_index, EVREG_RAX, &rax)) {
+        return;
+    }
+    evasion_register(vcpu_index, EVREG_RCX, &rcx);
+    leaf = (uint32_t)rax;
+    subleaf = (uint32_t)rcx;
+    if (leaf >= 0x40000000u && leaf <= 0x400000ffu) {
+        category = "hypervisor_vendor";
+        flagged = true;
+        evasion_cpuid_hypervisor++;
+    } else if (leaf == 1) {
+        category = "hypervisor_bit";
+        flagged = true;
+        evasion_cpuid_leaf1++;
+    } else if (leaf >= 0x80000002u && leaf <= 0x80000004u) {
+        category = "brand_string";
+        flagged = true;
+        evasion_cpuid_brand++;
+    } else if (leaf == 0) {
+        category = "vendor";
+    }
+    if (!evasion_allow(EVK_CPUID, insn->pc, leaf, 0, EVASION_DETAIL_LIMIT)) {
+        return;
+    }
+    g_string_append_printf(detail,
+                           ",\"leaf\":\"0x%x\",\"subleaf\":\"0x%x\"",
+                           leaf, subleaf);
+    evasion_append_json_string(detail, "category", category);
+    g_string_append_printf(detail, ",\"flagged\":%s",
+                           flagged ? "true" : "false");
+    evasion_emit(context, insn->pc, EVK_CPUID, origin, detail);
+}
+
+static void evasion_rdtsc(unsigned int vcpu_index, const EvasionInsn *insn,
+                          const ThreadContext *context,
+                          const EvasionOrigin *origin)
+{
+    g_autoptr(GString) detail = g_string_new(NULL);
+    gpointer key = (gpointer)(uintptr_t)context->ethread;
+    EvasionTsc *previous = g_hash_table_lookup(evasion_tsc_by_thread, key);
+    uint64_t position = evasion_vcpu_instructions[vcpu_index] -
+                        insn->block->insns + insn->index;
+    EvasionTsc first;
+    bool paired = false;
+
+    if (previous && previous->tid == context->tid &&
+        previous->vcpu == vcpu_index && position > previous->position &&
+        position - previous->position <= EVASION_RDTSC_WINDOW) {
+        first = *previous;
+        paired = true;
+    }
+    if (!previous) {
+        previous = g_new0(EvasionTsc, 1);
+        g_hash_table_insert(evasion_tsc_by_thread, key, previous);
+    }
+    *previous = (EvasionTsc){
+        .tid = context->tid,
+        .position = position,
+        .pc = insn->pc,
+        .vcpu = vcpu_index,
+        .op = insn->op,
+        .origin = origin->origin,
+    };
+    if (!paired) {
+        return;
+    }
+    evasion_rdtsc_pairs++;
+    if (!evasion_allow(EVK_RDTSC_PAIR, first.pc, insn->pc, 0,
+                       EVASION_DETAIL_LIMIT)) {
+        return;
+    }
+    evasion_append_json_string(detail, "insn", evasion_op_names[insn->op]);
+    evasion_append_hex(detail, "first_pc", first.pc);
+    evasion_append_json_string(detail, "first_insn",
+                               evasion_op_names[first.op]);
+    evasion_append_json_string(detail, "first_origin",
+                               evasion_origin_names[first.origin]);
+    g_string_append_printf(detail, ",\"delta_instructions\":%" PRIu64,
+                           position - first.position);
+    evasion_emit(context, insn->pc, EVK_RDTSC_PAIR, origin, detail);
+}
+
+static void evasion_io(unsigned int vcpu_index, const EvasionInsn *insn,
+                       const ThreadContext *context,
+                       const EvasionOrigin *origin)
+{
+    g_autoptr(GString) detail = g_string_new(NULL);
+    uint64_t rdx = 0;
+    uint64_t rax = 0;
+    uint64_t rcx = 0;
+    uint32_t port = insn->port;
+    bool backdoor;
+
+    if (!insn->port_immediate) {
+        if (!evasion_register(vcpu_index, EVREG_RDX, &rdx)) {
+            return;
+        }
+        port = (uint32_t)(rdx & 0xffffu);
+    }
+    evasion_register(vcpu_index, EVREG_RAX, &rax);
+    evasion_register(vcpu_index, EVREG_RCX, &rcx);
+    backdoor = port == 0x5658u || port == 0x5659u ||
+               (uint32_t)rax == VMWARE_BACKDOOR_MAGIC;
+    if (backdoor) {
+        evasion_io_vmware++;
+    }
+    if (!evasion_allow(EVK_IO_PORT, insn->pc, port, 0, EVASION_DETAIL_LIMIT)) {
+        return;
+    }
+    evasion_append_json_string(detail, "insn", evasion_op_names[insn->op]);
+    g_string_append_printf(detail, ",\"port\":\"0x%x\"", port);
+    evasion_append_json_string(detail, "port_source",
+                               insn->port_immediate ? "imm" : "dx");
+    g_string_append_printf(detail, ",\"width\":%u", insn->width);
+    evasion_append_hex(detail, "eax", (uint32_t)rax);
+    evasion_append_hex(detail, "ecx", (uint32_t)rcx);
+    g_string_append_printf(detail, ",\"vmware_backdoor\":%s",
+                           backdoor ? "true" : "false");
+    evasion_emit(context, insn->pc, EVK_IO_PORT, origin, detail);
+}
+
+static void evasion_simple(EvasionKind kind, const EvasionInsn *insn,
+                           const ThreadContext *context,
+                           const EvasionOrigin *origin)
+{
+    g_autoptr(GString) detail = g_string_new(NULL);
+
+    if (!evasion_allow(kind, insn->pc, insn->op, 0, EVASION_DETAIL_LIMIT)) {
+        return;
+    }
+    evasion_append_json_string(detail, "insn", evasion_op_names[insn->op]);
+    evasion_emit(context, insn->pc, kind, origin, detail);
+}
+
+static void evasion_exec(unsigned int vcpu_index, void *userdata)
+{
+    const EvasionInsn *insn = userdata;
+    const EvasionOrigin *origin;
+    ThreadContext context;
+
+    if (!active || !sample_started || budget_reached ||
+        vcpu_index >= G_N_ELEMENTS(block_write_eligible_by_vcpu) ||
+        !block_write_eligible_by_vcpu[vcpu_index] ||
+        !block_context_valid_by_vcpu[vcpu_index]) {
+        return;
+    }
+    context = block_context_by_vcpu[vcpu_index];
+    g_mutex_lock(&trace_lock);
+    if (!active || context.source_pid != context.attached_pid ||
+        !process_monitored(context.source_pid, context.source_eprocess)) {
+        g_mutex_unlock(&trace_lock);
+        return;
+    }
+    origin = evasion_origin(context.attached_eprocess, insn->pc);
+    if ((insn->op == EVOP_INT3 || insn->op == EVOP_UD2 ||
+         insn->op == EVOP_UD_0F3F) &&
+        origin->origin == ORIGIN_SYSTEM) {
+        g_mutex_unlock(&trace_lock);
+        return;
+    }
+    evasion_op_counts[insn->op]++;
+    if (insn->op != EVOP_SYSCALL) {
+        evasion_origin_counts[origin->origin]++;
+    }
+    switch (insn->op) {
+    case EVOP_CPUID:
+        evasion_cpuid(vcpu_index, insn, &context, origin);
+        break;
+    case EVOP_RDTSC:
+    case EVOP_RDTSCP:
+        evasion_rdtsc(vcpu_index, insn, &context, origin);
+        break;
+    case EVOP_SGDT:
+    case EVOP_SIDT:
+    case EVOP_SLDT:
+    case EVOP_STR:
+    case EVOP_SMSW:
+        evasion_simple(EVK_DESCRIPTOR_TABLE, insn, &context, origin);
+        break;
+    case EVOP_IN:
+    case EVOP_OUT:
+    case EVOP_INS:
+    case EVOP_OUTS:
+        evasion_io(vcpu_index, insn, &context, origin);
+        break;
+    case EVOP_VMCALL:
+    case EVOP_VMMCALL:
+    case EVOP_VMFUNC:
+        evasion_simple(EVK_HYPERCALL, insn, &context, origin);
+        break;
+    case EVOP_INT2D:
+        evasion_simple(EVK_INT2D, insn, &context, origin);
+        break;
+    case EVOP_ICEBP:
+        evasion_simple(EVK_ICEBP, insn, &context, origin);
+        break;
+    case EVOP_INT3:
+        evasion_simple(EVK_INT3, insn, &context, origin);
+        break;
+    case EVOP_UD2:
+    case EVOP_UD_0F3F:
+        evasion_simple(EVK_INVALID_OPCODE, insn, &context, origin);
+        break;
+    case EVOP_SYSCALL:
+        evasion_syscall(vcpu_index, insn, &context, origin);
+        break;
+    default:
+        break;
+    }
+    g_mutex_unlock(&trace_lock);
+}
+
+static void evasion_translate(struct qemu_plugin_insn *insn,
+                              const BlockInfo *block, uint32_t index,
+                              const uint8_t *bytes, size_t copied,
+                              size_t size)
+{
+    EvasionInsn decoded = {0};
+    uint8_t op = evasion_decode(bytes, copied, size, &decoded);
+    EvasionInsn *stored;
+
+    if (op == EVOP_NONE) {
+        return;
+    }
+    stored = g_new(EvasionInsn, 1);
+    *stored = decoded;
+    stored->block = block;
+    stored->pc = qemu_plugin_insn_vaddr(insn);
+    stored->index = index;
+    stored->op = op;
+    qemu_plugin_register_vcpu_insn_exec_cb(insn, evasion_exec,
+                                           QEMU_PLUGIN_CB_R_REGS, stored);
+}
+
+static void evasion_emit_summary(void)
+{
+    bool first = true;
+
+    fprintf(trace_file,
+            ",\"evasion\":{\"syscall_table_ntdll_sha256\":\"%s\""
+            ",\"syscall_table_win32u_sha256\":\"%s\",\"instructions\":{",
+            SYSCALL_TABLE_NTDLL_SHA256, SYSCALL_TABLE_WIN32U_SHA256);
+    for (int op = EVOP_CPUID; op < EVOP_COUNT; op++) {
+        fprintf(trace_file, "%s\"%s\":%" PRIu64, op == EVOP_CPUID ? "" : ",",
+                evasion_op_names[op], evasion_op_counts[op]);
+    }
+    fputs("},\"origins\":{", trace_file);
+    for (int origin = 0; origin < ORIGIN_COUNT; origin++) {
+        fprintf(trace_file, "%s\"%s\":%" PRIu64, origin ? "," : "",
+                evasion_origin_names[origin], evasion_origin_counts[origin]);
+    }
+    fprintf(trace_file,
+            "},\"cpuid_hypervisor_leaf\":%" PRIu64
+            ",\"cpuid_leaf1\":%" PRIu64 ",\"cpuid_brand_string\":%" PRIu64
+            ",\"rdtsc_pairs\":%" PRIu64 ",\"io_port_vmware\":%" PRIu64
+            ",\"syscalls\":%" PRIu64 ",\"syscalls_unknown\":%" PRIu64
+            ",\"syscalls_direct\":%" PRIu64 ",\"syscalls_flagged\":%" PRIu64
+            ",\"firmware_table_queries\":%" PRIu64
+            ",\"delay_relative_100ns\":%" PRIu64 ",\"events\":%" PRIu64
+            ",\"suppressed\":%" PRIu64 ",\"register_failures\":%" PRIu64
+            ",\"read_failures\":%" PRIu64 ",\"syscall_counts\":{",
+            evasion_cpuid_hypervisor, evasion_cpuid_leaf1,
+            evasion_cpuid_brand, evasion_rdtsc_pairs, evasion_io_vmware,
+            evasion_syscalls, evasion_syscalls_unknown,
+            evasion_syscalls_direct, evasion_syscalls_flagged,
+            evasion_firmware_queries, evasion_delay_relative_100ns,
+            evasion_events, evasion_suppressed, evasion_register_failures,
+            evasion_read_failures);
+    for (size_t index = 0; index < G_N_ELEMENTS(syscall_table); index++) {
+        if (!evasion_syscall_counts[index]) {
+            continue;
+        }
+        fprintf(trace_file, "%s\"%s\":%" PRIu64, first ? "" : ",",
+                syscall_table[index].name, evasion_syscall_counts[index]);
+        first = false;
+    }
+    fputs("}}", trace_file);
+}
+
 static void translate_block(struct qemu_plugin_tb *tb, void *userdata)
 {
     size_t count = qemu_plugin_tb_n_insns(tb);
@@ -3237,6 +4609,10 @@ static void translate_block(struct qemu_plugin_tb *tb, void *userdata)
                 QEMU_PLUGIN_MEM_W, QEMU_PLUGIN_COND_EQ,
                 memory_trace_enabled, 1, memory_event_buffer, instruction);
             size_t copied = qemu_plugin_insn_data(insn, bytes, sizeof(bytes));
+            if (evasion_enabled) {
+                evasion_translate(insn, block, (uint32_t)index, bytes, copied,
+                                  size);
+            }
             size_t marker_offset = copied >= 9 && bytes[0] == 0x67 ? 1 : 0;
             if (copied >= marker_offset + 8 &&
                 bytes[marker_offset] == 0x0f &&
@@ -3286,6 +4662,7 @@ static void initialize_vcpu(unsigned int vcpu_index, void *userdata)
         PICK_REGISTER(rsp)
         PICK_REGISTER(r8)
         PICK_REGISTER(r9)
+        PICK_REGISTER(r10)
         PICK_REGISTER(cr3)
         PICK_REGISTER(fs_base)
         PICK_REGISTER(gs_base)
@@ -3407,7 +4784,7 @@ static void plugin_exit(void *userdata)
                 ",\"instruction_budget\":%" PRIu64
                 ",\"guest_instructions\":%" PRIu64
                 ",\"guest_instruction_budget\":%" PRIu64
-                ",\"saw_stop\":%s,\"stop_detail\":%" PRIu64 "}\n",
+                ",\"saw_stop\":%s,\"stop_detail\":%" PRIu64,
                 ++sequence_number, root_pid, root_eprocess,
                 root_create_time, root_job, descendant_create_cutoff,
                 root_asid, root_image_base, root_image_size, root_entry,
@@ -3466,6 +4843,10 @@ static void plugin_exit(void *userdata)
                 guest_instruction_budget,
                 saw_stop ? "true" : "false",
                 stop_detail);
+        if (evasion_enabled) {
+            evasion_emit_summary();
+        }
+        fputs("}\n", trace_file);
         fclose(trace_file);
         trace_file = NULL;
     }
@@ -3476,6 +4857,9 @@ static void plugin_exit(void *userdata)
     g_hash_table_destroy(pending_exceptions);
     g_hash_table_destroy(thread_identities);
     g_hash_table_destroy(pagefault_loop_reported);
+    if (evasion_enabled) {
+        evasion_destroy();
+    }
     qemu_plugin_scoreboard_free(memory_trace_scoreboard);
     qemu_plugin_mem_buffer_free(memory_event_buffer);
 }
@@ -3515,6 +4899,10 @@ QEMU_PLUGIN_EXPORT int qemu_plugin_install(qemu_plugin_id_t id,
                 argv[index] + strlen("insn_budget="), NULL, 10);
         } else if (g_strcmp0(argv[index], "descendant=parent") == 0) {
             descendant_by_parent = true;
+        } else if (g_strcmp0(argv[index], "evasion=on") == 0) {
+            evasion_enabled = true;
+        } else if (g_strcmp0(argv[index], "evasion=off") == 0) {
+            evasion_enabled = false;
         } else {
             fprintf(stderr, "paper_trace: unknown option %s\n", argv[index]);
             return -1;
@@ -3540,6 +4928,9 @@ QEMU_PLUGIN_EXPORT int qemu_plugin_install(qemu_plugin_id_t id,
     thread_identities = g_hash_table_new_full(
         g_direct_hash, g_direct_equal, NULL, g_free);
     pagefault_loop_reported = g_hash_table_new(g_direct_hash, g_direct_equal);
+    if (evasion_enabled) {
+        evasion_initialize();
+    }
     g_mutex_init(&trace_lock);
     memory_trace_scoreboard = qemu_plugin_scoreboard_new(sizeof(uint64_t));
     memory_trace_enabled =
