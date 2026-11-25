@@ -19,6 +19,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import delivery_iso
+import trace_store
 
 SAMPLE_ARGS = os.environ.get("LABEL_SAMPLE_ARGS", "").strip()
 
@@ -27,6 +28,7 @@ QEMU = Path(os.environ.get("LABEL_QEMU") or
             REPO / "empirical_results/qemu_runtime/qemu-build/qemu-system-x86_64")
 PLUGIN = Path(os.environ.get("LABEL_PLUGIN") or REPO / "ops/qemu/paper_trace.so")
 TRACE_ARGS = shlex.split(os.environ.get("LABEL_TRACE_ARGS", ""))
+TRACE_TAP = "--trace-tap" in TRACE_ARGS
 INCOMING = os.environ.get("LABEL_INCOMING")
 BOOTED_BASE = os.environ.get("LABEL_BOOTED_BASE")
 ARM = os.environ.get("LABEL_ARM", "")
@@ -168,13 +170,14 @@ def vmarm_evasion(d: Path) -> None:
     windows = d / "windows.txt"
     if VMARM_WINDOWS and (d / "work.qcow2").exists():
         _extract_windows(d / "work.qcow2", windows)
-    if not (d / "trace.jsonl").exists():
+    if not trace_store.stored(d / "trace.jsonl", TRACE_TAP).exists():
         return
-    subprocess.run(["uv", "run", "python", str(REPO / "ops/qemu/evasion_analysis.py"),
-                    str(d / "trace.jsonl"), "--meta", str(d / "meta.json"),
-                    *(["--windows", str(windows)] if windows.exists() else []),
-                    "--output", str(d / "evasion.json")],
-                   cwd=str(REPO), check=False)
+    with trace_store.raw_view(d / "trace.jsonl", TRACE_TAP) as source:
+        subprocess.run(["uv", "run", "python", str(REPO / "ops/qemu/evasion_analysis.py"),
+                        str(source), "--meta", str(d / "meta.json"),
+                        *(["--windows", str(windows)] if windows.exists() else []),
+                        "--output", str(d / "evasion.json")],
+                       cwd=str(REPO), check=False)
 
 
 def run_one(image: Path, sha: str, name: str, rep: int) -> str:
@@ -222,9 +225,9 @@ def run_one(image: Path, sha: str, name: str, rep: int) -> str:
         stdout=(d / "runner.out").open("w"), stderr=subprocess.STDOUT, cwd=str(REPO),
     )
     proc.wait()
-    with CLASSIFY_SEM:
+    with CLASSIFY_SEM, trace_store.raw_view(d / "trace.jsonl", TRACE_TAP) as source:
         classify_command = [
-            "uv", "run", "packer-types", "classify-paper-trace", str(d / "trace.jsonl"),
+            "uv", "run", "packer-types", "classify-paper-trace", str(source),
             "--sample-id", sample_id, "--meta", str(d / "meta.json"),
             "--output", str(d / "classification.json"),
         ]
@@ -234,7 +237,8 @@ def run_one(image: Path, sha: str, name: str, rep: int) -> str:
     if VMARM:
         vmarm_evasion(d)
     if DELETE_TRACE:
-        for artifact in (d / "trace.jsonl", d / "work.qcow2"):
+        for artifact in (d / "trace.jsonl", trace_store.stored(d / "trace.jsonl", True),
+                         d / "work.qcow2"):
             try:
                 artifact.unlink()
             except OSError:
