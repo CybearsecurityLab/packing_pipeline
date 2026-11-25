@@ -52,6 +52,11 @@ DONE_DIR = REPO / os.environ.get("LABEL_DONE_DIR", "empirical_results/full_matri
 RELABEL = os.environ.get("LABEL_RELABEL") == "1"
 NO_GIT = os.environ.get("LABEL_NO_GIT") == "1"
 RERUN_FAILED = "--rerun-failed" in sys.argv or os.environ.get("LABEL_RERUN_FAILED") == "1"
+NEUTRAL_ONLY = os.environ.get("LABEL_NEUTRAL_ONLY") == "1"
+
+
+def neutral_payload(name: str) -> bool:
+    return "_portable_" in name
 STAGE_LOCK = threading.Lock()
 GIT_LOCK = threading.Lock()
 SMB_LOCK = threading.Lock()
@@ -83,7 +88,8 @@ def candidate_samples(w: dict, limit: int = 8):
     """
     pool = w.get("samples")
     if pool:
-        usable = [s for s in pool if not _truncated_payload(s["remote"])]
+        usable = [s for s in pool if not _truncated_payload(s["remote"])
+                  and (not NEUTRAL_ONLY or neutral_payload(s["name"]))]
         return [(s["remote"], s["name"]) for s in usable[:limit]]
     smb = _session()
     base = f"//10.100.99.29/samples/benign_packed/{w['nas_dir']}/{w['testcase']}"
@@ -507,7 +513,8 @@ def label_condition(w: dict) -> None:
         label = "UNRESOLVED"
     DONE_DIR.mkdir(parents=True, exist_ok=True)
     (DONE_DIR / f"{tag}.done").write_text(
-        json.dumps({"label": label, "runs": all_types}), encoding="utf-8")
+        json.dumps({"label": label, "runs": all_types,
+                    "payloads": [p[1] for p in pair]}), encoding="utf-8")
     with GIT_LOCK:
         sh(["python3", "ops/qemu/build_label_document.py"])
         # PACKER_TYPE_LABELS.md is the authoritative packer->Type document (all
