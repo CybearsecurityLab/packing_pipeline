@@ -247,7 +247,8 @@ def run_pair(tag: str, cond: dict, pair) -> tuple[str, dict]:
         import yaml
         m = yaml.safe_load((REPO / yaml_out).read_text())
         for c in m.get("conditions", []):
-            if c.get("label_status") == "empirical_exact_trace_consensus" and c.get("label"):
+            if (c.get("label_status") == "empirical_exact_trace_consensus" and c.get("label")
+                    and not c.get("label_carried_forward")):
                 return c["label"], types
     return "UNRESOLVED", types
 
