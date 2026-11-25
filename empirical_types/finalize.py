@@ -115,7 +115,7 @@ def finalize_labels(
         try:
             existing = yaml.safe_load(output_yaml.read_text(encoding="utf-8")) or {}
             for cond in existing.get("conditions", []):
-                if cond.get("label"):
+                if cond.get("label") == "TYPE_0":
                     previous_labels[cond.get("configuration_id")] = cond
         except Exception:
             previous_labels = {}

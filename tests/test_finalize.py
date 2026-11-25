@@ -47,6 +47,29 @@ class FinalizeTests(unittest.TestCase):
             '{"PID":7,"Method":"X"}\n', encoding="utf-8"
         )
 
+    def _finalize_over_previous(self, previous_label):
+        import yaml
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = root / "plan.json"
+            plan.write_text(json.dumps({"conditions": [{
+                "packer_family": "p", "packer_version": "1", "configuration_id": "c",
+                "test_case_id": "CASE", "source": "yaml_test_case", "status": "planned",
+                "available_samples": 2}]}), encoding="utf-8")
+            (root / "runs").mkdir()
+            (root / "out.yaml").write_text(yaml.safe_dump({"conditions": [{
+                "configuration_id": "c", "label": previous_label,
+                "label_status": "empirical_exact_trace_consensus", "confidence": 1.0}]}),
+                encoding="utf-8")
+            return finalize_labels(plan, root / "runs", 3, 2, root / "out.json",
+                                   root / "out.yaml", root / "out.csv")[0]
+
+    def test_only_type_0_is_carried_forward(self):
+        self.assertIsNone(self._finalize_over_previous("TYPE_IV")["label"])
+        kept = self._finalize_over_previous("TYPE_0")
+        self.assertEqual(kept["label"], "TYPE_0")
+        self.assertTrue(kept["label_carried_forward"])
+
     def test_unresolved_condition_receives_no_label(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
