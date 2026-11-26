@@ -34,6 +34,10 @@ class MalwareFailureTests(unittest.TestCase):
         self.assertFalse(self.lmt._is_failure(
             {"type_source": "unresolved", "reps": ["UNRESOLVED_NO_UNPACKING_OBSERVED"]}))
 
+    def test_crashed_is_a_finding_not_a_failure(self):
+        self.assertFalse(self.lmt._is_failure(
+            {"type_source": "crashed", "reps": ["TYPE_II"], "crashed_rep_types": ["TYPE_II"]}))
+
     def test_trace_loss_on_every_rep_is_a_failure(self):
         self.assertTrue(self.lmt._is_failure(
             {"type_source": "unresolved", "reps": ["UNRESOLVED_TRACE_LOSS"]}))

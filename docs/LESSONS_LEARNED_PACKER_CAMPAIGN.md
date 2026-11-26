@@ -72,8 +72,9 @@ Living document, updated as the campaign closes. Last update: 2026-11-26.
 
 **For EMBER and malware**
 - Much malware crashes under analysis: environment checks that deliberately crash, missing dependencies, anti-debug faults.
-- Keep crash-terminated runs as their own outcome (`crashed`), never as a Type. Report how many samples are typed versus crashed.
-- Apply the same rule in `label_malware_types.py` (still TODO).
+- `label_malware_types.py` now records any verdict with a rep that ended in `unrecovered_exception*` as `type_source: crashed`, with no Type. The Types the crashed reps would have had are kept in `crashed_rep_types`.
+- `crashed` is a finding, not an infrastructure failure: `--rerun-failed` leaves it alone, but `--from-untyped` sends it to the VM arm, because a deliberate crash can be an evasion response.
+- Report how many samples are typed versus crashed.
 
 ## 5. Budgets must follow the packer, not a fixed tier
 
@@ -123,7 +124,7 @@ Living document, updated as the campaign closes. Last update: 2026-11-26.
 1. `packers_all_typed.py` passes: all 105 conditions are typed or excluded with a documented reason.
 2. The relabel report and manifests are committed. No manifest carries an inherited label except astral_pe's source-review TYPE_0.
 3. `.env` points at `snap_quiet`. `ember_gated.sh` uses `snap_vmarm_quiet` and `MALWARE_TRACE_TAP=1`.
-4. Crash-terminated EMBER runs are reported as `crashed`, not typed (port §4 to `label_malware_types.py`).
+4. Crash-terminated EMBER runs are reported as `crashed`, not typed (done, see §4).
 5. Verdicts carry `guest_image`, the termination reason, payload-lifetime evidence and the evasion detector output.
 6. Budget-bound EMBER samples go to a higher tier before the VM arm.
 
@@ -131,6 +132,5 @@ Living document, updated as the campaign closes. Last update: 2026-11-26.
 
 - yoda's Protector 1.01.2: running (its first pair stalled for 8 hours; it is not a determinism issue).
 - alienyze_protector 1.4: re-packing with neutral payloads.
-- Port the crash rule to `label_malware_types.py`.
 - Record per-sample Type distributions for boundary packers (WinUpack, Amber) in their manifests.
 - Fix the line endings of Themida's `custom_vms/*.vm` in the packers repo (`-text` gitattribute).
