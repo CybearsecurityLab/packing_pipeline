@@ -142,6 +142,8 @@ Living document, updated as the campaign closes. Last update: 2026-11-26 (alieny
   - A first version that only posted `WM_COMMAND IDOK` did not close the box. In session 0 the dialog it found had no `IDOK` child.
   - The working version clicks every child button, then posts `IDOK` and `WM_CLOSE`. It was verified with a MessageBox probe: the trace shows `MessageBoxA` returning.
   - Only flagged runs use it, so no other condition's behavior changes.
+- Result: with detections off and the nag dismissed, all 4 GUI payloads unpack (TYPE_I, 2 layers), so the nag was the only blocker. With the corpus wrapper's Terminate detections, the stub still stops after the nag. One of its Debugger, VM or Integrity checks fires in the certified lane, so this is real detection and a VM-arm case.
+- The VM-arm helper, which runs in the user session, now applies the same dismissal when the launcher passes `dismiss=1` in its job handoff.
 
 **For EMBER and malware**
 - Interactive dialogs block the trace and look like "no unpacking". Installers, nag screens, EULAs and error boxes all do this.

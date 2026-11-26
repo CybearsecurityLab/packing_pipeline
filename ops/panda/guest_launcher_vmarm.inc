@@ -576,8 +576,8 @@ static void vmarm_handoff_job(HANDLE job, DWORD root_pid) {
     if (handle == NULL) {
         return;
     }
-    fprintf(handle, "job=%llx\r\nroot_pid=%lu\r\n",
-            (unsigned long long)(uintptr_t)remote, (unsigned long)root_pid);
+    fprintf(handle, "job=%llx\r\nroot_pid=%lu\r\ndismiss=%d\r\n",
+            (unsigned long long)(uintptr_t)remote, (unsigned long)root_pid, delivery_dismiss);
     fclose(handle);
 }
 
@@ -596,6 +596,7 @@ typedef struct {
     const char *activity_file;
     HANDLE job;
     DWORD root_pid;
+    int dismiss;
     ULONGLONG attached_at;
     DWORD pids[VMARM_MAX_JOB_PIDS];
     DWORD pid_count;
@@ -775,12 +776,14 @@ static void vmarm_attach_job(void) {
     FILE *handle = fopen(activity.job_file, "rb");
     unsigned long long value = 0;
     unsigned long root_pid = 0;
+    int dismiss = 0;
 
     if (handle == NULL) {
         return;
     }
-    if (fscanf(handle, "job=%llx root_pid=%lu", &value, &root_pid) == 2 &&
+    if (fscanf(handle, "job=%llx root_pid=%lu dismiss=%d", &value, &root_pid, &dismiss) >= 2 &&
         value != 0) {
+        activity.dismiss = dismiss;
         activity.job = (HANDLE)(uintptr_t)value;
         activity.root_pid = (DWORD)root_pid;
         activity.attached_at = GetTickCount64();
@@ -820,6 +823,9 @@ static void vmarm_capture(void) {
         activity.pids[activity.pid_count++] = activity.root_pid;
     }
     EnumWindows(vmarm_capture_window, 0);
+    if (activity.dismiss) {
+        EnumWindows(dismiss_window, (LPARAM)activity.job);
+    }
 }
 
 static uint32_t vmarm_lcg_state = 0x5EED1234u;
