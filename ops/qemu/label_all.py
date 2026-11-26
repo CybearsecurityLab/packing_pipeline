@@ -217,6 +217,23 @@ def run_pair(tag: str, cond: dict, pair) -> tuple[str, dict]:
                 types[rd.name] = json.loads(cj.read_text())["complexity_type"]
             except Exception:
                 types[rd.name] = "?"
+    crashed: dict[str, int] = {}
+    for rd in sorted(d.glob("*/")):
+        mj = rd / "meta.json"
+        try:
+            reason = json.loads(mj.read_text()).get("paper_termination_reason") or ""
+        except Exception:
+            continue
+        if reason.startswith("unrecovered_exception"):
+            key = "A" if "A_rep" in rd.name else ("B" if "B_rep" in rd.name else "?")
+            crashed[key] = crashed.get(key, 0) + 1
+            types[rd.name] = f"CRASHED:{types.get(rd.name)}"
+    if crashed:
+        print(f"[crash] {tag}: runs ended in an unrecovered exception {crashed}; "
+              f"a crash-terminated run cannot support a Type, trying a different payload",
+              flush=True)
+        return ("BAD_PAYLOAD:BOTH" if {"A", "B"} <= set(crashed)
+                else f"BAD_PAYLOAD:{next(iter(crashed))}"), types
     per_payload: dict[str, list[int]] = {}
     for rd in sorted(d.glob("*/")):
         mj = rd / "meta.json"
