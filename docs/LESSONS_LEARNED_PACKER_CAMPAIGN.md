@@ -86,6 +86,10 @@ Living document, updated as the campaign closes. Last update: 2026-11-26 (alieny
 - The 1B sample budget (200e9 guest cap) will leave slow decryptors and brute-force stubs untyped. These look identical to "no unpacking".
 - Before concluding "no unpacking", check the termination reason. Budget-bound samples need a higher tier, not the VM arm.
 - At 30B a raw trace is about 1 TB. That is only practical with the trace tap (§7).
+- The whole-guest instruction cap matters as much as the sample budget.
+  - A sample that loops in exception handling (yoda's Protector) never executes new code, and never reaches the sample budget.
+  - Only the guest-wide cap ends it. The neutral re-runs briefly used 1e12, and such runs went 8+ hours.
+  - Keep the standard pairs: 100M with a 20e9 guest cap, 1B and above with 200e9. EMBER's `ember_gated.sh` uses 200e9.
 
 ## 6. Labels must come only from current runs
 
