@@ -1,6 +1,6 @@
 # Lessons learned: benign packer campaign (November 2026)
 
-Living document, updated as the campaign closes. Last update: 2026-11-26.
+Living document, updated as the campaign closes. Last update: 2026-11-26 (alienyze).
 
 **Scope.** These lessons come from re-typing the 105 benign packer conditions with the deterministic Ugarte classifier. They cover what went wrong, how each problem was found and fixed, and what each one means for the EMBER 2024 and malware campaigns that follow.
 
@@ -131,6 +131,10 @@ Living document, updated as the campaign closes. Last update: 2026-11-26.
 ## Open items
 
 - yoda's Protector 1.01.2: running (its first pair stalled for 8 hours; it is not a determinism issue).
-- alienyze_protector 1.4: re-packing with neutral payloads.
+- alienyze_protector 1.4: re-packing with GUI neutral payloads (PuTTY puttygen and pageant, PCI-Z), using the corpus wrapper's settings: Compression=Medium; Debugger, VM and Integrity detection=Terminate.
+  - Alienyze rejects console programs ("invalid sub system 0x3"), and the 8 neutral console tools are all subsystem 3.
+  - Forcing the GUI flag crashed the packer.
+  - The packer may be what produced the old pool's truncated files (unconfirmed).
+  - Because its VM check is set to Terminate, expect the VM arm to be needed.
 - Record per-sample Type distributions for boundary packers (WinUpack, Amber) in their manifests.
 - Fix the line endings of Themida's `custom_vms/*.vm` in the packers repo (`-text` gitattribute).
