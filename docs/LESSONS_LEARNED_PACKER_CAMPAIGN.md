@@ -1,6 +1,6 @@
 # Lessons learned: benign packer campaign (November 2026)
 
-Living document, updated as the campaign closes. Last update: 2026-11-26 (alienyze).
+Living document, updated as the campaign closes. Last update: 2026-11-26 (alienyze demo nag).
 
 **Scope.** These lessons come from re-typing the 105 benign packer conditions with the deterministic Ugarte classifier. They cover what went wrong, how each problem was found and fixed, and what each one means for the EMBER 2024 and malware campaigns that follow.
 
@@ -122,6 +122,21 @@ Living document, updated as the campaign closes. Last update: 2026-11-26 (alieny
 - **Pipelines must gate on results, not exit codes.** `after_packers.sh` started EMBER because stage 1 returned 0 while 6 conditions were still untyped. `ember_gated.sh` now refuses unless `packers_all_typed.py` passes.
 - **`compare_arms`** called budget-bound runs `evasion_confirmed` because their execution counts differed. Both arms run the same budget, so that is not evidence of evasion.
 - **Hard limits stall runs.** Very slow GUI samples (puttytel, yoda's Protector) never idle and never reach their budget. Bound them with a host timeout that matches the budget, and prefer console payloads.
+
+## 8b. Demo builds and interactive dialogs
+
+**What happened**
+- Alienyze 1.4 (demo) shows a nag MessageBox before unpacking: "This message won't appear in the registered version!"
+- In the certified lane nothing clicks OK, so every run idles about 4.7M blocks in with no unpacking.
+- In the VM arm the dialog is dismissed and the process exits 738 blocks later, still without unpacking. Its wrapper settings (Debugger, VM and Integrity detection set to Terminate) are the likely cause.
+- `compare_arms` reported `evasion_confirmed` from the termination divergence. Its only CPUID evidence came from `bcryptprimitives.dll`, the system RNG, so the divergence is real but its cause is the dialog plus a detection exit, not hypervisor detection.
+- A diagnostic build with detections off is being packed to separate the two effects.
+
+**For EMBER and malware**
+- Interactive dialogs block the trace and look like "no unpacking". Installers, nag screens, EULAs and error boxes all do this.
+- The VM arm's window capture (`windows.txt`) is the tool that found this one. Keep it on.
+- Check window titles before concluding "no unpacking" or "evasion".
+- An `evasion_confirmed` verdict needs its evidence read: the module that issued each check, and the termination of each arm.
 
 ## 9. Checklist before starting EMBER
 
