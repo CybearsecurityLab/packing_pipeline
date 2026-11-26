@@ -157,7 +157,18 @@ static void read_delivery_dismiss(char letter) {
     char path[20];
     _snprintf(path, sizeof(path), "%c:\\DISMISS.TXT", letter);
     path[sizeof(path) - 1] = '\0';
-    delivery_dismiss = GetFileAttributesA(path) != INVALID_FILE_ATTRIBUTES;
+    delivery_dismiss = GetFileAttributesA(path) != INVALID_FILE_ATTRIBUTES ||
+                       GetFileAttributesA("C:\\Panda\\DISMISS.TXT") != INVALID_FILE_ATTRIBUTES;
+}
+
+static BOOL CALLBACK press_child(HWND child, LPARAM unused) {
+    char name[32];
+    (void)unused;
+    GetClassNameA(child, name, sizeof(name));
+    if (_stricmp(name, "Button") == 0) {
+        SendMessageA(child, BM_CLICK, 0, 0);
+    }
+    return TRUE;
 }
 
 static BOOL CALLBACK dismiss_window(HWND window, LPARAM job) {
@@ -167,26 +178,25 @@ static BOOL CALLBACK dismiss_window(HWND window, LPARAM job) {
     BOOL member = FALSE;
     HWND ok;
 
-    if (!IsWindowVisible(window) || GetClassNameA(window, name, sizeof(name)) == 0 ||
-        strcmp(name, "#32770") != 0) {
+    if (GetClassNameA(window, name, sizeof(name)) == 0 || strcmp(name, "#32770") != 0) {
         return TRUE;
     }
     GetWindowThreadProcessId(window, &pid);
     owner = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
-    if (owner == NULL) {
-        return TRUE;
+    if (owner != NULL) {
+        IsProcessInJob(owner, (HANDLE)job, &member);
+        CloseHandle(owner);
     }
-    IsProcessInJob(owner, (HANDLE)job, &member);
-    CloseHandle(owner);
+    ok = member ? GetDlgItem(window, IDOK) : NULL;
     if (!member) {
         return TRUE;
     }
-    ok = GetDlgItem(window, IDOK);
+    EnumChildWindows(window, press_child, 0);
     if (ok != NULL) {
         SendMessageA(ok, BM_CLICK, 0, 0);
-    } else {
-        PostMessageA(window, WM_COMMAND, IDOK, 0);
     }
+    PostMessageA(window, WM_COMMAND, MAKEWPARAM(IDOK, BN_CLICKED), (LPARAM)ok);
+    PostMessageA(window, WM_CLOSE, 0, 0);
     return TRUE;
 }
 
@@ -423,6 +433,9 @@ static int run_sample(int argc, char **argv) {
         goto cleanup;
     }
 
+    if (!delivery_dismiss) {
+        read_delivery_dismiss('C');
+    }
 #ifdef VMARM
     if (!vmarm_create_process(argv[1], command_line, inherit_handles, &startup,
                               &process)) {

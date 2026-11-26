@@ -137,7 +137,11 @@ Living document, updated as the campaign closes. Last update: 2026-11-26 (alieny
 - In the certified lane nothing clicks OK, so every run idles about 4.7M blocks in with no unpacking.
 - In the VM arm the dialog is dismissed and the process exits 738 blocks later, still without unpacking. Its wrapper settings (Debugger, VM and Integrity detection set to Terminate) are the likely cause.
 - `compare_arms` reported `evasion_confirmed` from the termination divergence. Its only CPUID evidence came from `bcryptprimitives.dll`, the system RNG, so the divergence is real but its cause is the dialog plus a detection exit, not hypervisor detection.
-- A diagnostic build with detections off is being packed to separate the two effects.
+- The diagnostic build with detections off also waits on the nag, so the demo nag alone blocks unpacking.
+- Fix: a delivery-CD flag (`DISMISS.TXT`, `LABEL_SAMPLE_DISMISS=1`) makes the launcher press OK on dialogs owned by the sample's job.
+  - A first version that only posted `WM_COMMAND IDOK` did not close the box. In session 0 the dialog it found had no `IDOK` child.
+  - The working version clicks every child button, then posts `IDOK` and `WM_CLOSE`. It was verified with a MessageBox probe: the trace shows `MessageBoxA` returning.
+  - Only flagged runs use it, so no other condition's behavior changes.
 
 **For EMBER and malware**
 - Interactive dialogs block the trace and look like "no unpacking". Installers, nag screens, EULAs and error boxes all do this.
