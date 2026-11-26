@@ -197,6 +197,15 @@ def run_pair(tag: str, cond: dict, pair) -> tuple[str, dict]:
     cfg_path = RT / "configs" / (f"{tag}.vmarm.json" if VMARM else f"{tag}.json")
     cfg_path.parent.mkdir(parents=True, exist_ok=True)
     cfg_path.write_text(json.dumps(cfg, indent=2))
+    previous = REPO / runs_dir
+    if previous.exists():
+        attempts = previous.parent / f"{tag}.attempts"
+        archive = attempts / str(len(list(attempts.glob("*"))) if attempts.exists() else 0)
+        for rd in sorted(previous.glob("*/")):
+            for keep in ("classification.json", "meta.json", "sample.json"):
+                if (rd / keep).exists():
+                    (archive / rd.name).mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(rd / keep, archive / rd.name / keep)
     sh(["rm", "-rf", str(REPO / runs_dir)])
     sh(["python3", "ops/qemu/run_condition_matrix.py", str(cfg_path)])
     types = {}
