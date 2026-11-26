@@ -151,6 +151,52 @@ static uint64_t read_idle_milliseconds(void) {
  * file) identical to a cold-boot run. The caller re-probes every second, so media
  * arriving after resume is picked up. */
 static char delivery_args[256];
+static int delivery_dismiss;
+
+static void read_delivery_dismiss(char letter) {
+    char path[20];
+    _snprintf(path, sizeof(path), "%c:\\DISMISS.TXT", letter);
+    path[sizeof(path) - 1] = '\0';
+    delivery_dismiss = GetFileAttributesA(path) != INVALID_FILE_ATTRIBUTES;
+}
+
+static BOOL CALLBACK dismiss_window(HWND window, LPARAM job) {
+    char name[16];
+    DWORD pid = 0;
+    HANDLE owner;
+    BOOL member = FALSE;
+    HWND ok;
+
+    if (!IsWindowVisible(window) || GetClassNameA(window, name, sizeof(name)) == 0 ||
+        strcmp(name, "#32770") != 0) {
+        return TRUE;
+    }
+    GetWindowThreadProcessId(window, &pid);
+    owner = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+    if (owner == NULL) {
+        return TRUE;
+    }
+    IsProcessInJob(owner, (HANDLE)job, &member);
+    CloseHandle(owner);
+    if (!member) {
+        return TRUE;
+    }
+    ok = GetDlgItem(window, IDOK);
+    if (ok != NULL) {
+        SendMessageA(ok, BM_CLICK, 0, 0);
+    } else {
+        PostMessageA(window, WM_COMMAND, IDOK, 0);
+    }
+    return TRUE;
+}
+
+static DWORD WINAPI dismiss_loop(LPVOID job) {
+    for (;;) {
+        Sleep(1000);
+        EnumWindows(dismiss_window, (LPARAM)job);
+    }
+    return 0;
+}
 
 static void read_delivery_args(char letter) {
     char path[16];
@@ -205,6 +251,7 @@ static int fetch_from_delivery_disk(const char *dest) {
         }
         if (CopyFileA(source, dest, FALSE)) {
             read_delivery_args(letters[i]);
+            read_delivery_dismiss(letters[i]);
             return 1;
         }
     }
@@ -420,6 +467,9 @@ static int run_sample(int argc, char **argv) {
         write_status(argv[4], "resume_failed", error, process.dwProcessId);
         TerminateProcess(process.hProcess, 1);
         goto process_cleanup;
+    }
+    if (delivery_dismiss) {
+        CloseHandle(CreateThread(NULL, 0, dismiss_loop, job, 0, NULL));
     }
 
     if (live_mode) {

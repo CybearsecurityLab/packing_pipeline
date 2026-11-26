@@ -22,6 +22,7 @@ import delivery_iso
 import trace_store
 
 SAMPLE_ARGS = os.environ.get("LABEL_SAMPLE_ARGS", "").strip()
+SAMPLE_DISMISS = os.environ.get("LABEL_SAMPLE_DISMISS") == "1"
 
 REPO = Path(__file__).resolve().parents[2]
 QEMU = Path(os.environ.get("LABEL_QEMU") or
@@ -46,6 +47,8 @@ def _stage_delivery(sample: Path, d: Path) -> Path:
     shutil.copyfile(sample, iso_dir / "SAMPLE.EXE")
     if SAMPLE_ARGS:
         (iso_dir / "ARGS.TXT").write_text(SAMPLE_ARGS, encoding="ascii")
+    if SAMPLE_DISMISS:
+        (iso_dir / "DISMISS.TXT").write_text("1", encoding="ascii")
     delivery = d / "delivery.iso"
     if delivery_iso.build(iso_dir, delivery) != 0:
         raise RuntimeError(f"delivery ISO build failed for {sample}")
