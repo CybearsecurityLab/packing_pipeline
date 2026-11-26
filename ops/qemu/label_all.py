@@ -29,7 +29,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 RT = REPO / "empirical_results/qemu_runtime"
 SUDO_PW = "resbears"
-MAX_SAMPLE_ATTEMPTS = 4
+MAX_SAMPLE_ATTEMPTS = int(os.environ.get("LABEL_MAX_ATTEMPTS", "4"))
 REPS = 3
 MIN_MEANINGFUL_EXEC = 50_000
 CONDITIONS = max(1, int(os.environ.get("LABEL_CONDITIONS", "1")))
