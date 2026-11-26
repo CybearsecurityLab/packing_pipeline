@@ -97,9 +97,16 @@ Living document, updated as the campaign closes. Last update: 2026-11-26 (alieny
 - `finalize` carried the previous manifest label forward when new runs decided nothing, and `label_all` reported it as fresh consensus.
 - exe32pack's committed TYPE_IV and molebox's quiet-campaign TYPE_IV were inherited this way, and all their runs were UNRESOLVED.
 - Fix: only TYPE_0 may be carried forward (finalize, 3b9ac5b). Any other label must come from the runs being finalized (e07c225). The gate requires every run to equal the label.
-- TYPE_0 is assigned only by source review, never dynamically.
+- TYPE_0 is now assigned dynamically by `ops/qemu/dynamic_type0.py`. Every run must show:
+  - no write-then-execute;
+  - a natural end;
+  - executed image blocks that match the original payload's bytes at the same RVA (at least 95%).
+- Controls: a bare original passes; a PEzor-packed run fails all three checks.
+- astral_pe 1.6.0.0 (neutral basename + bc, 1B tier, all 6 runs): TYPE_0, with 99.1% and 100% of executed image code matching the original. Only Astral's entry-point stub differs.
+- The 100M tier's 20e9 guest cap stopped the runs before they could idle, so the 1B tier was needed for the natural end.
+- No label in the corpus is inherited any more.
 
-**For EMBER and malware.** Never seed a verdict from a previous run, a static name, or `packer_label`. Every EMBER and malware Type must be derivable from that verdict's own `rep_diag`.
+**For EMBER and malware.** The TYPE_0 rule needs the original payload, which malware never comes with. EMBER cannot be assigned TYPE_0; report "no unpacking observed" instead. Never seed a verdict from a previous run, a static name, or `packer_label`. Every EMBER and malware Type must be derivable from that verdict's own `rep_diag`.
 
 ## 7. Trace volume is an engineering limit
 
@@ -156,4 +163,5 @@ Living document, updated as the campaign closes. Last update: 2026-11-26 (alieny
   - The packer may be what produced the old pool's truncated files (unconfirmed).
   - Because its VM check is set to Terminate, expect the VM arm to be needed.
 - Record per-sample Type distributions for boundary packers (WinUpack, Amber) in their manifests.
+- alienyze 1.4: the demo nag dialog blocks unpacking in every arm and setting (the detections-off diagnostic also waits on it). Typing it needs the nag dismissed (pending decision).
 - Fix the line endings of Themida's `custom_vms/*.vm` in the packers repo (`-text` gitattribute).

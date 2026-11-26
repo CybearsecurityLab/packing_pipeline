@@ -1,0 +1,94 @@
+{
+ "label": "TYPE_0",
+ "runs": {
+  "astral_pe_1.6.0.0A_rep1": "TYPE_0",
+  "astral_pe_1.6.0.0A_rep2": "TYPE_0",
+  "astral_pe_1.6.0.0A_rep3": "TYPE_0",
+  "astral_pe_1.6.0.0B_rep1": "TYPE_0",
+  "astral_pe_1.6.0.0B_rep2": "TYPE_0",
+  "astral_pe_1.6.0.0B_rep3": "TYPE_0"
+ },
+ "payloads": [
+  "basename_unxutils_X86_portable_en-US.exe",
+  "bc_unxutils_X86_portable_en-US.exe"
+ ],
+ "rule": "dynamic TYPE_0 (ops/qemu/dynamic_type0.py): no write-then-execute, natural end, executed image blocks match the original payload at the same RVA",
+ "budget": {
+  "insn": 1000000000,
+  "guest_insn": 200000000000
+ },
+ "evidence": {
+  "astral_pe_1.6.0.0A_rep1": {
+   "termination": "two_minutes_idle",
+   "checks": {
+    "no_write_then_execute": true,
+    "natural_end": true,
+    "original_code_executed": true
+   },
+   "executed_image_blocks": 27,
+   "executed_image_bytes": 463,
+   "match_fraction": 0.9913606911447084,
+   "unmatched_blocks": 1
+  },
+  "astral_pe_1.6.0.0A_rep2": {
+   "termination": "two_minutes_idle",
+   "checks": {
+    "no_write_then_execute": true,
+    "natural_end": true,
+    "original_code_executed": true
+   },
+   "executed_image_blocks": 27,
+   "executed_image_bytes": 463,
+   "match_fraction": 0.9913606911447084,
+   "unmatched_blocks": 1
+  },
+  "astral_pe_1.6.0.0A_rep3": {
+   "termination": "two_minutes_idle",
+   "checks": {
+    "no_write_then_execute": true,
+    "natural_end": true,
+    "original_code_executed": true
+   },
+   "executed_image_blocks": 27,
+   "executed_image_bytes": 463,
+   "match_fraction": 0.9913606911447084,
+   "unmatched_blocks": 1
+  },
+  "astral_pe_1.6.0.0B_rep1": {
+   "termination": "two_minutes_idle",
+   "checks": {
+    "no_write_then_execute": true,
+    "natural_end": true,
+    "original_code_executed": true
+   },
+   "executed_image_blocks": 193,
+   "executed_image_bytes": 3359,
+   "match_fraction": 1.0,
+   "unmatched_blocks": 0
+  },
+  "astral_pe_1.6.0.0B_rep2": {
+   "termination": "two_minutes_idle",
+   "checks": {
+    "no_write_then_execute": true,
+    "natural_end": true,
+    "original_code_executed": true
+   },
+   "executed_image_blocks": 193,
+   "executed_image_bytes": 3359,
+   "match_fraction": 1.0,
+   "unmatched_blocks": 0
+  },
+  "astral_pe_1.6.0.0B_rep3": {
+   "termination": "two_minutes_idle",
+   "checks": {
+    "no_write_then_execute": true,
+    "natural_end": true,
+    "original_code_executed": true
+   },
+   "executed_image_blocks": 193,
+   "executed_image_bytes": 3359,
+   "match_fraction": 1.0,
+   "unmatched_blocks": 0
+  }
+ }
+}
