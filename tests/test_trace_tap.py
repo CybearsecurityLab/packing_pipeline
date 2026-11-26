@@ -79,3 +79,19 @@ class TraceTapTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SinglePassStreamTests(unittest.TestCase):
+    def test_classifier_error_on_a_fifo_fails_instead_of_rereading(self):
+        from empirical_types.paper import analyze_paper_jsonl
+        d = Path(tempfile.mkdtemp())
+        fifo = d / "t.fifo"
+        os.mkfifo(fifo)
+
+        def write():
+            with fifo.open("wb") as handle:
+                handle.write(b'{"event":"exec","garbage\n')
+
+        threading.Thread(target=write, daemon=True).start()
+        with self.assertRaises(RuntimeError):
+            analyze_paper_jsonl(fifo, "x")

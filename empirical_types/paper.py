@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import stat
 import contextlib
 import json
 import logging
@@ -79,6 +80,8 @@ def _paper_core_binary() -> Path | None:
 
 
 def _read_line_at(path: Path, offset: int) -> bytes:
+    if stat.S_ISFIFO(path.stat().st_mode):
+        raise RuntimeError(f"cannot re-read line at offset {offset} of single-pass stream {path}")
     with path.open("rb") as handle:
         handle.seek(offset)
         return handle.readline()
@@ -182,6 +185,8 @@ def analyze_paper_jsonl(path: Path, sample_id: str) -> Evidence:
         try:
             return _analyze_paper_jsonl_core(binary, path, sample_id)
         except _PaperCoreFallback as reason:
+            if stat.S_ISFIFO(path.stat().st_mode):
+                raise RuntimeError(f"paper core failed on single-pass stream {path}: {reason}") from None
             _LOG.warning("paper core fell back to Python for %s: %s", path, reason)
     return _analyze_paper_jsonl_python(path, sample_id)
 
